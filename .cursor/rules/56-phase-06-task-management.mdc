@@ -1,0 +1,109 @@
+---
+description: "[Faz 6] Task management — 2 iterasyon/chat (backend+SLA+cron → FE+E2E). “Faz 6 — İterasyon N”."
+---
+
+# Faz 6: Task Management
+
+## Goal
+
+Task claim endpoint (`POST /tasks/:id/claim`) — pessimistic lock + peer eviction (competitive mode). Task complete endpoint (`POST /tasks/:id/complete`) — action-based (`APPROVE`, `REJECT`, `REQUEST_REVISION`, etc.) per workflow. Task form schema dynamic rendering (JSON schema → form). SLA badge + overdue tracking. Task list (my tasks + all tasks). Task detail screen.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@56-phase-06-task-management` + **“Faz 6 — İterasyon N”**.
+
+### İterasyon 1 — Tasks API + SLA + worker cron
+
+**Hedef:** `tasks/*`, `task-sla.service`, claim/complete kuralları, overdue cron consumer; concurrency/race testleri; notification emit noktaları (stub veya gerçek event — Faz 7’ye bırakılacaksa doc’ta not).
+
+**Minimum bağlam:** `docs/03_API_CONTRACTS.md` 9.7; `docs/02_DATABASE_SCHEMA.md` tasks.
+
+**Bu iterasyonda yok:** RHF dinamik form UI (İter 2).
+
+**Stop:** [ ] Integration race test; [ ] SLA cron testi. PR/onay.
+
+### İterasyon 2 — Frontend task list/detail + dinamik form + E2E
+
+**Hedef:** `S-TASK-LIST`, `S-MY-TASKS`, `S-TASK-DETAIL`, `TaskForm` (schema→RHF+Zod), SLA badge, kritik E2E (manager approves KTİ task).
+
+**Stop:** Faz 6 Done Definition; roadmap işareti.
+
+## Required Context
+
+- `docs/01_DOMAIN_MODEL.md` Bölüm 5 (Task state machine, claim modes)
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 10 (tasks, task_assignees)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.7 (Tasks)
+- `docs/06_SCREEN_CATALOG.md` — S-TASK-LIST, S-TASK-DETAIL, S-MY-TASKS
+
+## Scope
+
+### Backend
+
+```
+apps/api/src/tasks/
+├── tasks.module.ts
+├── tasks.controller.ts
+├── tasks.service.ts                      # claim, complete, cancel
+├── tasks.exceptions.ts
+├── task-sla.service.ts                   # SLA compute + overdue check
+└── dto/*.ts
+
+apps/api/src/worker/
+└── src/tasks/sla-checker-cron.ts         # Overdue marking cron
+```
+
+### Frontend
+
+```
+apps/web/src/app/(app)/
+├── tasks/page.tsx                         # S-TASK-LIST (all accessible)
+├── my-tasks/page.tsx                      # S-MY-TASKS (assigned to me)
+└── tasks/[id]/page.tsx                    # S-TASK-DETAIL
+
+apps/web/src/components/tasks/
+├── TaskList.tsx
+├── TaskDetail.tsx
+├── TaskForm.tsx                           # Dynamic from form_schema
+├── TaskActions.tsx                        # Action buttons per allowed_actions
+└── SlaBadge.tsx                           # From shared components
+```
+
+## Constraints
+
+- Claim: `FOR UPDATE` lock, first-claim wins, peer task_assignees deleted
+- Complete: only claimed_by_user_id matches actor
+- Action validation: step.allowedActions içinde olmalı
+- Reason required for REJECT, REQUEST_REVISION
+- form_data validation: step.formSchema Zod şemasına karşı
+- SLA due_at: task creation + step.slaMinutes
+- Overdue cron: 5 dk'da bir taramalı, `is_overdue` flag update
+- Notification emit on: task created, task claimed, task completed, SLA approaching, SLA overdue
+
+## Done Definition
+
+- [ ] Claim flow: FOR UPDATE lock test (concurrent claim race)
+- [ ] Complete flow: action validation, reason requirement, form_data validation
+- [ ] Dynamic form rendering: form_schema → RHF + Zod
+- [ ] My Tasks screen: filter by status (pending / claimed / completed)
+- [ ] Task detail screen: full context (process + timeline + form + actions)
+- [ ] SLA badge color: green/yellow/red based on time remaining
+- [ ] Overdue cron test (task creation + 72h forward → overdue flag)
+- [ ] Integration test: task claim race (2 concurrent, 1 wins)
+- [ ] E2E test: manager approves KTİ task (critical journey 3)
+
+## Explicit Don'ts
+
+- Task comments (post-MVP)
+- Task subtasks (sub-process — post-MVP)
+- Task delegation (different from assignment — post-MVP)
+- Task priority levels (all tasks equal in MVP)
+- Task escalation automation (manager escalation post-MVP)
+
+## Related ADRs
+
+- ADR-0020: Pessimistic lock for task claim (vs optimistic)
+- ADR-0021: Dynamic form schema via JSON (vs static per task type)
+
+---
+
+Phase done → roadmap Faz 6 check mark.

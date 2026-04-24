@@ -1,0 +1,158 @@
+---
+description: "[Faz 0] Monorepo scaffold — Turborepo + pnpm; 2 iterasyon/chat (kökpaket → uygulamalar+CI). Mesajda “Faz 0 — İterasyon N” belirt."
+---
+
+# Faz 0: Monorepo Scaffold
+
+## Goal
+
+Turborepo + pnpm workspaces yapısı kurulur. 3 app (api, web, worker) + shared packages (shared-types, shared-schemas, shared-utils, config) scaffold. Lint, typecheck, test tool chain çalışır.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+Bu faz **tek sohbette bitmez**. `@50-phase-00-monorepo-scaffold` yükleyip her chat’te **“Faz 0 — İterasyon N”** yazın. Yalnızca o iterasyonun scope’u; bitişte `lint` / `typecheck` / `test` / `build`; el onayı → yeni chat ile N+1.
+
+### İterasyon 1 — Kök + workspaces + ortak paket iskeleti
+
+**Hedef:** Root `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `packages/config` (tsconfig/eslint/vitest paylaşımı), `packages/shared-types|shared-schemas|shared-utils` minimal `package.json` + `src/index.ts`, root ESLint/Prettier/Vitest/Gitignore, `.nvmrc`, `engines`.
+
+**Minimum bağlam:** `docs/00_PROJECT_OVERVIEW.md`; `docs/09_DEV_WORKFLOW.md` Bölüm 2 + 5.
+
+**Scope:** Henüz `apps/*` dolu scaffold değil — sadece monorepo omurgası + boş/minimal paketler.
+
+**Bu iterasyonda yok:** Her app’in tam Nest/Next iskeleti; GitHub Actions (İter 2).
+
+**Doğrulama:** `pnpm install`; `pnpm -w run lint && pnpm -w run typecheck && pnpm -w run test` (paketlerde boş test kabul).
+
+**Stop:** [ ] Workspace çözülüyor; [ ] turbo pipeline tanımlı. PR/onay → İterasyon 2.
+
+### İterasyon 2 — Üç uygulama + CI + README + .env.example
+
+**Hedef:** `apps/api`, `apps/web`, `apps/worker` scaffold (spec’teki minimum dosyalar), root `vitest.config.ts` ile uyum, `.github/workflows/pr-check.yml` (lint + typecheck + test), `README.md` setup, her app için `.env.example`.
+
+**Minimum bağlam:** `docs/00_PROJECT_OVERVIEW.md` monorepo yapısı; `docs/09_DEV_WORKFLOW.md` Tooling.
+
+**Scope:** Bu fazın **Scope** bölümündeki `apps/*` ağaçları + Done Definition’daki build/lint/turbo cache maddeleri (Faz 0 Explicit Don'ts’a uy).
+
+**Bu iterasyonda yok:** Prisma/DB (Faz 2); prod Docker (Faz 1/9); gerçek feature kodu.
+
+**Doğrulama:** `pnpm -w run build`; ikinci `build` cache; `pr-check` job’ları yeşil.
+
+**Stop:** Done Definition tamamı bu iterasyonda kapanır (ADR yazımı dahil). → Roadmap Faz 0 işareti.
+
+## Required Context
+
+- `docs/00_PROJECT_OVERVIEW.md` — tech stack + monorepo structure
+- `docs/09_DEV_WORKFLOW.md` Bölüm 2 (Repository Setup) + Bölüm 5 (Tooling)
+- Always-on: 00-project-identity, 01-coding-philosophy, 02-language-naming
+
+## Scope
+
+### Files to create
+
+```
+/package.json                              # root + workspaces
+/pnpm-workspace.yaml
+/turbo.json
+/.eslintrc.cjs                              # root ESLint config
+/.prettierrc                                # Prettier
+/.gitignore
+/tsconfig.base.json
+/vitest.config.ts                           # root Vitest
+/README.md
+
+apps/api/                                   # NestJS
+├── package.json
+├── tsconfig.json
+├── nest-cli.json
+├── src/main.ts
+├── src/app.module.ts
+└── ...
+
+apps/web/                                   # Next.js 15
+├── package.json
+├── next.config.mjs
+├── tsconfig.json
+├── tailwind.config.ts
+├── app/layout.tsx
+└── ...
+
+apps/worker/                                # NestJS (BullMQ)
+└── similar structure
+
+packages/shared-types/
+├── package.json
+├── tsconfig.json
+└── src/index.ts
+
+packages/shared-schemas/
+├── package.json
+├── tsconfig.json
+└── src/index.ts
+
+packages/shared-utils/
+└── similar
+
+packages/config/
+├── tsconfig/
+│   ├── base.json
+│   └── nextjs.json
+├── eslint/
+└── vitest/
+```
+
+### Files NOT touched
+
+- Infrastructure (Faz 1)
+- Prisma schema (Faz 2)
+- Actual feature code (Faz 2+)
+
+## Constraints
+
+### Use
+
+- **Turborepo** root `turbo.json` ile pipeline: `dev`, `build`, `test`, `lint`, `typecheck`
+- **pnpm** 9+ (workspace catalog for shared versions)
+- **TypeScript 5.x strict** — `packages/config/tsconfig/base.json` common + per-app override
+- **ESLint 9** flat config + per-app override
+- **Prettier 3** — single `.prettierrc` root
+- **Vitest** test runner (Jest değil)
+- **Node 20 LTS** — `.nvmrc` + package.json engines
+
+### Avoid
+
+- Lerna (Turborepo tek tool)
+- npm / yarn (pnpm only)
+- `@types/*` packages if TypeScript native types mevcutsa
+- Global installs — her şey devDependencies
+- Duplicate config across packages — shared `packages/config`
+
+## Done Definition
+
+- [ ] `pnpm install` at root — all workspaces resolved, no errors
+- [ ] `pnpm -w run build` — all apps + packages build successfully
+- [ ] `pnpm -w run lint` — green (empty projeler bile lint pass)
+- [ ] `pnpm -w run typecheck` — green
+- [ ] `pnpm -w run test` — green (empty test, ama tool çalışıyor)
+- [ ] Turborepo cache çalışıyor (`pnpm -w run build` ikinci kez — cached)
+- [ ] `.github/workflows/pr-check.yml` basic lint + typecheck + test job'ları
+- [ ] README'de setup talimatları (`pnpm install`, `pnpm -w run dev`)
+- [ ] `.env.example` her app için (boş değerli)
+- [ ] Commit: `feat: monorepo scaffold with turborepo + pnpm workspaces`
+
+## Explicit Don'ts
+
+- Database kurma (Faz 2)
+- Production Docker image (Faz 1 infra)
+- Real code yazma — sadece scaffold
+- CI/CD full setup — sadece basic pre-commit (Faz 9 infra)
+- IaC (Terraform) — Faz 1
+
+## Related ADRs
+
+- ADR-0001: Monorepo structure (Turborepo + pnpm) — write during this phase
+- ADR-0002: Stack selection (Next.js + NestJS + Prisma) — write during this phase
+
+---
+
+Phase done → `docs/10_IMPLEMENTATION_ROADMAP.md` Faz 0 check mark.

@@ -1,0 +1,278 @@
+---
+description: Procedure for adding a Prisma migration — covers schema changes, migration generation, expand-contract pattern for zero-downtime, breaking changes, backfill scripts, and deployment. Use when task involves database schema modifications, adding/removing columns, adding indexes, or renaming database objects.
+---
+
+# Prisma Migration Ekleme Prosedürü
+
+Schema change'ler production'da risk. Expand-contract pattern + dikkatli review. "Kolayca ekleriz" tutumu yasak.
+
+## Migration Türleri
+
+| Tür | Örnek | Risk |
+|---|---|---|
+| **Additive — Safe** | New nullable column, new table, new index | Düşük |
+| **Additive — Caution** | New NOT NULL column (requires default or backfill) | Orta |
+| **Destructive** | Drop column, drop table | Yüksek |
+| **Breaking** | Rename column, change type, change constraints | Yüksek |
+
+Yüksek risk → expand-contract zorunlu.
+
+## Safe Migration (Additive)
+
+### Step 1: Schema Düzenle
+
+`apps/api/prisma/schema.prisma`:
+
+```prisma
+model users {
+  id           String   @id @default(uuid())
+  // ... existing
+  
+  // NEW: nullable column (safe)
+  hire_date    DateTime?  @db.Date
+  
+  @@index([hire_date])
+}
+```
+
+### Step 2: Migration Oluştur
+
+```bash
+pnpm --filter api prisma migrate dev --name add_user_hire_date
+```
+
+Migration file: `apps/api/prisma/migrations/<timestamp>_add_user_hire_date/migration.sql`
+
+Review et — SQL elle kontrol:
+
+```sql
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN "hire_date" DATE;
+
+-- CreateIndex
+CREATE INDEX "users_hire_date_idx" ON "users"("hire_date");
+```
+
+### Step 3: Test Et
+
+Fresh DB'de:
+
+```bash
+# Reset local dev DB + run all migrations from scratch
+pnpm --filter api prisma migrate reset
+
+# Verify seed still works
+pnpm --filter api prisma db seed
+```
+
+Integration test run et — mevcut data yeni kolon ile uyumsuz kalmasın.
+
+### Step 4: Commit
+
+```
+feat(database): users tablosuna hire_date kolonu eklendi
+```
+
+Migration dosyası + schema.prisma birlikte commit.
+
+## Index Ekleme (Production-Safe)
+
+Büyük tablolarda `CREATE INDEX` lock alır — `CONCURRENTLY` kullan:
+
+```sql
+-- Generated migration may need manual edit
+CREATE INDEX CONCURRENTLY IF NOT EXISTS users_hire_date_idx ON users(hire_date);
+```
+
+Prisma `migrate dev` `CONCURRENTLY` otomatik eklemez — migration SQL'i elle edit et.
+
+Deploy'da `migrate deploy` çalışır. Prod'da eş zamanlı hem data hem index read/write olur.
+
+## NOT NULL Column Ekleme
+
+Tek-adımlı NOT NULL **yasak** (mevcut row'lar invalid olur). Expand-contract:
+
+### Expand (migration 1)
+
+Nullable ekle:
+
+```prisma
+model users {
+  // ...
+  company_id String?  // nullable first
+}
+```
+
+```sql
+ALTER TABLE users ADD COLUMN company_id UUID;
+```
+
+### Backfill (script)
+
+Application code veya SQL ile mevcut row'ları doldur:
+
+```typescript
+// apps/api/scripts/backfill-company-id.ts
+const users = await prisma.users.findMany({ where: { company_id: null } });
+for (const user of users) {
+  const companyId = await determineCompanyFor(user);
+  await prisma.users.update({
+    where: { id: user.id },
+    data: { company_id: companyId },
+  });
+}
+```
+
+Batch processing (1000'er satır) — büyük tablolarda lock kontrol.
+
+### Dual-Write (deploy 2)
+
+Application code hem eski (null) hem yeni kolonu yazar bir süre. Code review: yeni kolon zorunlu olmadığını ama code'un yazdığını doğrula.
+
+### Contract (migration 3)
+
+Tüm row'lar backfill edildi, code dual-write yapıyor → NOT NULL ekle:
+
+```sql
+ALTER TABLE users ALTER COLUMN company_id SET NOT NULL;
+```
+
+Aralar 1 hafta ideal — canlı izle, rollback planı hazır.
+
+## Rename Column (Breaking)
+
+Rename asla tek migration değil. 5 adım:
+
+### 1. Add new column
+
+```sql
+ALTER TABLE users ADD COLUMN employee_number VARCHAR(8);
+CREATE UNIQUE INDEX users_employee_number_idx ON users(employee_number);
+```
+
+### 2. Dual-write (code change)
+
+Service hem `sicil` hem `employee_number` yazar. Schema.prisma her ikisini map eder (`@map` kullanarak).
+
+### 3. Backfill
+
+```sql
+UPDATE users SET employee_number = sicil WHERE employee_number IS NULL;
+```
+
+### 4. Switch reads (code change)
+
+Read path yeni kolondan. `sicil` artık yazılır ama okunmaz.
+
+### 5. Drop old column
+
+1 hafta sonra, monitoring temiz:
+
+```sql
+ALTER TABLE users DROP COLUMN sicil;
+```
+
+Her adım ayrı PR. Rollback her adımda mümkün.
+
+## Drop Column / Table
+
+Hiçbir zaman aniden drop yapma. Önce:
+
+1. **Grep** — codebase'te kullanıldığı yeri bul (0 ise safe)
+2. **Deprecation period** — 2 hafta log'la "old_field accessed"
+3. **Monitor** — gerçekten kullanılmıyor mu?
+4. **Drop** — safe ise migrate
+
+## Migration SQL Review Checklist
+
+Her migration PR'ında manuel review:
+
+- [ ] Breaking change var mı? Expand-contract uygulanmış mı?
+- [ ] `CREATE INDEX CONCURRENTLY` kullanıldı mı (büyük tablo)?
+- [ ] Default value için `NOT NULL` ekleme yapılmış mı (tek adım değil)?
+- [ ] Backfill gerekiyorsa script yazıldı mı?
+- [ ] Rollback SQL hazır mı?
+- [ ] Row-level lock süresi tahmin edildi mi?
+- [ ] Foreign key'ler doğru?
+- [ ] Cascade delete niyetli mi? (genellikle `ON DELETE RESTRICT` safer)
+- [ ] Index isimleri convention (`<table>_<column>_idx`)?
+
+## Deploy Sequence
+
+Migration deploy prod'a:
+
+1. **Local test** — `migrate reset` sıfırdan çalışıyor
+2. **Dev deploy** — otomatik CI/CD
+3. **Staging deploy** — QA test, canary users
+4. **Production deploy**:
+   - Maintenance window (gerekli değilse skip)
+   - Backup snapshot (AWS Aurora otomatik)
+   - `prisma migrate deploy` çalıştır (idempotent)
+   - Post-deploy health check
+   - Rollback hazır (snapshot restore prosedürü)
+
+Prod'da `prisma db push` kesinlikle yasak.
+
+## Seed Data Management
+
+Seed data migration değil. `apps/api/prisma/seed.ts`:
+
+```typescript
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+async function main() {
+  // Idempotent seeds (upsert)
+  const superadminRole = await prisma.roles.upsert({
+    where: { code: 'SUPERADMIN' },
+    update: {},
+    create: { code: 'SUPERADMIN', name: 'Superadmin', is_system: true },
+  });
+
+  for (const permission of Object.values(Permission)) {
+    await prisma.role_permissions.upsert({
+      where: { role_id_permission_key: { role_id: superadminRole.id, permission_key: permission } },
+      update: {},
+      create: { role_id: superadminRole.id, permission_key: permission },
+    });
+  }
+}
+
+main().catch(console.error).finally(() => prisma.$disconnect());
+```
+
+Her seed idempotent — birden fazla çalıştırılabilir. `prisma db seed` deploy'da otomatik çalışır.
+
+## Migration Naming
+
+`<timestamp>_<verb>_<noun>` format:
+
+- `20260115120000_add_user_hire_date`
+- `20260120143000_create_index_users_email_lower`
+- `20260201100000_rename_sicil_to_employee_number_step1_add_column`
+- `20260201100000_rename_sicil_to_employee_number_step5_drop_old`
+
+Breaking migration'larda `stepN` ek açık — hangi adım belli.
+
+## Migration History Protection
+
+`_prisma_migrations` table edit edilmez. Corrupt ise:
+
+1. **Dev**: `prisma migrate reset` — OK, data loss accepted
+2. **Staging**: `migrate resolve` + manuel review
+3. **Prod**: incident → Platform team — sıradan developer müdahale etmez
+
+## Banned Patterns
+
+- `prisma db push` production'da (history bozar)
+- `NOT NULL` column addition tek adımda (mevcut rows invalid)
+- `DROP COLUMN` without deprecation
+- Rename tek migration'da
+- Migration'ı silmek (git history içinde kalır ama fresh dev'de çalıştıramazsın — `migrate reset` ile sil gerekirse)
+- Seed data'yı migration'a koymak (idempotent seed ayrı)
+- Schema.prisma edit et ama migration oluşturma ("sonra yaparım" → drift)
+- Migration SQL'i generated oldu diye review atlama
+
+---
+
+Detay: `docs/09_DEV_WORKFLOW.md` Bölüm 9 (Migration Pattern) + `docs/02_DATABASE_SCHEMA.md` Bölüm 15 (Migration Strategy)

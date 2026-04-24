@@ -1,0 +1,104 @@
+---
+description: "[Faz 10] Performance — 4 iterasyon/chat (baseline → DB → cache/API → FE+bundle+k6). “Faz 10 — İterasyon N”."
+---
+
+# Faz 10: Performance Tuning
+
+## Goal
+
+Load test (`k6` @ 1000 concurrent) sonrası bottleneck'leri fix et. DB query optimization (index review, N+1 elimination). Redis caching strategy (expensive queries). Bundle size reduction. Lighthouse score improvement. Final SLO: P95 <500ms, error rate <0.1%, Lighthouse performance ≥80.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+**Ölçmeden optimizasyon yok.** `@60-phase-10-performance` + **“Faz 10 — İterasyon N”**. Her chat’te en fazla **bir** ana bottleneck düzeltmesi + ölçüm tekrarı önerilir.
+
+### İterasyon 1 — Baseline ölçüm
+
+**Hedef:** k6 senaryosu + staging/prod-like ortamda baseline P95/error rate; Lighthouse ve bundle analyzer raporu **sadece okuma**; `docs/performance-tuning.md` içine “bulgular” bölümü aç.
+
+**Bu iterasyonda yok:** Kod değişikliği (sadece gerekli enstrümantasyon — örn. slow query log açma — kabul).
+
+**Stop:** [ ] Top 3 bottleneck listesi yazılı; [ ] önce/sonra metrik tablosu için şablon. PR/onay.
+
+### İterasyon 2 — DB: index + N+1 + Prisma sorgu daraltma
+
+**Hedef:** `pg_stat_statements` / slow log analizi; composite index; `select`/`include` revizyonu; DataLoader gerekliyse; integration’da query count assertion.
+
+**Stop:** [ ] DB Done maddeleri (P95 <100ms hedefi doc ile); PR/onay.
+
+### İterasyon 3 — Redis + API sıcak yollar + worker pool
+
+**Hedef:** Master data + user lookup cache TTL; permission resolver hit rate doğrulama; response envelope/serialization ince ayar; BullMQ concurrency + pool tune.
+
+**Stop:** [ ] Redis hit rate hedefleri; [ ] worker ayarları dokümante. PR/onay.
+
+### İterasyon 4 — Frontend bundle + image/font + k6 final + dokümantasyon
+
+**Hedef:** code split, tree-shake, `next/image`, `next/font`, memoization; final k6 1000 concurrent; regression perf testleri; `docs/performance-tuning.md` tamam.
+
+**Stop:** Faz 10 Done Definition tamamı; roadmap işareti.
+
+## Required Context
+
+- `docs/08_TESTING_STRATEGY.md` Bölüm 8 (Load test + performance benchmarks)
+- `docs/04_BACKEND_SPEC.md` — ilgili modüllerin query pattern'leri
+- Auto-attached: 15-backend-database (query optimization patterns)
+
+## Scope
+
+### Backend optimizations
+
+- DB index audit: slow query log analysis (pg_stat_statements)
+- Composite index ekle (common filter + sort combinations)
+- Prisma query analysis: `include` vs `select` review
+- N+1 elimination: Prisma include + DataLoader pattern where applicable
+- Redis caching: permission resolver (zaten var), master data (yeni — 10 dk TTL), user lookup (yeni — 2 dk)
+- Response envelope optimization: omit undefined fields
+- JSON serialization: precomputed for hot paths
+
+### Frontend optimizations
+
+- Bundle analysis: `@next/bundle-analyzer` report review
+- Code split: route-level + feature-level chunks
+- Tree-shaking: unused imports removal
+- Image optimization: `next/image` everywhere (AVIF + responsive)
+- Font optimization: `next/font` preload
+- Prefetch strategy: link prefetch'i intentional yap
+- React.memo + useMemo: expensive component re-renders analyze
+
+### Worker optimizations
+
+- BullMQ concurrency tune
+- Email send batching (SES bulk API)
+- DB connection pool tune per worker task
+
+## Done Definition
+
+- [ ] k6 load test: 1000 concurrent users, P95 <500ms, error <0.1%
+- [ ] Lighthouse CI: critical 3 routes ≥80 performance, ≥90 a11y
+- [ ] Bundle size: initial load ≤200 KB gzipped
+- [ ] DB slow query log: all queries <100ms P95
+- [ ] Redis hit rate: permission resolver >95%, master data >90%
+- [ ] No N+1 detected in integration test DB query count
+- [ ] Response time dashboard CloudWatch: P50 <200ms, P95 <500ms
+- [ ] Error rate <0.1% (5xx, excluding client errors)
+- [ ] Documented performance findings + fixes in `docs/performance-tuning.md`
+- [ ] Regression test suite: performance tests for critical paths (P95 assertion)
+
+## Explicit Don'ts
+
+- Premature micro-optimization (measure first)
+- Cache everything aggressively (staleness bug risk)
+- Custom ORM / bypass Prisma for speed (maintainability cost)
+- Read replicas MVP'de (Aurora writer yeter bu load'ta)
+- CDN for API responses (cache-busting complex)
+- Premature GraphQL migration (REST yeter)
+
+## Related ADRs
+
+- ADR-0030: Redis caching strategy (what to cache, TTL choices)
+- ADR-0031: DB index policy (composite vs single-column)
+
+---
+
+Phase done → roadmap Faz 10 check mark.

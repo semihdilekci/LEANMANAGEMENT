@@ -1,0 +1,371 @@
+---
+description: Accessibility — WCAG 2.1 AA, ARIA patterns, keyboard navigation, focus management, color contrast
+globs:
+  - "apps/web/**/*.tsx"
+---
+
+# Accessibility (WCAG 2.1 AA)
+
+A11y non-negotiable. Her PR'da manuel check + axe-core otomatik test. Eksik a11y = blocked merge.
+
+**Kontrast ve renk:** Mümkün olduğunca `docs/lean-design-system/tokens.css` içindeki foreground/background çiftleri; rastgele hex ile design system’i bypass etme (`26-lean-design-system.mdc`).
+
+## 4 Temel İlke (POUR)
+
+1. **Perceivable** — içerik tüm duyularla algılanabilir
+2. **Operable** — UI tüm input metodlarıyla kullanılabilir
+3. **Understandable** — içerik + UI anlamlı
+4. **Robust** — çeşitli assistive tech'lerde çalışır
+
+## Semantic HTML
+
+Div/span değil doğru element:
+
+```typescript
+// ✗ Yanlış
+<div onClick={handleSubmit}>Kaydet</div>
+
+// ✓ Doğru
+<button onClick={handleSubmit} type="button">Kaydet</button>
+
+// ✗ Yanlış
+<div className="nav">
+  <div onClick={...}>Ana Sayfa</div>
+</div>
+
+// ✓ Doğru
+<nav>
+  <ul>
+    <li><a href="/">Ana Sayfa</a></li>
+  </ul>
+</nav>
+```
+
+Landmark element'ler her sayfada:
+- `<header>` — site header
+- `<nav>` — navigation
+- `<main>` — primary content
+- `<aside>` — sidebar
+- `<footer>` — site footer
+
+## Form Accessibility
+
+shadcn `<FormField>` zaten doğru ARIA wire eder. İki şart:
+1. `<FormLabel>` her field için
+2. `<FormMessage />` error region
+
+```typescript
+<FormField
+  control={form.control}
+  name="email"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>E-posta *</FormLabel>
+      <FormControl>
+        <Input 
+          {...field} 
+          type="email" 
+          autoComplete="email"
+          aria-required="true"
+        />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+Otomatik yapılan:
+- `aria-describedby` → `<FormMessage>` ID'sine
+- `aria-invalid` → error varsa `true`
+- `htmlFor` label'dan input'a
+
+Required field:
+- Label'da `*` visual işaret
+- `aria-required="true"` programmatic
+- Zod `min(1)` backend + frontend validation
+
+## Keyboard Navigation
+
+Her interaktif element klavye ile erişilebilir:
+
+- **Tab / Shift+Tab** — sonraki / önceki focusable
+- **Enter / Space** — button activation
+- **Escape** — modal/dialog kapat
+- **Arrow keys** — menu item / tab / combobox navigation
+- **Home / End** — liste başı / sonu
+
+Custom component'larda keyboard event handle:
+
+```typescript
+<div 
+  role="button"
+  tabIndex={0}
+  onClick={handleClick}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  }}
+>
+  Custom Button
+</div>
+```
+
+Mümkünse `<button>` kullan — tüm keyboard behavior built-in.
+
+### Skip Link
+
+Sayfa başında "Ana içeriğe atla" link:
+
+```typescript
+// app/layout.tsx
+<a 
+  href="#main-content" 
+  className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded"
+>
+  Ana içeriğe atla
+</a>
+// ...
+<main id="main-content">...</main>
+```
+
+## Focus Management
+
+### Focus Visible
+
+Tüm interaktif element'lerde visible focus ring:
+
+```css
+/* globals.css */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+```
+
+Tailwind zaten focus styles getirir:
+```typescript
+<Button className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+```
+
+### Focus Trap (Modal)
+
+shadcn `<Dialog>` focus trap built-in — sadece kullan, manuel implement etme.
+
+### Focus After Action
+
+- Submit fail → ilk error field'a focus (RHF otomatik)
+- Modal açılıyor → ilk focusable'a
+- Modal kapanıyor → tetikleyici button'a geri dön
+- Action → sonuç element'ine (toast, yeni content)
+
+```typescript
+const triggerRef = useRef<HTMLButtonElement>(null);
+
+<Dialog onOpenChange={(open) => {
+  if (!open) triggerRef.current?.focus();
+}}>
+  <DialogTrigger ref={triggerRef}>Aç</DialogTrigger>
+  ...
+</Dialog>
+```
+
+## ARIA — Sparingly, Correctly
+
+ARIA sadece semantic HTML yetersiz olduğunda:
+
+```typescript
+// Good: complex component
+<div role="alert" aria-live="polite">
+  {error && <p>{error}</p>}
+</div>
+
+// Bad: unnecessary
+<button role="button">Kaydet</button>  // button already has role
+```
+
+### Landmarks
+
+```typescript
+<main role="main">...</main>        // genellikle gereksiz
+<nav aria-label="Main">...</nav>   // birden fazla nav varsa ayrıştır
+```
+
+### Labeling
+
+```typescript
+// Icon-only button
+<Button aria-label="Kullanıcıyı sil">
+  <Trash2 className="h-4 w-4" />
+</Button>
+
+// Labeled by another element
+<div>
+  <h2 id="dialog-title">Sil</h2>
+  <Dialog aria-labelledby="dialog-title">...</Dialog>
+</div>
+
+// Described by
+<Input 
+  aria-describedby="password-hint"
+/>
+<p id="password-hint">En az 12 karakter, 1 özel karakter içermeli</p>
+```
+
+### Live Regions
+
+Dynamic content changes:
+
+```typescript
+// Toast — auto-announced to screen readers
+import { toast } from 'sonner';
+toast.success('Kaydedildi');  // sonner uses aria-live
+
+// Custom live region
+<div role="status" aria-live="polite">
+  {count} sonuç bulundu
+</div>
+
+<div role="alert" aria-live="assertive">
+  {criticalError}
+</div>
+```
+
+`polite` — user'ın dikkatini bekler; `assertive` — anında duyurur (kritik).
+
+## Color Contrast
+
+WCAG AA:
+- **Normal text** (< 18pt): ≥ 4.5:1
+- **Large text** (≥ 18pt or 14pt bold): ≥ 3:1
+- **Non-text UI** (icons, borders): ≥ 3:1
+
+Tailwind default colors çoğunlukla uyumlu ama custom color eklerken check:
+- https://webaim.org/resources/contrastchecker/
+- Storybook a11y addon
+
+Color-only information yasak:
+
+```typescript
+// ✗ Sadece renk farkı
+<span className="text-red-500">Aktif değil</span>
+
+// ✓ Icon + renk + text
+<span className="text-red-600 flex items-center gap-1">
+  <XCircle className="h-3 w-3" /> Aktif değil
+</span>
+```
+
+Screen reader only text — Tailwind `sr-only`:
+```typescript
+<Button size="icon">
+  <span className="sr-only">Kullanıcıyı düzenle</span>
+  <Pencil className="h-4 w-4" />
+</Button>
+```
+
+## Keyboard-Only User Testing
+
+Her feature için:
+1. `Tab` ile her interactive element'e eriş
+2. `Enter/Space` ile trigger et
+3. `Esc` ile modal kapat
+4. Focus order mantıklı (DOM order)
+5. Keyboard trap yok (focus çıkabilir)
+
+## Screen Reader Testing
+
+- **macOS**: VoiceOver (Cmd+F5)
+- **Windows**: NVDA (free)
+- **Chrome**: ChromeVox extension
+
+Test prompt'u:
+- Sayfa yüklenince ne anonslanıyor?
+- Button'a focus olunca amaç anlaşılıyor mu?
+- Form error'u duyuruluyor mu?
+- Dynamic content (toast, modal) announce oluyor mu?
+
+## Skeleton + Loading States
+
+Screen reader loading bilmeli:
+
+```typescript
+<div role="status" aria-live="polite" aria-busy={isLoading}>
+  {isLoading ? (
+    <>
+      <span className="sr-only">Yükleniyor...</span>
+      <UserListSkeleton />
+    </>
+  ) : (
+    <UserList data={data} />
+  )}
+</div>
+```
+
+## axe-core Integration
+
+Test'lerde otomatik a11y check:
+
+```typescript
+// tests/a11y.spec.ts
+import { render } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
+
+expect.extend(toHaveNoViolations);
+
+test('UserForm has no accessibility violations', async () => {
+  const { container } = render(<UserForm />);
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+## Translations (Language)
+
+Root layout `lang="tr"`:
+
+```typescript
+<html lang="tr">
+```
+
+Parça başka dildeyse işaretle:
+```typescript
+<p lang="en">Hello world</p>
+```
+
+## Reduced Motion
+
+Kullanıcı reduced motion tercih ettiyse animation'ları kaldır:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+Tailwind `motion-safe:` + `motion-reduce:` variants ile:
+```typescript
+<div className="motion-safe:animate-spin motion-reduce:hidden">
+```
+
+## Banned Patterns
+
+- `<div onClick={...}>` interactive (use `<button>`)
+- `tabIndex="-1"` make focusable that wasn't (only for skip)
+- `aria-label` duplicates visible text (screen reader reads twice)
+- `role="button"` on a `<button>` (redundant)
+- Image without `alt` (decorative → `alt=""`, meaningful → descriptive)
+- Icon-only button without `aria-label` or `sr-only` text
+- Color as only differentiator (pattern + icon + text)
+- Autoplay media (WCAG fail)
+- Keyboard trap — user must be able to escape focus
+- Positive `tabIndex` values (disrupts natural order)
+
+---
+
+Detay: `docs/05_FRONTEND_SPEC.md` Bölüm 11 (Accessibility checklist)

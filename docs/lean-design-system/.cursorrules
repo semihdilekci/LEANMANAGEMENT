@@ -1,0 +1,41 @@
+# Lean Management Design System — Cursor Rules
+
+Bu proje Lean Management design system'ini kullanır.
+
+## Temel Kurallar
+
+1. **Sadece token kullan.** Renk, spacing, font-size, radius, shadow için
+   her zaman `tokens.css` içinde tanımlı CSS değişkenlerini kullan
+   (`var(--color-*)`, `var(--font-*)`, `var(--space-*)`, `var(--radius-*)`).
+   Hex kodu, px spacing değeri HARDCODE ETME — mutlaka token kullan.
+
+2. **Component sınıfları önceliklidir.** Buton, kart, chip, alert, input,
+   toast gibi UI elemanları için `components.css` içindeki `ls-*` sınıflarını
+   kullan. Yeni sınıf icat etmeden önce var olanı ara.
+
+3. **Token yoksa önce ekle.** İhtiyacın olan bir değer `tokens.css`'de yoksa,
+   inline style yazmak yerine önce token olarak tanımla, sonra kullan.
+
+4. **Tipografi:** Başlıklar için `var(--font-display)` (Plus Jakarta Sans),
+   body için `var(--font-body)` (Inter), kod için `var(--font-mono)`
+   (JetBrains Mono). Başka font ekleme.
+
+5. **Renk sistemi:**
+   - Primary: Terracotta (`--color-primary-500` base)
+   - Secondary: Sage yeşili (`--color-secondary-500` base)
+   - SLA / önem derecesi primary'nin alpha skalasıyla ifade edilir
+     (`--color-primary-a10` … `-a40`)
+   - `--color-danger` / `--color-success` / `--color-info` sadece
+     destructive, success, info durumları için.
+
+6. **İkonlar:** 24×24 stroke-based. `icons.jsx` içindeki `I.*` seti
+   dışına çıkmadan önce sor / kütüphaneye ekle. Emoji kullanma.
+
+7. **Türkçe arayüz.** Kopya Türkçe olmalı (örn. "Kaydet", "İptal",
+   "KTİ Oluştur", "Onayla").
+
+## Dosya Referansları
+
+- `@lean-design-system/tokens.css` — tüm tasarım tokenları
+- `@lean-design-system/components.css` — component sınıfları
+- `@lean-design-system/icons.jsx` — ikon kütüphanesi

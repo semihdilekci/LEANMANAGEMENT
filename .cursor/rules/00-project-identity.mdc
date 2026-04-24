@@ -1,0 +1,98 @@
+---
+description: Lean Management Platformu — proje kimliği, tech stack, monorepo yapısı, domain terminolojisi. Agent'ın daima bilmesi gereken temel bağlam.
+alwaysApply: true
+---
+
+# Lean Management Platformu — Proje Kimliği
+
+Holding geneli **iç kurumsal lean yönetim platformu**. Kaizen, 5S ve sürekli iyileştirme süreçleri için. Target kullanıcı: 20.000+ holding çalışanı. Dil: Türkçe UI + İngilizce code identifiers.
+
+## Tech Stack (Pin'li)
+
+- **Frontend:** Next.js 15 (App Router) + React 19 + TypeScript strict + Tailwind CSS + shadcn/ui
+- **UI referans paketi:** `docs/lean-design-system/` (CSS tokenları, `ls-*` bileşen sınıfları, ikonlar) — görsel implementasyon bu sete uyar; ayrıntı kural: `26-lean-design-system.mdc`
+- **Backend:** NestJS 10 + Fastify adapter + Prisma + TypeScript strict
+- **Worker:** NestJS + BullMQ (background jobs, email, cron)
+- **Database:** Aurora PostgreSQL 16
+- **Cache/Queue:** Redis 7 (AWS ElastiCache)
+- **Shared state:** Zustand (frontend), TanStack Query (server state)
+- **Forms:** react-hook-form + Zod + shadcn `<Form>`
+- **Schema validation:** Zod (shared between backend + frontend via `@leanmgmt/shared-schemas`)
+- **Testing:** Vitest (unit + integration), Playwright (e2e), testcontainers, k6 (load)
+- **Monorepo:** Turborepo + pnpm workspaces
+- **Cloud:** AWS eu-central-1 (3-hesap izolasyonu: dev/staging/prod)
+- **IaC:** Terraform
+- **CI/CD:** GitHub Actions + OIDC
+
+Bu stack MVP için sabit. Yeni framework/library eklenmesi ADR gerektirir.
+
+## Monorepo Yapısı
+
+```
+lean-management/
+├── apps/
+│   ├── api/           # NestJS backend
+│   ├── web/           # Next.js frontend
+│   └── worker/        # BullMQ worker
+├── packages/
+│   ├── shared-types/     # Permission enum, metadata, TS types
+│   ├── shared-schemas/   # Zod schemas (backend + frontend aynı)
+│   ├── shared-utils/     # cross-app util'ler
+│   └── config/           # tsconfig, eslint, vitest base
+├── infrastructure/
+│   └── terraform/     # AWS IaC
+├── docs/              # Proje dokümanları + lean-design-system (UI token / referans)
+└── .cursor/rules/     # Bu paket
+```
+
+Yeni kod **her zaman** doğru konumda olur: cross-app util → `packages/shared-utils`, API type → `packages/shared-types`, schema → `packages/shared-schemas`. Inline duplication yasak.
+
+## Domain Terminolojisi
+
+Bu terimler proje-özel — Türkçe veya İngilizce default anlamıyla karıştırma:
+
+- **KTİ** — "Kaizen Tamamlama İyileştirme" — MVP'nin birincil iş süreci tipi
+- **Sicil** — 8 haneli personel numarası; birincil kurumsal kimlik
+- **Process** — çok adımlı iş akışı instance'ı (display_id: `KTI-000042`)
+- **Task** — süreç içindeki bireysel adım, kullanıcı(lar)a atanır
+- **displayId** — insan okunabilir süreç kimliği (format: `<TYPE>-<NNNNNN>`)
+- **Assignee** — task'tan sorumlu kullanıcı(lar)
+- **Claim mode** — birden fazla aday assignee; ilk claim eden sorumlu olur (peer eviction)
+- **Attribute rule** — kullanıcıya otomatik rol atayan kural (ABAC)
+- **Superadmin** — tüm permission'lara sahip sistem rolü
+- **KVKK** — Türk GDPR eşdeğeri; compliance zorunluluğu
+
+## Kritik İş Kuralları (Proje Genelinde)
+
+- **Audit log append-only** — UPDATE/DELETE trigger tarafından reddedilir; chain hash doğrular
+- **PII encryption at rest** — email (deterministic — lookup için), phone (probabilistic)
+- **Soft delete only** — `is_active=false` set edilir; hard delete `users`/domain entity'lerde yasak (anonymization yapılır)
+- **State machine strict** — sadece izin verilen transition'lar; invalid → 409 throw
+- **Permission cache** — Redis 5 dk TTL; role/attribute değişiminde invalidate
+
+## MVP Kapsamı Dışı (Önemli!)
+
+Agent'ın eklemeye meyilli olabileceği ama **MVP'de YAPILMAYACAK** şeyler:
+
+- MFA / 2FA (roadmap Wave 1)
+- WebSocket real-time (polling yeterli)
+- Native mobile app (responsive web)
+- Data export (`/me/data-download`) — email kanalı ile manuel
+- Kendi SSO (SAML/OIDC federation)
+- Advanced analytics dashboard
+- A/B testing framework
+- 5S, TPM gibi ek süreç tipleri (sadece KTİ)
+
+Talep gelirse belirt: "Bu MVP kapsamı dışı — roadmap Wave X'te".
+
+## Bu Projenin Non-Goals
+
+- Consumer-facing tasarım (kurumsal iç araç — B2E)
+- Multi-tenant SaaS mimarisi (tek holding, tek tenant)
+- Real-time collaboration (değişiklikler uzun-ömürlü, gerçek zamanlı sync gereksiz)
+- 100% uptime (planned maintenance kabul edilir)
+- Free-text search engine (basic filter + ILIKE yeterli)
+
+---
+
+Detay: `docs/00_PROJECT_OVERVIEW.md` — tam kapsam, kullanıcı profilleri, KPI'lar

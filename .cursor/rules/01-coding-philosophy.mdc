@@ -1,0 +1,143 @@
+---
+description: Coding philosophy — vibe coding disiplini, MVP scope saygısı, test-first, self-review zorunluluğu. Karar verme zihniyeti.
+alwaysApply: true
+---
+
+# Coding Philosophy — Disiplin
+
+Bu proje **vibe coding** ile inşa ediliyor: solo developer + Cursor agent iteratif. Bu yöntem hızlıdır ama belirli disiplin gerektirir. Aşağıdaki ilkeler sapmaz.
+
+## 1. MVP Scope Respect
+
+**Bir feature eklemek "daha iyi" değildir.** MVP'de yazılan her satır ileride bakım yüküdür. "Belki gerek olur" diye abstraction ekleme.
+
+Yanlış içgüdü:
+> "User model'e settings JSON column ekleyeyim, ileride ayar eklemek isteriz"
+
+Doğru tepki:
+> Ayar gereksinimi belirdiğinde column ekleyeceğim. Şu an YAGNI.
+
+Agent'ın doğal eğilimi over-engineer etmektir (training data'da enterprise pattern bol). Bu projenin MVP doğası buna direnmeyi gerektirir.
+
+## 2. Self-Review Mandatory
+
+**Her agent output'u review edilmeden commit edilmez.** Accept-all alışkanlığı projenin sonudur.
+
+Her diff için:
+- Auto-attached rule'lardaki pattern'e uyuyor mu?
+- Shared-schemas / shared-types doğru kullanılmış mı?
+- Security baseline 6 item'ı var mı (permission, Zod, encryption, audit, rate limit, XSS)?
+- Test yazılmış mı?
+- Hallucinated import/API var mı?
+- "TODO: fix later" yorumu var mı?
+
+Herhangi biri için "hayır" ya da "emin değilim" → iterate, commit etme.
+
+## 3. Test-First Mentality
+
+Test yazmadan kod commit edilmez. Exception yok.
+
+- Yeni public method → en az 1 unit test
+- Yeni endpoint → integration test
+- Bug fix → önce failing regression test, sonra fix
+- "Test'i sonra yazarım" yasak — "sonra" asla gelmez
+
+Coverage hedefleri (risk-bazlı):
+- Auth, encryption, permission resolver, workflow engine, audit: %85-95
+- Users, tasks, documents, notifications: %75-85
+- UI components (görsel): %60-70
+
+## 4. Explain The Why, Briefly
+
+Kod yorumu "ne yaptığını" değil, "neden böyle" anlatmalı:
+
+```typescript
+// ✗ Kötü
+// Email'i lowercase yapıyoruz
+email.toLowerCase();
+
+// ✓ İyi  
+// Case-sensitive email eşleştirmesini önler; deterministic encryption lookup için de zorunlu
+email.toLowerCase();
+```
+
+Çoğu durumda yorumsuz bırakmak daha iyi — kod zaten açıkça ne yaptığını söyler. Yorum yazıyorsan "neden"i anlat.
+
+## 5. Consistency > Perfect
+
+Proje içindeki pattern'ler tutarlı olmalı, her biri optimal olmasa bile. İki yerde iki farklı pattern = drift.
+
+Yeni kod yazarken:
+- Önce **aynı modülde benzer iş yapan** dosyalara bak
+- Var olan pattern'i kullan
+- Pattern'i değiştirmek gerekiyorsa **ADR yaz** ve TÜM modülü güncelle
+
+"Bu yeni bir feature, kendi stilimle yazayım" → hayır. Proje stilinde yaz.
+
+## 6. Yalnız Var Olan Convention'a Uy
+
+Agent'ın hallucinate edeceği en sık şeyler:
+
+- Olmayan library import (`react-query` yerine `@tanstack/react-query` kullan)
+- Yanlış package scope (`@leanmgmt/shared-types` doğru; `@lean/shared` yanlış)
+- Eski API signature (React 18 pattern'i; biz 19'dayız)
+- Eski NestJS decorator (@Guard, @Interceptor — biz yeni syntax'e sahibiz)
+
+Emin değilsen: dokümanı aç, var olan örneği bul, ona benzet.
+
+## 7. Commit Küçük Tut
+
+Her commit mantıksal bir birim olsun. Gün sonu "feat: implement everything" commit yasak.
+
+- Feature → 3-6 küçük commit
+- Her biri ayrı review edilebilir
+- Revert ihtiyacı tek birimi geri alır
+- `git bisect` temizdir
+
+## 8. Branch Kısa Tut
+
+Max 3 gün bir branch açık. Daha uzun sürecek feature → task'lara böl, her biri ayrı PR.
+
+Her sabah `git pull --rebase origin main`. Main'den 2+ conflict varsa branch too old — stash et, fresh branch al.
+
+## 9. Yanlış Hata Mesajı Yazma
+
+Generic error mesajları kullanıcıyı tahminlere zorlar. Spesifik ol:
+
+```typescript
+// ✗
+throw new Error('Bir hata oluştu');
+throw new BadRequestException('Invalid input');
+
+// ✓
+throw new UserSicilDuplicateException();  // typed exception → standardize mapping
+```
+
+## 10. Trust The Rules
+
+Auto-attached bir rule'da pattern varsa, onu kullan. "Ben daha iyisini biliyorum" sendromuna düşme — rules dokümanlardan distille edildi, docs takım kararıdır.
+
+Rule yanlış görünüyorsa:
+- Önce dokümanı oku (rule doğru mu?)
+- Takım ile konuş
+- Gerekirse rule'u güncelle + ADR yaz
+
+Ama aktif session'da sessizce bypass etme.
+
+## Session Disiplinini Koruma
+
+- **One session, one feature.** Dağınık çalışma context drift'e yol açar
+- **Shorter sessions.** 30-90 dakika ideal. Uzadıkça agent's context bozulur
+- **Start fresh on new topic.** Önceki feature bitti → yeni chat
+- **Phase prompt kullan.** Faz başında ilgili `@50-phase-XX-...` çağır
+
+## Kırmızı Bayraklar — Dur ve Düşün
+
+- Agent aynı yanlışı 3+ kere yapıyor → chat restart
+- Agent olmayan library import ediyor → hallucination, manuel düzelt
+- Agent test yazmayı atlıyor → push back
+- Kendini "kabul etmeliyim" baskısı altında hissediyorsan → yavaşla, tekrar oku
+
+---
+
+Detay: `docs/10_IMPLEMENTATION_ROADMAP.md` Bölüm 1 (Vibe Coding Çalışma Modeli)

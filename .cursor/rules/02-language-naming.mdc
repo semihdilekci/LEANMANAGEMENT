@@ -1,0 +1,160 @@
+---
+description: Language and naming conventions — Turkish user-facing strings, English identifiers, hybrid rules for commits/errors/logs. Daima uygulanır.
+alwaysApply: true
+---
+
+# Dil ve Naming Conventions
+
+## Dil Kuralları (Türkçe/İngilizce Hybrid)
+
+Bu proje Türkçe kullanıcı kitlesine hitap ediyor ama global developer ecosystem'ine göre kod yazılıyor. Hibrit kural matrisi:
+
+| Bağlam | Dil | Örnek |
+|---|---|---|
+| TypeScript identifier'lar (variable, function, class, type) | İngilizce | `getUserById`, `CreateUserInput`, `UsersService` |
+| Dosya isimleri | İngilizce | `users.service.ts`, `UserForm.tsx` |
+| DB kolon isimleri | snake_case İngilizce | `first_name`, `created_at`, `is_active` |
+| DB tablo isimleri | snake_case İngilizce plural | `users`, `audit_logs`, `process_tasks` |
+| Zod schema isimleri | PascalCase İngilizce | `CreateUserSchema`, `UpdateRoleSchema` |
+| Permission enum değerleri | UPPER_SNAKE_CASE İngilizce | `USER_CREATE`, `PROCESS_VIEW_ALL` |
+| Error code'lar | UPPER_SNAKE_CASE İngilizce | `AUTH_INVALID_CREDENTIALS`, `USER_SICIL_DUPLICATE` |
+| Error mesajları (user-facing `message` field) | Türkçe | "Bu sicil numarası zaten kayıtlı" |
+| UI string'leri (label, button text, tooltip) | Türkçe | "Kaydet", "Yeni Kullanıcı Oluştur" |
+| Toast notification'lar | Türkçe | "Kullanıcı başarıyla oluşturuldu" |
+| Commit mesajları | Türkçe description, İngilizce type/scope | `feat(auth): şifre sıfırlama akışı eklendi` |
+| Code comment'ler | Türkçe (tercihen) veya İngilizce | `// Manager cycle kontrolü — döngü oluşursa throw` |
+| Log mesajları (Pino structured) | İngilizce key'ler, değer serbest | `{ event: 'login_failed', reason: 'bad_password' }` |
+| Email template'ler | Türkçe | "Merhaba {{firstName}}, yeni bir görev atandı..." |
+| API response `message` field | Türkçe | User-facing direct |
+| README, docs | Türkçe (teknik terimler İngilizce) | "Bu modül NestJS + Fastify ile çalışır" |
+
+## Neden Bu Hybrid?
+
+- **Identifier İngilizce** — global developer ecosystem, framework conventions, stack overflow uyumu
+- **User-facing Türkçe** — hedef kitle Türk kurumsal çalışan, yerelleştirme zorunlu
+- **Commit Türkçe** — takım Türkçe çalışıyor, history okunur olsun
+- **Error code İngilizce + message Türkçe** — kod standardize, kullanıcı metnini anlıyor
+
+```typescript
+// Tipik error response
+{
+  success: false,
+  error: {
+    code: 'USER_SICIL_DUPLICATE',         // İngilizce — client logic uses
+    message: 'Bu sicil zaten kayıtlı',    // Türkçe — end user sees
+    details: { sicil: '12345678' }
+  }
+}
+```
+
+## TypeScript Naming Convention
+
+| Element | Convention | Örnek |
+|---|---|---|
+| Variable (local) | camelCase | `userName`, `isActive` |
+| Variable (constant, module-level) | UPPER_SNAKE_CASE | `MAX_LOGIN_ATTEMPTS`, `DEFAULT_PAGE_SIZE` |
+| Function | camelCase | `calculateSlaDueAt`, `serializeUser` |
+| Class | PascalCase | `UsersService`, `AuthController` |
+| Interface / Type | PascalCase | `CreateUserInput`, `UserResponse` |
+| Enum | PascalCase (name), UPPER_SNAKE_CASE (values) | `Permission.USER_CREATE` |
+| Component (React) | PascalCase | `UserForm`, `SlaBadge` |
+| Hook (React) | camelCase with `use` prefix | `useAuthStore`, `usePermissions` |
+| Boolean | `is`/`has`/`can` prefix | `isActive`, `hasPermission`, `canEdit` |
+| Event handler | `handle` prefix or `on` prefix | `handleSubmit`, `onUserSelect` |
+
+Avoid: `Get`/`Set` prefix (Java-style), Hungarian notation (`strName`), abbreviations (`usrMgr` → `userManager`).
+
+## Turkish Character Handling
+
+Identifiers **İngilizce** — Türkçe karakter yasak:
+
+```typescript
+// ✗ Yasak
+const kullanıcı = { ... };
+function başlat() { ... }
+
+// ✓ Doğru
+const user = { ... };
+function start() { ... }
+```
+
+User-facing string'lerde Türkçe karakter tam desteklenir (UTF-8):
+```typescript
+toast.success('Başarıyla kaydedildi');  // ş, ı, ğ — normal
+```
+
+## Domain-Specific Terms
+
+Proje-özel terimlerin canonical formu:
+
+| Turkish concept | TS identifier | Notes |
+|---|---|---|
+| Sicil | `sicil` | (!) İngilizce eşdeğeri yok, Türkçe identifier istisna olarak kabul |
+| KTİ | `kti` (lowercase) | Tam adı: Kaizen Tamamlama İyileştirme. Enum'da `BEFORE_AFTER_KAIZEN` |
+| Kullanıcı | `user` | Enlgish |
+| Süreç | `process` | English |
+| Görev | `task` | English |
+| Rol | `role` | English |
+| Yetki | `permission` | English |
+| Şirket | `company` | English |
+| Lokasyon | `location` | English |
+| Departman | `department` | English |
+
+**Sicil istisnası** — Türk kurumsal bağlamında "employee number" yeterince spesifik değil; `sicil` daha net. Bu tek identifier Türkçe.
+
+## Commit Message Format
+
+Conventional Commits + Türkçe description:
+
+```
+<type>(<scope>): <Türkçe açıklama>
+
+[Detaylı açıklama — opsiyonel, Türkçe]
+
+[Footer — opsiyonel]
+```
+
+Type'lar sabit (İngilizce): `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`, `style`, `revert`
+
+Scope'lar (İngilizce): `auth`, `users`, `roles`, `processes`, `kti`, `tasks`, `documents`, `notifications`, `admin`, `master-data`, `audit`, `ui`, `api`, `worker`, `web`, `infra`, `deps`, `config`
+
+Örnekler:
+- `feat(auth): şifre sıfırlama akışı eklendi`
+- `fix(kti): yönetici onay sonrası bildirim gönderilmiyor sorunu düzeltildi`
+- `refactor(roles): permission resolver cache invalidation mantığı ayrı servise taşındı`
+- `test(audit): chain hash concurrent insert integration test'i eklendi`
+
+Breaking change:
+- `feat(users)!: email adresi artık birincil identifier (BREAKING)`
+
+## Error Code Pattern
+
+```
+<DOMAIN>_<ACTION>_<REASON>
+```
+
+Örnekler:
+- `AUTH_INVALID_CREDENTIALS`
+- `AUTH_ACCOUNT_LOCKED`
+- `USER_SICIL_DUPLICATE`
+- `PROCESS_NOT_CANCELLABLE`
+- `TASK_CLAIM_LOST`
+- `PERMISSION_DENIED`
+- `VALIDATION_FAILED`
+
+Domain prefix zorunlu — error code'dan modülü tespit edebilmeliyim.
+
+## Banned Patterns
+
+- Türkçe variable/function isimleri (identifier İngilizce kuralı)
+- `any` type (TS strict mode)
+- Abbreviated names (`usr`, `ctx` haricinde) 
+- `Get`/`Set` prefix fonksiyonlar (Java-style)
+- Single-letter variables (`x`, `e` loop-only)
+- Misleading English (örn. `removeUser` soft-delete için — use `deactivateUser`)
+- Error mesajları İngilizce (`Invalid input` yerine `Geçersiz giriş`)
+- Commit mesajları İngilizce description (`fix(auth): fix bug` yerine `fix(auth): bug düzeltildi`)
+
+---
+
+Detay: `docs/09_DEV_WORKFLOW.md` Bölüm 3 (Conventional Commits)

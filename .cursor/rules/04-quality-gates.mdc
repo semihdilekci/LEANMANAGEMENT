@@ -1,0 +1,168 @@
+---
+description: Quality gates — test coverage thresholds, bundle size budget, performance SLO, PR merge criteria. CI enforces these.
+alwaysApply: true
+---
+
+# Quality Gates
+
+Her PR bu eşikleri karşılamalı. CI otomatik kontrol eder; merge blocked.
+
+## Test Coverage Thresholds (Risk-Based)
+
+Modül bazında hedefler:
+
+| Risk seviyesi | Modüller | Line | Branch | Function |
+|---|---|---|---|---|
+| **Yüksek** | auth, encryption, permission-resolver, workflow engine, audit | ≥90% | ≥85% | 100% |
+| **Orta** | users, roles, tasks, documents, notifications | 75-85% | 65-75% | 85-90% |
+| **Düşük** | master-data CRUD, admin settings, UI components | 60-70% | 50-60% | 70-80% |
+| **Overall backend** | — | ≥80% | ≥70% | ≥85% |
+| **Overall frontend** | — | ≥75% | ≥65% | ≥80% |
+| **Proje toplam** | CI gate | ≥75% | ≥65% | ≥80% |
+
+Coverage eşiklerin altı → PR block. Yeni dosya coverage %70 altında ise warning (reviewer decision).
+
+Coverage sayıları **proxy**, doğruluğun kendisi değil. %95 mock-heavy test zayıftır. Reviewer assertion kalitesine de bakar (trivial `toBeDefined()` vs davranış doğrulama).
+
+## Test Türü Dağılımı (Piramit)
+
+- **%70 unit** — Vitest, mock external deps, business logic real
+- **%20 integration** — Vitest + testcontainers (PostgreSQL + Redis Docker)
+- **%10 e2e** — Playwright, sadece kritik user journey'ler (6 tane MVP'de)
+
+E2E %20'yi aşmamalı — yavaş, kırılgan, pahalı. Unit ≥%70 hedef.
+
+## Bundle Size Budget — Frontend
+
+- **Initial load**: ≤200 KB gzipped
+- **Route chunks**: ≤150 KB gzipped each
+- **Component lazy chunks**: ≤50 KB gzipped
+
+`next.config.mjs` webpack performance hints ile enforce:
+
+```javascript
+config.performance = {
+  hints: 'error',
+  maxAssetSize: 200 * 1024,
+  maxEntrypointSize: 250 * 1024,
+};
+```
+
+Her PR'da `@next/bundle-analyzer` delta raporu:
+- +10 KB altı: ok
+- +10-50 KB: warning (reviewer decision)
+- +50 KB üstü: block + justification gerekli
+
+## Performance SLO (Production)
+
+- **P50 response time**: <200ms
+- **P95 response time**: <500ms
+- **P99 response time**: <1000ms
+- **Error rate (5xx)**: <0.1%
+- **Uptime**: 99.5%
+
+Web Vitals (frontend):
+- **LCP** (Largest Contentful Paint): <2.5s
+- **INP** (Interaction to Next Paint): <200ms
+- **CLS** (Cumulative Layout Shift): <0.1
+
+Lighthouse CI her PR'da kritik 3 sayfada çalışır:
+- `/login` (unauthenticated)
+- `/dashboard` (authenticated)
+- `/processes` (büyük liste)
+
+Eşikler:
+- Performance ≥ 0.80
+- Accessibility ≥ 0.90
+- Best practices ≥ 0.90
+
+## Linting & Type Checking
+
+Her PR green olmalı:
+
+- `pnpm lint` — ESLint (project config) + Prettier
+- `pnpm typecheck` — TypeScript strict, `noUnusedLocals`, `noImplicitAny`
+
+Lint warning'ler de fail olarak sayılır (`--max-warnings=0`).
+
+## CI Pipeline Gate'leri (PR)
+
+`.github/workflows/pr-check.yml` job'ları — hepsi green olmalı:
+
+1. **lint** — ESLint + Prettier + TypeScript
+2. **unit-test** — Vitest unit + coverage upload (Codecov)
+3. **integration-test** — Docker PostgreSQL + Redis + Vitest integration
+4. **security-scan** — Snyk (high+ blocks) + trufflehog (secret scan)
+5. **build** — Turbo build + Next.js bundle analysis
+
+Toplam süre hedefi: <8 dakika.
+
+Branch protection: main'e merge için 1 approval + tüm gate'ler green + up-to-date branch.
+
+## PR Merge Criteria
+
+Merge button aktif olması için:
+
+- [ ] CI tüm job'ları green
+- [ ] En az 1 reviewer approval (security-critical için 2 — `/apps/api/src/auth/**`, `/apps/api/src/encryption/**`, `/apps/api/src/audit/**`)
+- [ ] Branch main ile up-to-date
+- [ ] Merge conflict yok
+- [ ] All conversations resolved (review comments)
+
+Squash merge only. Merge commit ve rebase merge disable.
+
+## Accessibility Gate
+
+WCAG 2.1 AA zorunlu. Manuel check'ler PR'da:
+
+- [ ] Tüm interaktif element keyboard-accessible (Tab navigation)
+- [ ] Focus visible (ring styling)
+- [ ] Screen reader anlamlı (aria-label, aria-describedby, role)
+- [ ] Form label'ları `<FormLabel>` içinde (shadcn aria-labelledby otomatik)
+- [ ] Color contrast ≥ 4.5:1 (normal text), ≥ 3:1 (large text)
+- [ ] Keyboard trap yok (modal'da focus loop çalışır, ESC ile çıkış)
+
+axe-core integration test'lerde otomatik çalışır.
+
+## Security Gate
+
+- [ ] Dependency vulnerability: 0 HIGH+ (Snyk)
+- [ ] Secret leak: trufflehog green
+- [ ] Code security: Snyk Code HIGH+ block
+- [ ] CSP strict: inline script sadece nonce'lu (Lighthouse best-practices ölçer)
+- [ ] `dangerouslySetInnerHTML` yalnız DOMPurify sonrası (ESLint rule)
+
+Nightly full scan:
+- OWASP ZAP baseline (staging)
+- Snyk full scan (transitive deps)
+- Mutation testing (opsiyonel, haftalık — Stryker %60+ mutation score)
+
+## Performance Gate (Ayrı Pipeline)
+
+Haftalık/ayllık:
+- k6 load test 1000 concurrent user — P95 <500ms, error <0.1%
+- Lighthouse CI — scores eşikler altı ise warning
+
+Production monitoring:
+- CloudWatch dashboard: error rate, response time, DB CPU, Redis memory
+- Sentry: exception tracking + Performance transactions
+
+## Eşik Altında Kalırsa?
+
+**Coverage düşüşü:** Reviewer trade-off değerlendirir. Legacy code simplify'dan geliyorsa ok. Yeni code test atlamışsa block.
+
+**Bundle size artışı:** Gerekçelendir (yeni feature, kritik library) veya lazy-load et.
+
+**Lighthouse performance dip:** Bottleneck tespit + fix. Deploy öncesi green zorunlu.
+
+**Security scan finding:** Triage:
+- HIGH/CRITICAL → immediate fix (block)
+- MEDIUM → scheduled fix (next sprint)
+- LOW → backlog
+- False positive → Snyk ignore + justification
+
+---
+
+Detay:
+- `docs/08_TESTING_STRATEGY.md` — coverage matrix, CI pipeline, load test
+- `docs/09_DEV_WORKFLOW.md` Bölüm 8 (CI/CD Pipeline) + Bölüm 11 (Branch Protection)

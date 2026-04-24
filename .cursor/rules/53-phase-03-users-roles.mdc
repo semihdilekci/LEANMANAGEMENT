@@ -1,0 +1,135 @@
+---
+description: "[Faz 3] Users + master data — 3 iterasyon/chat (users API → master data API → admin UI). Mesajda “Faz 3 — İterasyon N” belirt."
+---
+
+# Faz 3: Users Module + Master Data
+
+## Goal
+
+Users modülü tam CRUD — backend endpoints + frontend admin screens. Master data (company, department, location, position) CRUD. Manager hierarchy cycle detection. User sessions listesi + revoke. PII anonymization endpoint.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@53-phase-03-users-roles` + **“Faz 3 — İterasyon N”**. Backend önce UI sonra; her chat’te tek iterasyon scope’u.
+
+### İterasyon 1 — Users + sessions (backend)
+
+**Hedef:** `users/*` + `users-sessions` alt kaynağı: CRUD, deactivate/reactivate, anonymize, sessions list/revoke; manager cycle detection; ilgili permission seed/metadata (bu modülle sınırlı).
+
+**Minimum bağlam:** `docs/02_DATABASE_SCHEMA.md` Bölüm 5–7 (users odaklı); `docs/03_API_CONTRACTS.md` 9.2.
+
+**Bu iterasyonda yok:** `master-data/*` modülleri; admin React sayfaları.
+
+**Doğrulama:** cycle + anonymization unit/integration; API contract’a uyum.
+
+**Stop:** [ ] Users backend Done maddeleri karşılandı. PR/onay.
+
+### İterasyon 2 — Master data (backend x4)
+
+**Hedef:** `companies`, `departments`, `locations`, `positions` modülleri (pattern tekrar); referans bütünlüğü; soft delete kuralları.
+
+**Minimum bağlam:** `docs/03_API_CONTRACTS.md` 9.3; şema ilgili bölümler.
+
+**Bu iterasyonda yok:** Frontend master-data sayfaları (İter 3).
+
+**Doğrulama:** Modül başına integration CRUD; seed/permission gerekiyorsa ekle.
+
+**Stop:** [ ] Dört master modül API tamam. PR/onay.
+
+### İterasyon 3 — Admin UI (users + master)
+
+**Hedef:** `apps/web` admin users ve master-data ekranları; formlar; Done Definition’daki ekran sayıları ve permission gate’ler.
+
+**Minimum bağlam:** `docs/06_SCREEN_CATALOG.md` S-USER-*, S-MASTER-*.
+
+**Doğrulama:** `lint/typecheck/test/integration` yeşil; kritik ekranlar smoke.
+
+**Stop:** Faz 3 tam Done Definition; roadmap işareti.
+
+## Required Context
+
+- `docs/01_DOMAIN_MODEL.md` — user entity + hierarchy
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 5-7 (users + master data)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.2 (Users + sessions), 9.3 (Master data)
+- `docs/06_SCREEN_CATALOG.md` — S-USER-LIST, S-USER-NEW, S-USER-DETAIL, S-USER-EDIT, S-USER-SESSIONS, S-MASTER-*
+
+## Scope
+
+### Files to create
+
+Backend:
+```
+apps/api/src/users/
+├── users.module.ts
+├── users.controller.ts
+├── users.service.ts
+├── users.exceptions.ts
+├── users-sessions.controller.ts      # Sub-resource
+├── dto/*.ts
+
+apps/api/src/master-data/
+├── companies.*                        # similar pattern
+├── departments.*
+├── locations.*
+└── positions.*
+```
+
+Frontend:
+```
+apps/web/src/app/(admin)/admin/users/
+├── page.tsx                            # S-USER-LIST
+├── new/page.tsx                        # S-USER-NEW
+├── [id]/page.tsx                       # S-USER-DETAIL
+├── [id]/edit/page.tsx                  # S-USER-EDIT
+└── [id]/sessions/page.tsx              # S-USER-SESSIONS
+
+apps/web/src/app/(admin)/admin/master-data/
+├── companies/...
+├── departments/...
+├── locations/...
+└── positions/...
+
+apps/web/src/components/users/
+├── UserForm.tsx
+├── UserList.tsx
+├── UserDetailCard.tsx
+└── UserSessions.tsx
+```
+
+### NOT touched
+
+- Roles (Faz 4)
+- Permissions (Faz 4)
+- Processes (Faz 5)
+
+## Constraints
+
+- Manager hierarchy cycle detection — recursive SQL veya iterative check
+- Soft delete only — `is_active = false`, hard delete yasak
+- Anonymization hard — PII fields → hash, anonymized_at set
+- Self-protection — user kendi hesabını deactivate edemez
+- Master data ownership — her user company'ye bağlı
+- Master data cannot be deleted if referenced (soft delete or archive)
+
+## Done Definition
+
+- [ ] Users CRUD: create, list, detail, update, deactivate, reactivate, anonymize
+- [ ] Sessions: list, revoke individual, revoke all
+- [ ] Master data CRUD x4 modül
+- [ ] Manager cycle test coverage (A→B→C→A detect)
+- [ ] Anonymization test coverage (PII gone, audit preserved)
+- [ ] Frontend: 5+ critical screen + 5+ secondary screen
+- [ ] Permission: USER_CREATE, USER_LIST_VIEW, USER_UPDATE_ATTRIBUTE, USER_DEACTIVATE, USER_SESSION_VIEW, USER_SESSION_REVOKE, USER_ANONYMIZE, MASTER_DATA_VIEW, MASTER_DATA_MANAGE — tümü seed'de + metadata
+- [ ] Integration tests full CRUD flow per module
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:integration` — green
+
+## Explicit Don'ts
+
+- Bulk user import (Faz post-MVP)
+- Self-service profile edit (auth module'de var, users modülü admin-focused)
+- User avatar upload (post-MVP)
+- Hard delete user (KVKK anonymization yerine)
+
+---
+
+Phase done → roadmap Faz 3 check mark.

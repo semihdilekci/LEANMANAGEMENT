@@ -1,0 +1,30 @@
+/* Icon library — stroke-based 24×24 */
+const I = {
+  home: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/></svg>,
+  check: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>,
+  flow: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6h6a4 4 0 0 1 4 4v.2M7 18h6a4 4 0 0 0 4-4v-.2"/></svg>,
+  users: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 11a3 3 0 1 0 0-6M21 19c0-2-1.6-3.6-4-4.4"/></svg>,
+  shield: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/></svg>,
+  data: () => <svg className="ls-ic" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>,
+  gear: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>,
+  bell: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9zM10 21a2 2 0 0 0 4 0"/></svg>,
+  plus: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
+  search: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>,
+  alert: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v.1"/></svg>,
+  info: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v.1M12 12v4"/></svg>,
+  checkCircle: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>,
+  x: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>,
+  chevRight: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>,
+  chevDown: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>,
+  filter: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M3 5h18l-7 9v6l-4-2v-4z"/></svg>,
+  download: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M12 3v12M6 11l6 6 6-6M4 20h16"/></svg>,
+  upload: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M12 21V9M6 13l6-6 6 6M4 4h16"/></svg>,
+  edit: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4"/></svg>,
+  trash: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 10v6M14 10v6"/></svg>,
+  clock: () => <svg className="ls-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>,
+  doc: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M8 12h8M8 16h6"/></svg>,
+  folder: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>,
+  inbox: () => <svg className="ls-ic" viewBox="0 0 24 24"><path d="M3 13l4-8h10l4 8v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h5l1 3h6l1-3h5"/></svg>,
+};
+
+window.I = I;

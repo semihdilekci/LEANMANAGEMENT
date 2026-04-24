@@ -1,0 +1,124 @@
+---
+description: "[Faz 8] Admin panel — 3 iterasyon/chat (settings+audit API → UI → crons+dashboard). “Faz 8 — İterasyon N”."
+---
+
+# Faz 8: Admin Panel
+
+## Goal
+
+Admin panel — system settings (password policy, session timeout, SLA defaults), audit log viewer (search + filter + export + chain verify), consent version management (draft → publish workflow), data retention policy editor, admin dashboard (metrics).
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@58-phase-08-admin-panel` + **“Faz 8 — İterasyon N”**.
+
+### İterasyon 1 — system-settings + audit API
+
+**Hedef:** `system-settings/*`, `audit/*` (list, export rate limit, verify-chain endpoint); Redis cache (5 dk) ayarı; DTO validation.
+
+**Minimum bağlam:** `docs/03_API_CONTRACTS.md` 9.9; `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 12 özet.
+
+**Bu iterasyonda yok:** consent modülü UI; nightly cron (İter 3).
+
+**Stop:** [ ] Audit API integration testleri (filtre/pagination). PR/onay.
+
+### İterasyon 2 — Consent backend + tüm admin UI sayfaları
+
+**Hedef:** `consent/*` publish workflow; audit log + consent + system settings ekranları; chain verify butonu UX.
+
+**Bu iterasyonda yok:** data-retention cleanup cron (İter 3).
+
+**Stop:** [ ] Consent publish → re-accept akışı testle doğrulandı. PR/onay.
+
+### İterasyon 3 — Worker crons + admin dashboard metrikleri
+
+**Hedef:** `audit-chain-verify-cron`, `data-retention-cleanup-cron`, admin dashboard aggregated queries; permission enforcement testleri.
+
+**Stop:** Faz 8 Done Definition; roadmap işareti.
+
+## Required Context
+
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 14 (system_settings, consent_versions, audit_logs)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.9 (Admin endpoints)
+- `docs/06_SCREEN_CATALOG.md` — S-ADMIN-DASHBOARD, S-SYSTEM-SETTINGS, S-AUDIT-LOG-*, S-CONSENT-VERSIONS
+- `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 12 (Audit chain)
+
+## Scope
+
+### Backend
+
+```
+apps/api/src/admin/
+├── system-settings/
+│   ├── system-settings.module.ts
+│   ├── system-settings.controller.ts
+│   ├── system-settings.service.ts
+│   └── dto/*.ts
+
+apps/api/src/audit/
+├── audit.module.ts
+├── audit.controller.ts                      # list, export, verify-chain
+├── audit.service.ts                         # Chain integrity check
+
+apps/api/src/consent/
+├── consent.module.ts
+├── consent.controller.ts                    # admin CRUD
+├── consent.service.ts                       # publish workflow
+
+apps/api/src/worker/src/admin/
+├── audit-chain-verify-cron.ts               # Nightly
+└── data-retention-cleanup-cron.ts           # 90 gün / configurable
+```
+
+### Frontend
+
+```
+apps/web/src/app/(admin)/admin/
+├── page.tsx                                  # S-ADMIN-DASHBOARD
+├── system-settings/page.tsx                  # S-SYSTEM-SETTINGS
+├── audit-logs/page.tsx                       # S-AUDIT-LOG-LIST
+├── audit-logs/[id]/page.tsx                  # S-AUDIT-LOG-DETAIL
+└── consent-versions/
+    ├── page.tsx                              # S-CONSENT-VERSIONS-LIST
+    ├── new/page.tsx                          # S-CONSENT-VERSION-NEW
+    └── [id]/page.tsx                         # S-CONSENT-VERSION-DETAIL
+```
+
+## Constraints
+
+- System settings: key-value, typed schema validation
+- Audit log view: cursor pagination (büyük tablo), filter by user/action/date/entity
+- Audit log export: CSV (Excel compatible) + JSON (forensic)
+- Audit chain verify: button triggers verification, shows broken sequence if any
+- Consent version: draft → publish transition. Publish forces all users to re-accept.
+- Data retention: notifications 90d (default, configurable), audit infinite (compliance)
+- System settings cache: Redis 5 dk
+
+## Done Definition
+
+- [ ] System settings CRUD + validation
+- [ ] Audit log list with filters (user, action, entity, date range, outcome)
+- [ ] Audit log detail: full context + chain neighborhood visualization
+- [ ] Audit export: CSV + JSON (rate-limited 5/hour)
+- [ ] Audit chain verify: button → verification result display
+- [ ] Consent version publish: draft → active, users forced re-accept
+- [ ] Admin dashboard: active user count, process count, overdue task count
+- [ ] Data retention cron test
+- [ ] AUDIT_LOG_VIEW, SYSTEM_SETTINGS_EDIT, CONSENT_VERSION_EDIT permission enforcement
+
+## Explicit Don'ts
+
+- User impersonation (post-MVP — security concern)
+- System-wide announcement broadcast (post-MVP)
+- Audit log manual edit (tamper resistance — yasak)
+- Auto-repair broken chain (incident response, not automated)
+- Multi-tenant admin panel (single-tenant MVP)
+
+## Related ADRs
+
+- ADR-0026: Audit log no auto-repair policy
+- ADR-0027: Consent re-accept on publish (vs gradual)
+
+---
+
+Phase done → roadmap Faz 8 check mark.

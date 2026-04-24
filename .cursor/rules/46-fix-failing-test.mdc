@@ -1,0 +1,334 @@
+---
+description: Procedure for diagnosing and fixing failing tests — covers distinguishing real bugs from mock issues, flaky test identification, debug strategy, and when to rewrite vs fix tests. Use when tests are failing in CI, flaky, or giving false signals.
+---
+
+# Failing Test Debug Prosedürü
+
+Failing test panic sebebi değil — information. Çoğu zaman gerçek bug'ı gösterir. "Test yanlış, ignoreler" tutumu yasak — tersine, test yeniden değerlendirilir.
+
+## Step 1: Failing Mode Tespit
+
+Test fail ediyorsa 4 olasılıktan biri:
+
+1. **Gerçek bug** — kod davranışı yanlış, test doğruyu bekliyor
+2. **Test outdated** — kod doğru, test eski davranışı bekliyor
+3. **Flaky** — bazen geçer bazen kalır (race, timing, order)
+4. **Environment** — test env setup broken (DB seed, mock, env var)
+
+Önce hangisi olduğunu belirle — fix stratejisi farklı.
+
+## Step 2: Local'de Reproduce Et
+
+```bash
+# Failing test'i isolate çalıştır
+pnpm test path/to/failing.test.ts
+
+# Verbose output
+pnpm test path/to/failing.test.ts --reporter=verbose
+
+# Specific test case
+pnpm test -t "creates user with valid input"
+
+# Multiple runs (flaky detect)
+for i in {1..10}; do pnpm test path/to/failing.test.ts; done
+```
+
+- 10 run'dan 10'unda fail → deterministic (bug veya outdated)
+- 10 run'dan 2-3'ünde fail → flaky (race, timing)
+- CI'da fail ama local'de green → environment diff
+
+## Step 3: Gerçek Bug Mu? (Option 1)
+
+Test expectation doğru, kod yanlış:
+
+**İndikatörler:**
+- Yakın zamanda kod değişti mi (`git log -p path/to/source.ts`)
+- Change summary test expectation ile uyumsuz mu?
+- Test şirket knowledge'ı doğrulayan bir şey mi test ediyor?
+
+**Fix:**
+- Kod'u düzelt — test expectation'a uyumlu hale getir
+- Regression önlemi: test dokümantasyon olur — benzer bug tekrar etmesin
+
+Test değiştirmeye direncli ol. Çoğu zaman test doğru.
+
+## Step 4: Test Outdated Mi? (Option 2)
+
+Kod yeni davranışa geçmiş, test eski bekliyor:
+
+**İndikatörler:**
+- Kod change recent + intentional (feature add, pattern change)
+- Test expectation ile current behavior arasında mantıklı gap
+- Similar test'ler de fail ediyor (wide change)
+
+**Fix:**
+- Test'i güncelle — yeni davranışı bekle
+- **Değişiklik git commit'inde açıkla:**
+  ```
+  refactor(users): rename sicil field to employeeNumber
+  
+  - Updates test expectations to match new field name
+  - Migration: 20260301_rename_sicil_to_employee_number
+  ```
+
+Ne zaman test update etmek yanlış:
+- Kod change unintentional (accidental regression)
+- Spec değişmedi, test spec'i enforce ediyor
+- Test business rule'u reflect ediyor
+
+## Step 5: Flaky Mi? (Option 3)
+
+Bazen geçer bazen kalır — en sinsi. Types:
+
+### Type A: Race Condition
+
+Async code timing — test parallelism'de farklı sırada çalışır:
+
+```typescript
+// ✗ Flaky — sıra garanti yok
+await service.createUser(input1);
+await service.createUser(input2);
+const users = await service.findMany({});
+expect(users[0].sicil).toBe(input1.sicil);  // sometimes input2 first!
+```
+
+**Fix**: deterministic sort:
+
+```typescript
+const users = await service.findMany({ orderBy: 'created_at ASC' });
+expect(users[0].sicil).toBe(input1.sicil);
+```
+
+### Type B: Time Dependence
+
+`Date.now()`, `new Date()` farklı zamanlarda farklı sonuç:
+
+```typescript
+// ✗ Flaky
+expect(result.expiresAt).toBe(Date.now() + 15 * 60 * 1000);  // ±ms drift
+```
+
+**Fix**: Mock time or approximate:
+
+```typescript
+// Mock time
+vi.setSystemTime(new Date('2026-03-01T10:00:00Z'));
+const result = await service.something();
+expect(result.expiresAt).toBe(new Date('2026-03-01T10:15:00Z').getTime());
+vi.useRealTimers();
+
+// Or approximate
+expect(result.expiresAt).toBeCloseTo(Date.now() + 15 * 60 * 1000, -3);  // ±1s
+```
+
+### Type C: Test Order Dependence
+
+Test'ler shared state paylaşır (global, static, DB):
+
+```typescript
+// Test 1 creates user
+// Test 2 assumes user exists
+// Test 2 runs alone → fails
+// Tests run together → passes
+```
+
+**Fix**: her test izole setup:
+
+```typescript
+beforeEach(async () => {
+  await resetDatabase();  // or use transaction per test
+});
+```
+
+### Type D: External Dependency
+
+Network, Docker container startup, Redis connection:
+
+```typescript
+// ✗ Flaky — container ready check yok
+beforeAll(async () => {
+  pgContainer = await new PostgreSqlContainer().start();
+  // Use immediately — maybe not ready
+  await prisma.$connect();  // TIMEOUT sometimes
+});
+```
+
+**Fix**: explicit wait:
+
+```typescript
+beforeAll(async () => {
+  pgContainer = await new PostgreSqlContainer().start();
+  await waitForPostgres(pgContainer.getConnectionUri(), 30_000);
+  await prisma.$connect();
+});
+```
+
+### Type E: Mock Stale
+
+Mock setup önceki test'ten kalır:
+
+```typescript
+// Test A
+vi.spyOn(service, 'findUser').mockResolvedValue(user1);
+
+// Test B — mock hala user1 dönüyor!
+// ...
+```
+
+**Fix**: her test sonunda reset:
+
+```typescript
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+```
+
+### Flaky Tespit Stratejisi
+
+```bash
+# 50 run loop — flaky %10'larda ortaya çıkar
+for i in {1..50}; do 
+  pnpm test path/to/suspect.test.ts || echo "FAIL on iteration $i"
+done
+```
+
+Flaky test **asla `skip` edilmez** — kökten fix:
+1. Test'i quarantine et (ayrı tag): `@flaky`
+2. CI'da quarantine'i ayrı job'da run et (non-blocking)
+3. Kök neden fix ol — 1 hafta deadline
+4. Fix sonrası quarantine'den çıkar
+
+Skip = temizlenmez, büyür.
+
+## Step 6: Environment Mi? (Option 4)
+
+CI fail, local green:
+
+**İndikatörler:**
+- Env var eksik CI'da?
+- Docker image farklı?
+- Seed data farklı?
+- Timezone farklı?
+
+**Debug:**
+
+```bash
+# CI'da echo env, local'le karşılaştır
+echo "NODE_ENV=$NODE_ENV"
+echo "DATABASE_URL=$DATABASE_URL"
+printenv | grep -v SECRET
+
+# CI logs detaylı incele
+# GitHub Actions: job > step > "Run tests" expand
+```
+
+**Fix**: 
+- Missing env var → `.github/workflows/*.yml`'e ekle
+- Seed missing → CI job'a `prisma db seed` adımı
+- Timezone → CI container'ı `TZ=UTC` set et
+
+## Step 7: Mock Issue vs Real Bug
+
+Mock-heavy test fail ediyorsa:
+
+**Real bug:**
+- Mock doğru shape'i bekliyor ama mock set doğru
+- Business logic test hâlâ fail
+
+**Mock issue:**
+- Mock signature mismatch (method renamed, argument changed)
+- Mock return type yanlış
+
+Diagnose:
+```typescript
+// Add real method call temporarily
+it('debug', async () => {
+  const user = await prisma.users.create({ data: { ... } });  // REAL
+  console.log('real result:', user);
+  // Compare with mock
+});
+```
+
+Mock correction:
+```typescript
+// Eski
+prisma.users.create.mockResolvedValue({ id: '123' });  // shape missing fields
+
+// Yeni
+prisma.users.create.mockResolvedValue(makeUser({ id: '123' }));  // factory
+```
+
+Factory pattern kullan — mock drift azalır.
+
+## Step 8: Fix'i Test Et
+
+Fix yapıldıktan sonra:
+
+1. Local'de test green
+2. Local'de 10 kez run (flaky check)
+3. CI PR — green
+4. Commit: `fix(test): ...` veya `fix(<module>): ...` (bug ise)
+
+## Sık Yapılan Hatalar
+
+### 1. "Skip" Komutu
+
+`it.skip()` commit — gerçek bug ignore. Rule: skip yasak, fix veya quarantine.
+
+### 2. Deterministic Fix Flaky'ye
+
+"Flaky bazen geçiyor" → sleep 100ms ekleme. Problem kaldırılmadı, sadece geciktirildi. Kök neden fix.
+
+### 3. Mock'u Test Etmek
+
+Test mock'un shape'ini test ediyorsa — iş yapmıyor. Behavior test etmeli.
+
+### 4. Log + Continue
+
+Test fail ediyor, console.log ekleyip fix ediyormuş gibi commit. Log'u temizle, asıl fix yap.
+
+### 5. CI-Only Fix
+
+"Local çalışıyor, CI'da skip edelim" — CI source of truth. Local ayarla.
+
+### 6. Test'i Silmek
+
+Test fail ediyor + zor fix → silmek. No. Test'in intent'i anlaşılmadan silinmez. Git history'de "why was this here?" arayan sonraki developer.
+
+### 7. Integration Yerine Mock Eklemek
+
+Integration test flaky → unit'e downgrade + her şeyi mock. Kapsam küçülür. Flaky root cause fix.
+
+## Test Quality Heuristics
+
+Good test:
+- Tek bir şey test eder
+- Başarısız oluyorsa nedeni açık (error message informative)
+- Deterministic
+- Fast (<1s unit, <10s integration)
+- İzole (setup/teardown clean)
+
+Bad test symptoms:
+- Birden çok assertion unrelated (split it)
+- `expect(x).toBeTruthy()` (too vague)
+- 200+ lines (too much setup — refactor helper)
+- Mock of the thing being tested
+- External dep (real HTTP, real email) in unit test
+
+## When to Rewrite vs Fix
+
+Rewrite:
+- Test hem implementation detail test ediyor
+- 500+ lines, setup refactor kaçınılmaz
+- Business rule değişti, fundamental change gerekli
+
+Fix:
+- Minor expectation update
+- Mock correction
+- Timing/flakiness fix
+
+Rewrite'da: önce coverage baseline (grep test file) — aynı kapsamı yeni test'lerde verify et. Kapsam küçülmesin.
+
+---
+
+Detay: `docs/08_TESTING_STRATEGY.md` Bölüm 6 (Flaky Tests + Debug) + `docs/09_DEV_WORKFLOW.md` Bölüm 8 (CI Pipeline)

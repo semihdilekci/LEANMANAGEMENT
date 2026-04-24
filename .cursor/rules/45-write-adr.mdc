@@ -1,0 +1,308 @@
+---
+description: Procedure for writing an Architecture Decision Record (ADR) using MADR 3.0 format — covers when ADR is needed, the decision context structure, considered options with trade-offs, and documenting the final choice. Use when task involves making a significant technical decision, breaking from pattern with justification, or capturing rationale for future reference.
+---
+
+# ADR Yazma Prosedürü
+
+ADR (Architecture Decision Record) — önemli teknik kararları kalıcı dokümante etmek. Ezberden hatırlanmaz, kod yorumları yeterli değildir. Karar ve rationale yazılı kalır.
+
+## Ne Zaman ADR Yazılır?
+
+### Evet, ADR yaz:
+
+- **Pattern'den sapma** — "Bu durumda farklı yapıyoruz çünkü..."
+- **Yeni framework / library** — ekosistem genişlemesi
+- **Security-critical choice** — crypto algorithm, auth flow, encryption
+- **Breaking change planı** — major version bump, schema redesign
+- **Performance trade-off** — maintainability vs speed
+- **Ecosystem decision** — monorepo vs polyrepo, single DB vs sharding
+- **Process decision** — CI pipeline structure, branch strategy, deployment flow
+- **Non-obvious rationale** — kod'a bakınca anlaşılmayan neden
+
+### Hayır, ADR yazma:
+
+- Trivial implementation detail
+- Style preference (linter config yeter)
+- Temporary workaround (issue yeter)
+- Self-evident decision ("kullanıcılar gerekli" türü)
+
+Kural: 6 ay sonra biri "neden böyle yaptık?" diye sorarsa ADR gerekli.
+
+## MADR 3.0 Format
+
+Dosya konumu: `docs/adrs/<NNNN>-<short-title-kebab-case>.md`
+
+Numaralandırma sequential: `0001`, `0002`, ...
+
+```markdown
+# ADR 0007: JWT HS256 over RS256
+
+- Status: Accepted
+- Date: 2026-02-15
+- Deciders: Platform team
+
+## Context and Problem Statement
+
+Authentication token signing algorithm seçimi gerekli. HS256 (symmetric) 
+vs RS256 (asymmetric). Karar her iki secret management ve operational 
+complexity farkını etkiler.
+
+Sistem monolitik backend — tek servis token sign + verify eder. Ancak 
+gelecekte federated auth (SSO) eklenebilir.
+
+## Decision Drivers
+
+- Operational simplicity
+- Secret rotation complexity
+- Federation readiness
+- Security posture
+- Performance (CPU cost)
+
+## Considered Options
+
+1. HS256 (HMAC-SHA256, symmetric)
+2. RS256 (RSA-SHA256, asymmetric)
+3. EdDSA (Ed25519, asymmetric, modern)
+
+## Decision Outcome
+
+**Chosen option: HS256**
+
+Gerekçe: Single-backend architecture'da symmetric signing operational 
+olarak daha basit. Tek secret (AWS Secrets Manager'da) vs keypair 
+management (public distribution + private protection).
+
+Performance karşılaştırması:
+- HS256: ~5,000 signatures/sec
+- RS256: ~500 signatures/sec (10x yavaş, RSA expensive)
+- EdDSA: ~3,000 signatures/sec
+
+Federated auth eklendiğinde migrate edeceğiz (yeni ADR).
+
+### Consequences
+
+**Positive:**
+- Secret rotation: single key update — dual-key window yeter
+- Deployment: Secrets Manager single entry
+- Performance: JWT issuance hızlı
+- Library support: `jsonwebtoken` HS256 default
+
+**Negative:**
+- Federation'a geçiş breaking — full token invalidation gerekir
+- Compromise scenario: secret leak → tüm geçmiş token geçerli (RS256'da 
+  public key ile sadece verification; signing capability private key'de)
+- JWT library misuse risk: `algorithm: 'none'` bug RS256'ya yaygın ama 
+  HS256'da da mümkün — her verify'da `algorithms: ['HS256']` explicit
+
+### Mitigations for Negative Consequences
+
+- Secret rotation policy: 180 günde bir, dual-key window
+- Secret'lar AWS Secrets Manager'da — IAM least-privilege
+- JWT library explicit `algorithms` parameter tüm verify çağrılarında
+- Federated auth planı: yeni ADR + migration plan
+
+## More Information
+
+- `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 3 (Token Management)
+- `apps/api/src/auth/auth.service.ts` — implementation
+- Referanslar: RFC 7519 (JWT), RFC 7518 (JWS/JWE algorithms)
+```
+
+## Sections Detail
+
+### Status
+
+- **Proposed** — tartışma aşamasında, implement edilmedi
+- **Accepted** — karar verildi, implement ediliyor/edildi
+- **Deprecated** — artık kullanılmıyor, ama historical record
+- **Superseded by ADR XXXX** — yeni ADR eski'nin yerini aldı
+
+### Context and Problem Statement
+
+- 2-5 paragraf
+- Mevcut durum + değişiklik tetikleyici
+- Önemli constraint'ler (performance, security, team size, deadline)
+- Neden _şimdi_ karar gerektiği
+
+### Decision Drivers
+
+- Bullet list
+- Ölçülebilir veya gözlemlenebilir
+- Opinion değil fact
+
+### Considered Options
+
+- En az 2 option (karşılaştırma olmazsa "decision" değil)
+- Nadir 4+ (decision fatigue)
+- Her option için 1 paragraf description
+- Pros + cons yazma — aşağıdaki Outcome'da compare edilecek
+
+### Decision Outcome
+
+- **Chosen option** — tek seçenek (tartışma kapandı)
+- Gerekçe: 3-5 cümle
+- Quantitative comparison varsa (benchmark, cost) include et
+
+### Consequences
+
+- Positive: kazanımlar
+- Negative: trade-off'lar (dürüst ol — ADR dürüstlük dokümanı)
+- Mitigations: negative'leri nasıl manage edersin
+
+### More Information
+
+- Doc references
+- Implementation files
+- External specs / RFCs
+- Related ADRs
+
+## Canonical ADR Sırası (Bu Projede)
+
+Kritik kararlar önceden ADR'lanmalı. Proje hayatındaki tipik sıra:
+
+- ADR 0001: Monorepo structure (Turborepo + pnpm)
+- ADR 0002: Stack selection (Next.js + NestJS + Prisma)
+- ADR 0003: Database (Aurora PostgreSQL 16)
+- ADR 0004: Cache layer (Redis)
+- ADR 0005: State management (TanStack Query + Zustand)
+- ADR 0006: Form library (RHF + Zod)
+- ADR 0007: JWT HS256 over RS256
+- ADR 0008: Refresh token family tracking
+- ADR 0009: PermissionResolver + Redis cache
+- ADR 0010: Attribute rule engine (OR groups + AND conditions)
+- ADR 0011: Process type registry pattern
+- ADR 0012: Audit log append-only (DB trigger + role + chain hash)
+- ADR 0013: PII encryption (deterministic email, probabilistic phone)
+- ADR 0014: Response envelope (success/data/error)
+- ADR 0015: Cursor pagination over offset
+- ADR 0016: 3-account AWS isolation
+
+Yeni decision → yeni ADR number.
+
+## ADR Yazma Süreci
+
+### 1. Draft
+
+Branch'te ADR draft. Status `Proposed`. PR aç.
+
+### 2. Discussion
+
+PR review — options ve trade-off'ları gözden geçir. Context eksikse soru sor. Alternate option önerisi gelebilir.
+
+### 3. Decision
+
+Discussion converge edince — Status `Accepted`. Merge.
+
+### 4. Implementation
+
+ADR merge'lendikten sonra implement edilir (önce ADR, sonra code — context out of order olmasın).
+
+### 5. Revision
+
+Sonradan karar değişirse:
+- Yeni ADR yaz
+- Eski ADR status → `Superseded by ADR XXXX`
+- Eski ADR silinmez (historical context)
+
+## ADR Template File
+
+`docs/adrs/_template.md`:
+
+```markdown
+# ADR XXXX: [Short Title]
+
+- Status: Proposed
+- Date: YYYY-MM-DD
+- Deciders: [names]
+
+## Context and Problem Statement
+
+[What's the situation? What decision needs to be made?]
+
+## Decision Drivers
+
+- [driver 1]
+- [driver 2]
+
+## Considered Options
+
+1. [option 1]
+2. [option 2]
+
+## Decision Outcome
+
+**Chosen option: [X]**
+
+[Rationale]
+
+### Consequences
+
+**Positive:**
+- ...
+
+**Negative:**
+- ...
+
+### Mitigations
+
+- ...
+
+## More Information
+
+- [References]
+```
+
+Yeni ADR'ın ilk kopyası bu template.
+
+## Sık Yapılan Hatalar
+
+### 1. Çok Kısa ADR
+
+2 paragraflık ADR — context eksik. 6 ay sonra "ne diyor bu?" olur. 500-1000 kelime normal.
+
+### 2. Opinion Olarak Yazmak
+
+"Bu daha iyi" (opinion) vs "Benchmark'ta 10x hızlı" (fact). Decision driver'lar fact-based.
+
+### 3. Tek Option
+
+"Considered: HS256. Chosen: HS256." — bu decision değil, announcement. En az 2 option compare et.
+
+### 4. Trade-off Gizlemek
+
+"Negative: None" — genelde yalan. Her seçimin trade-off'u var. Dürüst ol.
+
+### 5. Implementation Detail
+
+ADR high-level. `const timeout = 30000` ADR değil — kod. ADR: "Why 30 seconds? Because..."
+
+### 6. Stale ADR
+
+Karar değişti, ADR update edilmedi. Ya supersede et, ya revise et — stale ADR misleading.
+
+### 7. Yanlış Yerde
+
+Slack thread'de önemli karar → kaybolur. Wiki page → maintained değil. ADR repo'da, versionlı, reviewed.
+
+## Retrospective ADR
+
+Bazen karar önce alındı, ADR sonradan yazıldı — ok ama dikkat:
+
+- Timestamp'e kesin tarih yaz (decision date, not write date)
+- Status `Accepted` — implement edildi
+- Context'i decision zamanındaki gibi yaz (hindsight bias'i en aza indir)
+
+## ADR vs Documentation
+
+- **ADR** — neden (rationale, trade-offs, alternatives)
+- **Documentation** — ne, nasıl (implementation, reference, how-to)
+
+Örnek:
+- `docs/07_SECURITY_IMPLEMENTATION.md` — "JWT HS256 kullanıyoruz, 15 dk TTL, rotation 180 gün"
+- `docs/adrs/0007-jwt-hs256.md` — "Neden RS256 değil? Trade-off'lar..."
+
+İkisi birbirini tamamlar.
+
+---
+
+Detay: `docs/09_DEV_WORKFLOW.md` Bölüm 4 (Architecture Decision Records)

@@ -1,0 +1,313 @@
+---
+description: TanStack Query — query key factory, stale time, invalidation rules, optimistic updates, mutation patterns
+globs:
+  - "apps/web/src/lib/queries/**"
+  - "apps/web/src/hooks/use*Query.ts"
+  - "apps/web/src/hooks/use*Mutation.ts"
+---
+
+# TanStack Query Patterns
+
+Server state'in TEK aracı. Zustand'a server data koyma — stale data garanti.
+
+## Query Key Factory
+
+Her modül için type-safe key factory:
+
+```typescript
+// lib/query-keys.ts
+export const queryKeys = {
+  auth: {
+    me: () => ['auth', 'me'] as const,
+  },
+  users: {
+    all: () => ['users'] as const,
+    lists: () => [...queryKeys.users.all(), 'list'] as const,
+    list: (filters?: UserListFilters) => 
+      [...queryKeys.users.lists(), filters ?? {}] as const,
+    details: () => [...queryKeys.users.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.users.details(), id] as const,
+    sessions: (id: string) => [...queryKeys.users.detail(id), 'sessions'] as const,
+  },
+  processes: {
+    all: () => ['processes'] as const,
+    lists: () => [...queryKeys.processes.all(), 'list'] as const,
+    list: (filters?: ProcessFilters) => 
+      [...queryKeys.processes.lists(), filters ?? {}] as const,
+    details: () => [...queryKeys.processes.all(), 'detail'] as const,
+    detail: (displayId: string) => 
+      [...queryKeys.processes.details(), displayId] as const,
+  },
+  tasks: {
+    all: () => ['tasks'] as const,
+    mine: (filters?: TaskFilters) => 
+      [...queryKeys.tasks.all(), 'mine', filters ?? {}] as const,
+    detail: (id: string) => [...queryKeys.tasks.all(), 'detail', id] as const,
+  },
+  // ... diğer modüller
+} as const;
+```
+
+Hierarchical yapı invalidation'ı kolaylaştırır:
+- `invalidateQueries({ queryKey: queryKeys.users.all() })` — tüm user queries invalidate
+- `invalidateQueries({ queryKey: queryKeys.users.lists() })` — sadece list queries
+- `invalidateQueries({ queryKey: queryKeys.users.detail(id) })` — tek user detail
+
+## Query Hook Pattern
+
+```typescript
+// lib/queries/users.ts
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
+import type { UserResponse, UserListQuery } from '@leanmgmt/shared-schemas';
+
+export function useUserQuery(id: string) {
+  return useQuery({
+    queryKey: queryKeys.users.detail(id),
+    queryFn: () => apiClient.get<UserResponse>(`/api/v1/users/${id}`)
+      .then((r) => r.data.data),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}
+
+export function useUserListQuery(filters: UserListQuery) {
+  return useQuery({
+    queryKey: queryKeys.users.list(filters),
+    queryFn: () => apiClient
+      .get('/api/v1/users', { params: filters })
+      .then((r) => r.data.data),
+    placeholderData: keepPreviousData,  // pagination UX
+    staleTime: 30_000,
+  });
+}
+```
+
+## Stale Time Guidelines
+
+| Data türü | Stale time |
+|---|---|
+| Current user (me) | 5 dk |
+| User list | 30 sn |
+| User detail | 1 dk |
+| Process list (my tasks) | 15 sn |
+| Process detail | 30 sn |
+| Master data (companies, depts) | 10 dk |
+| Notifications (unread count) | 20 sn |
+| Dashboard widgets | 60 sn |
+| Audit log list | 0 (always refetch) |
+
+Real-time ihtiyacı → `refetchInterval`:
+
+```typescript
+useQuery({
+  queryKey: queryKeys.tasks.mine(),
+  queryFn: ...,
+  staleTime: 15_000,
+  refetchInterval: 30_000,  // background refresh
+});
+```
+
+## Mutation Pattern
+
+```typescript
+// lib/queries/users.ts
+export function useCreateUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateUserInput) => 
+      apiClient.post('/api/v1/users', input).then((r) => r.data.data),
+    onSuccess: () => {
+      // Tüm user list'leri invalidate (filter kombine sayılmaz)
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+
+export function useUpdateUserMutation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateUserInput) =>
+      apiClient.patch(`/api/v1/users/${id}`, input).then((r) => r.data.data),
+    onSuccess: (updated) => {
+      // Detay cache'i direct set et (bir fetch kazanırız)
+      queryClient.setQueryData(queryKeys.users.detail(id), updated);
+      // List cache'leri invalidate (list'te güncel görsün)
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+
+export function useDeactivateUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      apiClient.post(`/api/v1/users/${id}/deactivate`, { reason })
+        .then((r) => r.data.data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+```
+
+## Invalidation Rules
+
+Mutation sonrası hangi cache'leri invalidate edeceğin:
+
+| Mutation | Invalidate |
+|---|---|
+| User create | `users.lists()` |
+| User update | `users.detail(id)`, `users.lists()` |
+| User deactivate | `users.detail(id)`, `users.lists()` |
+| Role assign to user | `users.detail(id)`, `auth.me()` (self ise) |
+| Process start | `processes.lists()`, `tasks.mine()` |
+| Task claim | `tasks.mine()`, `processes.detail(displayId)` |
+| Task complete | `tasks.mine()`, `processes.detail(displayId)` |
+| Notification mark read | `notifications.unreadCount()`, `notifications.list()` |
+
+`all()` ile over-invalidate yapma — her query'yi tekrar fetch eder, network waste.
+
+## Optimistic Update
+
+Kritik UX (like button, mark-read notification) için optimistic:
+
+```typescript
+export function useMarkNotificationReadMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => 
+      apiClient.post(`/api/v1/notifications/${id}/mark-read`),
+    
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.notifications.list() });
+      
+      const prev = queryClient.getQueryData(queryKeys.notifications.list());
+      queryClient.setQueryData(queryKeys.notifications.list(), (old) => {
+        return old?.map((n) => n.id === id ? { ...n, isRead: true } : n);
+      });
+      
+      return { prev };  // rollback context
+    },
+    
+    onError: (err, id, context) => {
+      // Rollback
+      if (context?.prev) {
+        queryClient.setQueryData(queryKeys.notifications.list(), context.prev);
+      }
+      toast.error('Güncelleme başarısız');
+    },
+    
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.list() });
+    },
+  });
+}
+```
+
+Optimistic sadece trivial state change'lerde — confirmation gereken işlemlerde kullanma.
+
+## Pagination — Cursor-Based
+
+```typescript
+// Simple pagination (not infinite)
+const [cursor, setCursor] = useState<string | undefined>();
+
+const { data, isFetching, isPlaceholderData } = useQuery({
+  queryKey: queryKeys.users.list({ cursor, limit: 20 }),
+  queryFn: () => apiClient.get('/api/v1/users', { 
+    params: { cursor, limit: 20 } 
+  }).then((r) => r.data.data),
+  placeholderData: keepPreviousData,
+});
+
+// Next page button
+<Button 
+  onClick={() => setCursor(data.pagination.nextCursor)}
+  disabled={isPlaceholderData || !data?.pagination.hasMore}
+>
+  Sonraki
+</Button>
+```
+
+Infinite scroll için `useInfiniteQuery`:
+
+```typescript
+const { data, fetchNextPage, hasNextPage } = useInfiniteQuery({
+  queryKey: queryKeys.tasks.mine(filters),
+  queryFn: ({ pageParam }) => apiClient
+    .get('/api/v1/tasks/mine', { params: { cursor: pageParam, ...filters } })
+    .then((r) => r.data.data),
+  initialPageParam: undefined,
+  getNextPageParam: (lastPage) => lastPage.pagination.nextCursor,
+});
+```
+
+## Query Enable/Disable
+
+Conditional query:
+
+```typescript
+// User ID yoksa query çalıştırma
+useUserQuery(id);  // içinde `enabled: !!id`
+
+// User authenticated değilse me query çalışmaz
+const { accessToken } = useAuthStore();
+const { data: me } = useMeQuery({ enabled: !!accessToken });
+```
+
+## Error Handling
+
+Global interceptor (`api-client.ts`) 401/403 handle. Query hook'ta `onError` nadir gerekli.
+
+Component'te error göster:
+
+```typescript
+const { data, error, isLoading } = useUserListQuery(filters);
+
+if (isLoading) return <UserListSkeleton />;
+if (error) return <InlineError message="Kullanıcılar yüklenemedi" onRetry={refetch} />;
+if (!data.items.length) return <EmptyState ... />;
+
+return <UserList items={data.items} />;
+```
+
+## Default Query Client Config
+
+```typescript
+// components/Providers.tsx
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,  // TR çalışma saatlerinde gereksiz
+      retry: (failureCount, error: AxiosError) => {
+        if (error.response?.status === 401 || 
+            error.response?.status === 403 ||
+            error.response?.status === 404) return false;
+        return failureCount < 3;
+      },
+    },
+    mutations: {
+      retry: false,  // mutation'lar retry olmaz
+    },
+  },
+});
+```
+
+## Banned Patterns
+
+- Server data Zustand'a set etmek (sync problemi)
+- Raw `fetch()` kullanmak (apiClient axios singleton)
+- `useEffect` içinde fetch (TanStack Query kullan)
+- Manual cache management (`setQueryData` sadece mutation onSuccess'te)
+- Over-invalidation (`invalidateQueries()` no args — tüm cache)
+- Query key array literal inline (key factory kullan)
+- `staleTime: 0` + `refetchOnMount: always` (büyük cost)
+- Suspense hybrid mode (MVP'de `useQuery` default, `useSuspenseQuery` yok)
+
+---
+
+Detay: `docs/05_FRONTEND_SPEC.md` Bölüm 4 (Data layer & TanStack Query)

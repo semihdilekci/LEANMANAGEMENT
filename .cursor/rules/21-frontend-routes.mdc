@@ -1,0 +1,319 @@
+---
+description: Next.js App Router — route groups, layouts, protected routes, dynamic segments, page metadata
+globs:
+  - "apps/web/src/app/**"
+---
+
+# Frontend Routes
+
+Next.js 15 App Router. Route groups `(group-name)` parantezle URL'ye eklenmez; sadece dosya organizasyonu + layout scope'u.
+
+## Route Group Seçimi
+
+| Katman | Route group | URL örn. |
+|---|---|---|
+| Public (homepage, public info) | None (root) | `/` |
+| Auth — unauth'd kullanıcı | `(auth)` | `/login`, `/reset-password` |
+| App — auth'd, normal kullanıcı | `(app)` | `/dashboard`, `/tasks`, `/processes` |
+| Admin — auth'd, admin permission | `(admin)` | `/admin/users`, `/admin/roles` |
+
+Her group kendi `layout.tsx`'ini tanımlar.
+
+```
+app/
+├── (auth)/
+│   ├── layout.tsx          # Centered card layout
+│   ├── login/page.tsx
+│   └── reset-password/page.tsx
+├── (app)/
+│   ├── layout.tsx          # Sidebar + header
+│   ├── dashboard/page.tsx
+│   ├── processes/
+│   │   ├── page.tsx
+│   │   └── [displayId]/page.tsx
+│   └── users/
+│       ├── page.tsx
+│       ├── new/page.tsx
+│       └── [id]/
+│           ├── page.tsx
+│           └── edit/page.tsx
+├── (admin)/
+│   ├── layout.tsx          # Admin-themed layout + permission guard
+│   ├── admin/users/page.tsx
+│   └── admin/system/page.tsx
+├── layout.tsx              # Root (providers, html, body)
+└── middleware.ts
+```
+
+## Root Layout
+
+```typescript
+// app/layout.tsx
+import { Providers } from '@/components/Providers';
+import type { Metadata } from 'next';
+import '@/styles/globals.css';
+
+export const metadata: Metadata = {
+  title: { default: 'Lean Management', template: '%s | Lean Management' },
+  description: 'Kurumsal lean yönetim platformu',
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="tr" suppressHydrationWarning>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+## App Layout (Protected Routes)
+
+```typescript
+// app/(app)/layout.tsx
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/auth-store';
+import { useMeQuery } from '@/lib/queries/auth';
+import { Sidebar } from '@/components/shared/Sidebar';
+import { AppHeader } from '@/components/shared/AppHeader';
+import { ConsentGate } from '@/components/shared/ConsentGate';
+import { FullPageLoader } from '@/components/shared/FullPageLoader';
+
+export default function AppLayout({ children }) {
+  const router = useRouter();
+  const { accessToken, setAuth } = useAuthStore();
+  const { data: me, isLoading, error } = useMeQuery({ enabled: !!accessToken });
+
+  useEffect(() => {
+    if (error || (!isLoading && !me)) {
+      router.replace('/login');
+    }
+  }, [error, isLoading, me, router]);
+
+  if (isLoading || !me) return <FullPageLoader />;
+
+  return (
+    <ConsentGate user={me}>
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex-1 flex flex-col">
+          <AppHeader />
+          <main className="flex-1 p-6">{children}</main>
+        </div>
+      </div>
+    </ConsentGate>
+  );
+}
+```
+
+`ConsentGate` — user'ın current consent version'ı kabul etmediyse blocking modal gösterir.
+
+## Admin Layout (Permission Gate)
+
+```typescript
+// app/(admin)/layout.tsx
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@leanmgmt/shared-types';
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
+
+export default function AdminLayout({ children }) {
+  const router = useRouter();
+  const permissions = usePermissions();
+
+  const hasAnyAdminPermission = [
+    Permission.AUDIT_LOG_VIEW,
+    Permission.SYSTEM_SETTINGS_EDIT,
+    Permission.ROLE_VIEW,
+    Permission.USER_LIST_VIEW,
+  ].some((p) => permissions.has(p));
+
+  useEffect(() => {
+    if (!hasAnyAdminPermission) {
+      router.replace('/dashboard');
+    }
+  }, [hasAnyAdminPermission, router]);
+
+  if (!hasAnyAdminPermission) return null;
+
+  return (
+    <div className="flex min-h-screen">
+      <AdminSidebar />
+      <main className="flex-1 p-6">{children}</main>
+    </div>
+  );
+}
+```
+
+## Dynamic Segments
+
+```
+users/
+├── [id]/              # /users/abc-123
+│   └── page.tsx
+├── new/               # /users/new
+│   └── page.tsx
+└── page.tsx           # /users
+
+processes/
+├── [displayId]/       # /processes/KTI-000042
+│   └── page.tsx
+└── page.tsx
+```
+
+Page component:
+
+```typescript
+// app/(app)/processes/[displayId]/page.tsx
+interface PageProps {
+  params: Promise<{ displayId: string }>;
+}
+
+export default async function ProcessDetailPage({ params }: PageProps) {
+  const { displayId } = await params;  // Next.js 15 — async params
+  return <ProcessDetail displayId={displayId} />;
+}
+```
+
+Next.js 15'te `params` ve `searchParams` promise — `await` zorunlu.
+
+## Page Metadata
+
+Her page kendi metadata:
+
+```typescript
+// app/(app)/users/page.tsx
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Kullanıcılar',
+};
+
+export default function UsersPage() {
+  return <UserList />;
+}
+```
+
+Dinamik metadata:
+
+```typescript
+// app/(app)/processes/[displayId]/page.tsx
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const { displayId } = await params;
+  return { title: `Süreç ${displayId}` };
+}
+```
+
+## Loading, Error, Not Found Conventions
+
+Next.js App Router özel dosyalar:
+
+```
+users/
+├── page.tsx
+├── loading.tsx      # Route-level Suspense fallback
+├── error.tsx        # Route-level error boundary
+└── not-found.tsx    # 404 UI
+```
+
+```typescript
+// loading.tsx — otomatik Suspense
+export default function Loading() {
+  return <UserListSkeleton />;
+}
+
+// error.tsx — otomatik error boundary
+'use client';
+export default function Error({ error, reset }) {
+  return (
+    <div>
+      <h2>Bir hata oluştu</h2>
+      <Button onClick={() => reset()}>Tekrar dene</Button>
+    </div>
+  );
+}
+```
+
+## Middleware Pattern
+
+```typescript
+// middleware.ts (apps/web/src/middleware.ts)
+import { NextResponse } from 'next/server';
+
+const PUBLIC_PATHS = ['/login', '/reset-password', '/forgot-password'];
+
+export function middleware(request) {
+  const { pathname } = request.nextUrl;
+  const hasRefreshToken = request.cookies.has('refresh_token');
+
+  // Static + API ignore
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
+
+  // Already authenticated → skip auth pages
+  if (hasRefreshToken && PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Unauthenticated → redirect to login (protected routes)
+  const isPublic = PUBLIC_PATHS.includes(pathname) || pathname === '/';
+  if (!hasRefreshToken && !isPublic) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+Middleware hızlı olmalı — heavy validation client-side layout'ta.
+
+## Navigation
+
+`next/link` veya `router.push`:
+
+```typescript
+// Static link
+import Link from 'next/link';
+<Link href="/users/new">Yeni Kullanıcı</Link>
+
+// Programmatic
+import { useRouter } from 'next/navigation';
+const router = useRouter();
+router.push(`/users/${id}`);
+router.replace('/login');  // no history entry
+router.back();
+```
+
+`<a href>` yasak — full page reload, client navigation bozulur.
+
+## Parallel Routes (Advanced, MVP'de Nadir)
+
+`@slot` notation ile aynı layout'ta paralel content. MVP'de kullanılmıyor — complexity + justification gerekli.
+
+## Banned Patterns
+
+- `<a href>` internal navigation için (use `<Link>`)
+- `window.location.href = ...` (use `router`)
+- Route-level data fetching RSC'de olmadığında (TanStack Query client-side kullan)
+- `params` / `searchParams` await etmeden erişim (Next.js 15 breaking change)
+- Middleware'de heavy computation (DB call, etc.) — cache header control yeter
+- Multiple layouts same depth (tek layout per group seviyesi)
+
+---
+
+Detay: `docs/05_FRONTEND_SPEC.md` Bölüm 5 (Routing & Navigation)

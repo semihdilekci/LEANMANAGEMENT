@@ -1,0 +1,159 @@
+---
+description: "[Faz 1] AWS Terraform — 4 iterasyon/chat (network → data → compute → edge/CI). Mesajda “Faz 1 — İterasyon N” belirt."
+---
+
+# Faz 1: Infrastructure
+
+## Goal
+
+AWS eu-central-1'de dev/staging/prod 3-hesap ayrıştırması. Her environment'ta: VPC (3 AZ), Aurora PostgreSQL 16, ElastiCache Redis, S3 documents bucket, Secrets Manager, ECS cluster + skeleton services, ALB, CloudFront + WAF. Terraform state S3'te.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+**Tek sohbette tüm modülleri bitirme.** `@51-phase-01-infrastructure` + **“Faz 1 — İterasyon N”**. Her iterasyonda sadece ilgili Terraform modülleri; `terraform fmt/validate/plan`; mümkünse `plan` çıktısı review; el onayı → yeni chat.
+
+### İterasyon 1 — Network + state backend
+
+**Hedef:** `modules/network` (VPC, 3 AZ, NAT, IGW), `environments/*/backend.tf` S3 state + DynamoDB lock, `dev` composition’da network wired; `terraform init/plan` yeşil.
+
+**Minimum bağlam:** `docs/09_DEV_WORKFLOW.md` Bölüm 10; `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 11 (network/SG ilkeleri).
+
+**Bu iterasyonda yok:** Aurora, Redis, ECS, ALB, CloudFront.
+
+**Stop:** [ ] dev `plan` idempotent görünüm; [ ] SG’de gereksiz `0.0.0.0/0` yok (ALB dışı kuralına uy). PR/onay.
+
+### İterasyon 2 — Data katmanı (Aurora + Redis + Secrets + KMS + S3)
+
+**Hedef:** `modules/database`, `modules/cache`, `modules/secrets`, `modules/kms`, `modules/s3-bucket`; dev’de provision; Secrets placeholder yapısı.
+
+**Bu iterasyonda yok:** ECS service task tanımları, ALB listener kuralları (İter 3).
+
+**Doğrulama:** `terraform apply` dev (onaylı); ECS task’tan erişim henüz yoksa en azından endpoint/security group wiring doc’lanmış.
+
+**Stop:** Done Definition’daki Aurora + Redis + S3 encryption + Secrets maddeleri dev için karşılanır. PR/onay.
+
+### İterasyon 3 — Compute + ALB + ECS skeleton
+
+**Hedef:** `modules/ecs-cluster`, `modules/ecs-service`, `modules/alb`; dev’de skeleton servisler; HTTPS/redirect (ACM varsayımı dokümante).
+
+**Bu iterasyonda yok:** CloudFront/WAF ince ayarı (İter 4).
+
+**Doğrulama:** ALB health; ECS servisler register; OIDC rol iskeleti hazır.
+
+**Stop:** Done Definition ALB + ECS ile ilgili maddeler. PR/onay.
+
+### İterasyon 4 — CloudFront + WAF + GitHub workflows + gözlem
+
+**Hedef:** `modules/cloudfront`, WAF managed rules; `.github/workflows/terraform-*.yml`; CloudWatch alarm iskeleti; staging/prod `plan` (apply manuel politikasıyla).
+
+**Doğrulama:** dev CloudFront→ALB; WAF bağlı; workflow’lar yeşil path.
+
+**Stop:** Faz 1 **Done Definition** tamamı + ilgili ADR’lar. Roadmap Faz 1 işareti.
+
+## Required Context
+
+- `docs/09_DEV_WORKFLOW.md` Bölüm 10 (Infrastructure) + Bölüm 8 (CI/CD)
+- `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 11 (Infrastructure Security)
+- Auto-attached: 30-infra-terraform.mdc (loads automatically for .tf files)
+
+## Scope
+
+### Files to create
+
+```
+infrastructure/terraform/
+├── modules/
+│   ├── network/                    # VPC, 3 AZ subnets, NAT, IGW
+│   ├── database/                   # Aurora cluster
+│   ├── cache/                      # ElastiCache Redis
+│   ├── ecs-cluster/                # ECS Fargate
+│   ├── ecs-service/                # Reusable service template
+│   ├── alb/                        # Application Load Balancer
+│   ├── s3-bucket/                  # S3 encrypted
+│   ├── secrets/                    # Secrets Manager
+│   ├── cloudfront/                 # CDN + WAF
+│   └── kms/                        # KMS keys
+└── environments/
+    ├── dev/
+    │   ├── main.tf                 # Module composition
+    │   ├── variables.tf
+    │   ├── terraform.tfvars
+    │   └── backend.tf              # S3 state
+    ├── staging/
+    │   └── ...
+    └── prod/
+        └── ...
+
+.github/workflows/
+├── terraform-plan.yml              # PR'da plan
+├── terraform-apply-dev.yml         # main merge auto-apply dev
+├── terraform-apply-staging.yml     # tag'lerde apply staging
+└── terraform-apply-prod.yml        # manual trigger, approval gate
+```
+
+### Files NOT touched
+
+- Application code (Faz 2+)
+- Docker images (Faz 1 sonunda skeleton — tam image Faz 9)
+
+## Constraints
+
+### Use
+
+- **Terraform 1.6+**
+- **AWS provider 5.x**
+- Module pattern — `modules/` reusable, `environments/` composition
+- State locking: DynamoDB
+- Resource naming: `leanmgmt-<env>-<service>-<detail>`
+- Common tags: Environment, Project, ManagedBy=terraform, Owner
+- Least-privilege IAM — wildcard resource yasak
+- GitHub OIDC — long-lived AWS keys yok
+- KMS customer-managed keys (CMK) — DB, S3, Secrets için
+
+### Avoid
+
+- AWS console'dan manuel resource (Terraform yönetsin)
+- `*` IAM resource
+- `0.0.0.0/0` Security Group ingress (ALB dışında)
+- `skip_final_snapshot = true` prod DB'de
+- Plaintext secret Terraform'da (initial value console)
+- Cross-environment dependency (dev bağımsız çalışsın)
+
+## Done Definition
+
+- [ ] `terraform init` dev/staging/prod için hatasız
+- [ ] `terraform plan` dev — 0 değişiklik (idempotent)
+- [ ] `terraform apply` dev — başarıyla çalışıyor
+- [ ] Dev Aurora cluster reachable (ECS task'tan)
+- [ ] Dev Redis reachable
+- [ ] Dev S3 documents bucket encryption enabled (SSE-KMS)
+- [ ] Dev Secrets Manager 5 secret (JWT current, JWT previous, refresh current, refresh previous, encryption) — initial değer console'dan set
+- [ ] Dev ALB public, HTTPS only (ACM cert), HTTP→HTTPS redirect
+- [ ] Dev CloudFront dağıtımı ALB önünde
+- [ ] Dev WAF rule set (AWS managed rules)
+- [ ] GitHub Actions OIDC role provision edilmiş
+- [ ] Terraform state S3 bucket versioning + encryption + MFA delete (prod)
+- [ ] Basic CloudWatch alarms (API 5xx rate, DB CPU)
+- [ ] Staging + prod TF çalışıyor ama manuel apply (güvenlik)
+- [ ] Commit: `feat(infra): complete AWS infrastructure via terraform for 3 environments`
+
+## Explicit Don'ts
+
+- Application code (sadece infra)
+- Production DB data load (empty)
+- Custom domain DNS (manual setup veya Faz 9)
+- Full CI/CD pipeline (Faz 9)
+- Advanced monitoring stack (Faz 9)
+- EKS (ECS Fargate — simpler, adequate)
+
+## Related ADRs
+
+- ADR-0003: AWS eu-central-1 region (data residency)
+- ADR-0004: Aurora PostgreSQL over RDS standard (serverless v2 option)
+- ADR-0005: ECS Fargate over EKS (operational simplicity)
+- ADR-0006: 3-account isolation (security boundary)
+- ADR-0007: GitHub OIDC vs IAM keys (zero long-lived credentials)
+
+---
+
+Phase done → `docs/10_IMPLEMENTATION_ROADMAP.md` Faz 1 check mark.

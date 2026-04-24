@@ -1,0 +1,242 @@
+---
+description: Procedure for refactoring existing code to match established project patterns — covers identifying the target pattern, planning the refactor, preserving behavior via tests, and incremental safe changes. Use when task involves cleaning up legacy code, aligning to conventions, or extracting shared patterns.
+---
+
+# Pattern Refactor Prosedürü
+
+Refactor agent'ın en riskli operasyonu — davranış değişikliği istemeden olabilir. Disiplinli yaklaşım: pattern tespit → test safety net → küçük adımlar → behavior preserve.
+
+## Step 1: Target Pattern'i Tespit Et
+
+Refactor'un hedefi "daha iyi" değil — belirli bir pattern. Önce pattern'i bul:
+
+- **Auto-attached rule'larda var mı?** — relevant `.mdc` dosyasını aç, canonical example'ı oku
+- **Proje içinde benzer iş yapan dosya?** — `grep` / `find` ile örnek bul
+- **Documentation'da spec var mı?** — `docs/04_BACKEND_SPEC.md` vs benzeri
+
+Pattern'i yazılı olarak formüle et:
+
+> "Service method'ları `@Audit` decorator + `$transaction` wrap + `serialize()` private method ile döner. Hedef: `UsersService.create` pattern'i gibi."
+
+Pattern belirsizse refactor yapma — önce takım kararı.
+
+## Step 2: Regression Test Ağı Kur
+
+Refactor öncesi test'ler zorunlu:
+
+```typescript
+// Önce mevcut davranışı TEST'LE (eksikse yaz)
+describe('LegacyFooService (before refactor)', () => {
+  it('valid input → expected output', async () => {
+    const result = await service.foo(input);
+    expect(result).toMatchObject({ /* baseline */ });
+  });
+
+  it('invalid input → throws', async () => {
+    await expect(service.foo(invalid)).rejects.toThrow();
+  });
+
+  // Her public method için happy + error path
+});
+```
+
+Tests green ise refactor edebilirsin. Kırmızıysa önce fix — refactor sırasında "bu eskiden de böyleydi" diyemezsin.
+
+Integration test seviyesinde de baseline: endpoint same request → same response.
+
+## Step 3: Plan Hazırla
+
+Refactor'u alt-parçalara böl. Her parça:
+- Küçük (200 satırdan az)
+- Bağımsız committable
+- Test'ler green kalır
+
+Örnek plan:
+
+```
+Phase 1: Exception hierarchy
+  - LegacyFooException → FooException extends AppException
+  - Error code taxonomy'ye ekle
+  - Tests: existing 500 → 409 with typed code
+
+Phase 2: Transaction wrapping
+  - Sequential awaits → $transaction
+  - Rollback behavior test
+
+Phase 3: Response serialization
+  - Raw entity return → serialize() private method
+  - Field-level permission filter
+  - Breaking? No — additive fields only
+
+Phase 4: Audit decoration
+  - Inline auditService.log() → @Audit decorator
+  - Verify audit still logged (integration test)
+```
+
+Her phase ayrı PR. Reviewer küçük diff'i dikkatli review eder.
+
+## Step 4: Behavior Preservation
+
+Refactor ≠ feature change. Davranış **aynı kalır**:
+
+- Input aynı → output aynı
+- Exception türü aynı (veya upgrade edilmişse map'leme doğru)
+- HTTP status aynı
+- Audit log aynı kayıt
+- Performance karşılaştırılabilir
+
+Davranış değiştiren refactor = ayrı PR.
+
+## Step 5: Incremental Değişiklik
+
+Her değişiklik sonrası:
+1. Lint + typecheck green
+2. Test run
+3. Commit (küçük, açıklayıcı)
+
+"Tüm refactor'u bir seferde yapayım" — zaten tüm testler kırılır, neyin bozulduğu bulunamaz.
+
+```bash
+# Doğru flow
+git commit -m "refactor(users): rename legacy exception to typed"
+pnpm test
+git commit -m "refactor(users): wrap create in $transaction"
+pnpm test
+# ...
+```
+
+## Step 6: Deprecation Strategy (Breaking Refactor)
+
+Public API refactor (frontend kullanıyor) — aniden değiştirme. İki adım:
+
+### Adım 1: Yeni API ekle, eski'yi deprecate işaretle
+
+```typescript
+/**
+ * @deprecated Use `createUser` instead. Will be removed 2026-06-01.
+ */
+async createUserLegacy(...) {
+  return this.createUser(...);  // delegate
+}
+
+async createUser(...) {
+  // new pattern
+}
+```
+
+Frontend `createUser`'a geçer. 2-4 hafta monitoring.
+
+### Adım 2: Deprecated kaldır
+
+Tüm caller'lar migrate olduktan sonra legacy kaldır.
+
+## Step 7: Documentation Sync
+
+Refactor docs'u da etkiler:
+
+- Method signature değişti mi → `docs/04_BACKEND_SPEC.md` güncelle
+- Error code değişti mi → `docs/03_API_CONTRACTS.md` güncelle
+- Pattern establish edildi mi → ADR yaz (`docs/adrs/`)
+
+## Step 8: Performance Impact Değerlendir
+
+Refactor bazen yavaşlatır:
+- Serialize method eklemek → CPU cost
+- Transaction wrap eklemek → lock time
+- Audit decoration → extra DB write
+
+Load test:
+
+```bash
+# Baseline (before refactor)
+k6 run load-tests/scenarios/users-endpoint.js
+# Save: baseline-results.json
+
+# After refactor
+k6 run load-tests/scenarios/users-endpoint.js
+# Compare: p50, p95, p99, throughput
+```
+
+Regression > %10 → investigate. Significant ise ADR ile justify.
+
+## Step 9: Review Feedback
+
+Reviewer'a context ver:
+
+**PR description template:**
+
+```markdown
+## Refactor: Legacy Service → Canonical Pattern
+
+### Scope
+- `apps/api/src/foo/foo.service.ts`
+- `apps/api/src/foo/foo.exceptions.ts` (new file)
+- `apps/api/src/foo/foo.controller.ts`
+
+### Pattern
+Canonical: `UsersService` (from `docs/04_BACKEND_SPEC.md` Section 5)
+
+### Behavior changes
+**None.** All tests green before + after.
+
+### Breaking changes
+**None for API consumers.** Internal method signatures updated.
+
+### Performance
+P95 unchanged (±2%, within noise). See `load-test-results.md`.
+
+### Test coverage
++12 new tests (previously 65% → now 88%)
+```
+
+## Sık Yapılan Hatalar
+
+### 1. "Daha iyi" Refactor
+
+"Bu kod çirkin, düzelteyim" — stop. Pattern tanımlı mı? Belirsizse refactor tartışmasını önce başlat.
+
+### 2. Refactor + Feature Karıştırma
+
+"Refactor ediyorum ayrıca X feature de ekleyeyim" — ayrı PR yap. Review zor olur, revert zor olur.
+
+### 3. Test Ağı Olmadan Başlama
+
+Mevcut davranışın test'i yoksa — önce test yaz, sonra refactor. "Zaten çalışıyor" sözlü argüman.
+
+### 4. Büyük Diff
+
+500 satırlık refactor PR = review zor + risk yüksek. 100-200 satır max.
+
+### 5. Performance Regression Görmezden Gelme
+
+"Slightly slower" görmezden gelme. %10 regression P95'te customer-visible.
+
+### 6. Legacy Behavior Preserve Etmeme
+
+Refactor "bug fix" değil. Eski davranış bug ise ayrı PR'da fix et, ayrıca refactor.
+
+### 7. Dokümantasyon Drift
+
+Kod değişti, doc eski kaldı. Rules distille eder — doc kaynak truth. Sync gerekli.
+
+## Kullanılan Pattern'ler Bu Projede
+
+Sık refactor hedefleri:
+
+| Mevcut (eski) | Hedef (canonical) | Rule |
+|---|---|---|
+| Inline Zod schema in controller | Import from `@leanmgmt/shared-schemas` | 03-security-baseline, 14-backend-controllers |
+| Return raw Prisma entity | `serialize()` private method | 10-backend-architecture |
+| Generic `throw new Error()` | Typed `AppException` subclass | 10-backend-architecture |
+| Sequential `await` writes | `$transaction(async (tx) => ...)` | 15-backend-database |
+| Inline `auditService.log()` | `@Audit('ACTION', 'ENTITY')` decorator | 16-backend-audit |
+| Class React component | Functional + hooks | 24-frontend-components |
+| `useEffect` + fetch | TanStack Query | 23-frontend-queries |
+| Direct `localStorage` token | Zustand memory store | 20-frontend-architecture |
+| Inline permission check | `@RequirePermission` or `<PermissionGate>` | 12-backend-permissions |
+
+---
+
+Detay:
+- Pattern kaynakları: auto-attached rules (10-25 arası)
+- ADR format: `docs/09_DEV_WORKFLOW.md` Bölüm 4

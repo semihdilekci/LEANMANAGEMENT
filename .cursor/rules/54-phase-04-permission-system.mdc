@@ -1,0 +1,125 @@
+---
+description: "[Faz 4] RBAC+ABAC — 3 iterasyon/chat (core+guard → cache+4-katman test → admin UI). Mesajda “Faz 4 — İterasyon N” belirt."
+---
+
+# Faz 4: Permission System
+
+## Goal
+
+RBAC (direct role assignments) + ABAC (attribute rule engine) hybrid. PermissionResolverService Redis cache (5dk TTL). 4-katman enforcement (guard + decorator + ownership + field-level). Admin UI: roles, permissions matrix, role assignment, attribute rules.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@54-phase-04-permission-system` + **“Faz 4 — İterasyon N”**. Çekirdek servisler önce, UI sonra.
+
+### İterasyon 1 — Resolver + evaluator + PermissionGuard
+
+**Hedef:** `permission-resolver.service`, `attribute-rule-evaluator.service`, `permission.guard`, DTO’lar, `Permission` enum/metadata paylaşımı; unit testler (cache’siz veya mock Redis).
+
+**Minimum bağlam:** `docs/04_BACKEND_SPEC.md` Bölüm 6; `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 4 (kurallar).
+
+**Bu iterasyonda yok:** Event tabanlı cache invalidation listener; admin React ekranları.
+
+**Stop:** [ ] Resolver + evaluator + guard testleri yeşil. PR/onay.
+
+### İterasyon 2 — Cache + invalidation + 4-katman integration
+
+**Hedef:** Redis TTL, `role-cache-invalidation.listener`, `role-permission-management` atomik güncellemeler; 4-katman integration testleri (her katman ayrı senaryo); field-level serialization test.
+
+**Bu iterasyonda yok:** Permission matrix UI, attribute rule builder UI.
+
+**Stop:** [ ] Invalidation trigger testleri; [ ] 4-katman checklist tamam. PR/onay.
+
+### İterasyon 3 — Admin UI (roller + matrix + attribute rules)
+
+**Hedef:** Rol CRUD, permission matrix, attribute rule CRUD/builder, user role assignment bileşenleri.
+
+**Minimum bağlam:** `docs/06_SCREEN_CATALOG.md` S-ROLE-*, S-PERMISSION-MATRIX, S-ATTR-RULE-*.
+
+**Stop:** Faz 4 Done Definition + roadmap işareti.
+
+## Required Context
+
+- `docs/01_DOMAIN_MODEL.md` — RBAC + ABAC model
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 7-8 (roles, permissions, attribute_rules)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.4 (Roles + permissions)
+- `docs/04_BACKEND_SPEC.md` Bölüm 6 (PermissionResolver pattern)
+- `docs/06_SCREEN_CATALOG.md` — S-ROLE-*, S-PERMISSION-MATRIX, S-ATTR-RULE-*
+- `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 4 (4-layer enforcement)
+
+## Scope
+
+### Files to create
+
+Backend:
+```
+apps/api/src/roles/
+├── roles.module.ts
+├── roles.controller.ts
+├── roles.service.ts
+├── roles.exceptions.ts
+├── permission-resolver.service.ts                # Redis cache
+├── attribute-rule-evaluator.service.ts           # OR/AND evaluation
+├── role-permission-management.service.ts         # atomic permission updates
+├── role-cache-invalidation.listener.ts           # EventEmitter listener
+└── dto/*.ts
+
+apps/api/src/common/guards/
+└── permission.guard.ts                            # global + decorator reader
+```
+
+Frontend:
+```
+apps/web/src/app/(admin)/admin/
+├── roles/page.tsx                                  # S-ROLE-LIST
+├── roles/new/page.tsx                              # S-ROLE-NEW
+├── roles/[id]/page.tsx                             # S-ROLE-DETAIL
+├── roles/[id]/permissions/page.tsx                 # S-PERMISSION-MATRIX
+├── attribute-rules/page.tsx                        # S-ATTR-RULE-LIST
+└── attribute-rules/new/page.tsx                    # S-ATTR-RULE-NEW
+
+apps/web/src/components/admin/roles/
+├── RoleForm.tsx
+├── PermissionMatrix.tsx                            # Category-grouped checkboxes
+├── AttributeRuleBuilder.tsx                        # Visual rule editor
+└── UserRoleAssignment.tsx
+```
+
+## Constraints
+
+- Cache invalidation EventEmitter pattern (3 trigger: user role change, role permission change, attribute rule change)
+- Attribute rules: OR between groups, AND within group
+- Operators supported: equals, not_equals, contains, in, starts_with, ends_with
+- Permission enum tek source of truth (`packages/shared-types`)
+- Metadata zorunlu her Permission için
+- 4-katman enforcement: hepsi implement
+
+## Done Definition
+
+- [ ] PermissionResolverService cache hit/miss test
+- [ ] AttributeRuleEvaluator exhaustive test (OR groups, AND conditions, operator variety)
+- [ ] Cache invalidation triggers test (user change, role change, rule change)
+- [ ] PermissionGuard global, decorator reader doğru
+- [ ] Admin UI: role CRUD + permission matrix + attribute rule CRUD
+- [ ] Permission matrix: category-grouped, sensitive flag visible, bulk assign
+- [ ] Attribute rule visual builder: group + condition CRUD
+- [ ] 4-katman integration test — her katman ayrı test
+- [ ] Field-level serialization test (actor permission'a göre field visible/null)
+
+## Explicit Don'ts
+
+- Pre-warming cache (MVP'de on-demand yeter)
+- Complex ABAC policy language (OR/AND yeter)
+- Time-based permissions (seasonal, schedule) — post-MVP
+- Permission delegation (user assigns permissions to user) — admin only
+- Role inheritance (hierarchical roles) — post-MVP
+
+## Related ADRs
+
+- ADR-0013: RBAC + ABAC hybrid architecture
+- ADR-0014: PermissionResolver Redis cache (5 min TTL)
+- ADR-0015: Attribute rule engine semantics (OR groups)
+
+---
+
+Phase done → roadmap Faz 4 check mark.

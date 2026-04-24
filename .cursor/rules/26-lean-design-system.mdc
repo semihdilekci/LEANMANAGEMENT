@@ -1,0 +1,41 @@
+---
+description: Lean UI design system — apps/web veya docs/lean-design-system üzerinde çalışırken tokenlar ve ls-* sınıfları için zorunlu kaynak; magic color/spacing yasak.
+globs:
+  - "apps/web/**/*.{tsx,ts,css}"
+  - "docs/lean-design-system/**"
+---
+
+# Lean Design System — Zorunlu Referans
+
+`docs/lean-design-system/` proje içi **görsel doğruluk kaynağıdır** (drop-in paket: token CSS, hazır bileşen sınıfları, ikonlar). Yeni sayfa, bileşen, layout veya stil değişikliğinde agent **önce** bu klasörü kullanır; tasarımı sıfırdan uydurmaz.
+
+## Okuma sırası (implementasyondan önce)
+
+1. `docs/lean-design-system/README.md` — kurulum, `ls-*` kullanımı, token cheat-sheet, “Token dışına çıkma” kuralları
+2. `docs/lean-design-system/tokens.css` — renk, tipografi, spacing, radius, shadow, motion değişkenleri
+3. `docs/lean-design-system/components.css` — `ls-btn`, `ls-card`, `ls-input`, `ls-alert`, vb. hazır sınıflar
+4. Gerekirse `example.html` — markup örüntüleri
+
+## Zorunlu uygulama kuralları
+
+- **Yeni renk / spacing / radius / shadow** için önce `tokens.css` içinde mevcut değişkenlere bak; yoksa **token dosyasına** ekle — sayfa içinde rastgele `#hex` veya `px` şelaleleri yasak (README ile uyumlu).
+- **Bileşen görünümü** için mümkün olduğunca `components.css` içindeki **`ls-*`** sınıflarını kullan; Tailwind/shadcn ile birlikte kullanımda README’deki sıra ve çakışma notlarına uy.
+- **Next.js / `apps/web`**: Tasarım CSS’inin root’a bağlanması `README.md` “Kurulum” bölümüne göre yapılır (ör. `globals.css` veya root `layout` üzerinden `index.css` import). Henüz bağlı değilse bu iterasyonda **merkezi import** ekle veya proje stratejisine uygun kopya/symlink yolunu dokümante et; tek seferlik omurga değişikliği kabul.
+- **`icons.jsx`**: Next/React modülü olarak kullanılacaksa README’deki `window.I` → `export default` notuna uy.
+
+## Diğer kurallarla ilişki
+
+- **shadcn/ui** (`24-frontend-components`): Primitifler `components/ui/` altında kalır; renk ve spacing **design token’larla** hizalanır (`var(--color-*)`, `var(--space-*)`).
+- **Erişilebilirlik** (`25-frontend-a11y`): `ls-*` kullanırken odak halkası, kontrast ve klavye ile uyumluluğu bozma; gerekirse shadcn primitive + token birleşimi tercih et.
+
+## Yasak / kaçınılacaklar
+
+- README’de tanımlı token/set dışında “marka rengi gibi görünen” rastgele palet
+- `components.css`’te karşılığı varken aynı görünüm için uzun utility zincirleri yazmak (bakım ve tutarlılık)
+- Design system dosyalarını **apps/web dışı** tüketici olarak görmezden gelip yalnızca Tailwind default’larına güvenmek
+
+## Kaynak yolu
+
+Tüm dosyalar: `docs/lean-design-system/` (`README.md`, `index.css`, `tokens.css`, `components.css`, `icons.jsx`, `example.html`).
+
+Detaylı domain ve ekran spesifikasyonu: `docs/05_FRONTEND_SPEC.md`, `docs/06_SCREEN_CATALOG.md` — design system **görsel dil**; bu dokümanlar **davranış ve içerik** için birlikte kullanılır.

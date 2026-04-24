@@ -1,0 +1,226 @@
+---
+description: "[Faz 2] DB + Auth foundation — 4 iterasyon/chat (Prisma → common+encryption → auth API → web+E2E). Mesajda “Faz 2 — İterasyon N” belirt."
+---
+
+# Faz 2: Database Schema + Auth Foundation
+
+## Goal
+
+Prisma schema v1 (users, sessions, roles, permissions, audit_logs, consent). Encryption service (deterministic email + probabilistic phone). Auth module full implementation: 8 endpoint + 3 guard + bcrypt + JWT rotation + refresh family tracking. Frontend: AuthLayout + login + password-reset screens.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+**Tek sohbette tamamlanmaz.** `@52-phase-02-auth-foundation` + **“Faz 2 — İterasyon N”**. Her iterasyonda yalnızca aşağıdaki scope; bitişte test/lint/typecheck; el onayı → yeni chat.
+
+### İterasyon 1 — Prisma v1 + migration + seed
+
+**Hedef:** `apps/api/prisma/schema.prisma` (users, sessions, roles, permissions, audit_logs, consent), ilk migration, `seed.ts` (superadmin + roller + izinler).
+
+**Minimum bağlam:** `docs/01_DOMAIN_MODEL.md`; `docs/02_DATABASE_SCHEMA.md` Bölüm 1–4.
+
+**Scope:** Sadece `apps/api/prisma/**`. `common/`, `auth/`, `apps/web/**` **yok**.
+
+**Doğrulama:** `prisma migrate` + seed başarılı; şema dokümanla uyumlu diff review.
+
+**Stop:** [ ] migrate + seed yeşil. PR/onay → İterasyon 2.
+
+### İterasyon 2 — Encryption + ortak altyapı
+
+**Hedef:** `common/encryption/*`, Prisma encryption middleware, `common/decorators|filters|interceptors|pipes|exceptions`, `prisma.service`, `redis.service`, `app.module.ts` içinde global filter/interceptor/guard **kayıt iskeleti** (auth endpoint gövdesi İter 3).
+
+**Minimum bağlam:** `docs/04_BACKEND_SPEC.md` Bölüm 4–5; `docs/07_SECURITY_IMPLEMENTATION.md` PII/encryption.
+
+**Scope:** `apps/api/src/common/**`, `prisma.service.ts`, `redis.service.ts`, `app.module.ts` kablolama. Auth modülü: boş veya DI için minimal module dosyaları **endpoint implementasyonu olmadan** kabul edilebilir — tercih: auth iskeleti sadece İter 3’te dolsun.
+
+**Bu iterasyonda yok:** 8 auth endpoint; frontend.
+
+**Doğrulama:** encryption unit test (round-trip + deterministic email).
+
+**Stop:** [ ] Ortak katman derleniyor; encryption testleri yeşil. PR/onay.
+
+### İterasyon 3 — Auth API (8 endpoint + 3 guard + güvenlik)
+
+**Hedef:** `auth/*` tam implementasyon: login, logout, refresh, password-reset-request/confirm, change-password, consent/accept, me; 3 guard; rate limit; error taxonomy; integration: login → refresh → theft detection → logout.
+
+**Minimum bağlam:** `docs/03_API_CONTRACTS.md` Bölüm 9.1; `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 2–3.
+
+**Scope:** `apps/api/src/auth/**` + `app.module` guard register. **Frontend yok.**
+
+**Doğrulama:** Service coverage hedefi (yüksek risk); integration test; Done Definition “Backend” maddeleri bu iterasyonda kapanmalı.
+
+**Stop:** [ ] curl örnekleri phase doc’taki gibi çalışır düzeyde. PR/onay.
+
+### İterasyon 4 — Frontend auth + E2E
+
+**Hedef:** AuthLayout, login, password reset akışı, Zustand (memory-only), `api-client` interceptors, `middleware.ts`, Providers; E2E (login başarısız/başarılı + reset).
+
+**Minimum bağlam:** `docs/05_FRONTEND_SPEC.md` Bölüm 5; `docs/06_SCREEN_CATALOG.md` S-LOGIN, S-RESET-*.
+
+**Scope:** `apps/web` auth route’ları ve ilgili lib/components.
+
+**Doğrulama:** `pnpm lint`, typecheck, test; E2E üç journey; Done Definition “Frontend” + manual smoke.
+
+**Stop:** Faz 2 tam checklist; roadmap Faz 2 işareti.
+
+## Required Context
+
+- `docs/01_DOMAIN_MODEL.md` — user + auth entities
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 1-4 (users, sessions, roles, permissions, audit)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.1 (Auth endpoints — 8)
+- `docs/04_BACKEND_SPEC.md` Bölüm 4-5 (middleware, service patterns)
+- `docs/05_FRONTEND_SPEC.md` Bölüm 5 (AuthLayout)
+- `docs/06_SCREEN_CATALOG.md` — S-LOGIN, S-RESET-PASSWORD-REQUEST, S-RESET-PASSWORD-CONFIRM
+- `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 2-3 (Auth + Token)
+- Auto-attached: 10-14 (backend), 11 (auth), 20-22 + 26-lean-design-system (frontend / tasarım)
+
+## Scope
+
+### Backend — Files to create
+
+```
+apps/api/prisma/
+├── schema.prisma                       # v1 models
+├── migrations/
+│   └── 20260xxx_initial/migration.sql
+└── seed.ts                              # Superadmin + roles + permissions
+
+apps/api/src/
+├── common/
+│   ├── encryption/
+│   │   ├── encryption.service.ts        # deterministic + probabilistic
+│   │   └── encryption.middleware.ts     # Prisma middleware
+│   ├── decorators/
+│   │   ├── public.decorator.ts
+│   │   ├── current-user.decorator.ts
+│   │   └── require-permission.decorator.ts
+│   ├── filters/global-exception.filter.ts
+│   ├── interceptors/
+│   │   ├── response-envelope.interceptor.ts
+│   │   └── audit.interceptor.ts
+│   ├── pipes/zod-validation.pipe.ts
+│   └── exceptions/app.exception.ts
+├── prisma/prisma.service.ts
+├── redis/redis.service.ts
+├── auth/
+│   ├── auth.module.ts
+│   ├── auth.controller.ts               # 8 endpoints
+│   ├── auth.service.ts
+│   ├── auth.exceptions.ts
+│   ├── guards/
+│   │   ├── jwt-auth.guard.ts
+│   │   ├── csrf.guard.ts
+│   │   └── consent.guard.ts
+│   └── dto/*.ts
+└── app.module.ts                        # global guards + interceptors
+```
+
+### Frontend — Files to create
+
+```
+apps/web/src/
+├── app/(auth)/
+│   ├── layout.tsx                       # AuthLayout
+│   ├── login/page.tsx
+│   ├── reset-password/page.tsx
+│   └── confirm-reset/page.tsx
+├── stores/auth-store.ts                  # Zustand
+├── lib/
+│   ├── api-client.ts                     # axios + interceptors
+│   └── queries/auth.ts                   # useMeQuery, mutations
+├── middleware.ts                         # redirect logic
+└── components/Providers.tsx
+```
+
+### Files NOT touched
+
+- Users module (Faz 3 — separate)
+- Roles admin UI (Faz 4)
+- Process engine (Faz 5)
+- Frontend dashboard (Faz 9 polish)
+
+## Constraints
+
+### Use
+
+- Zod schemas from `@leanmgmt/shared-schemas` (define here if not yet)
+- JWT HS256 + config.jwtAccessSecretCurrent (env)
+- Refresh rotation + family tracking (`docs/07_SECURITY_IMPLEMENTATION` Bölüm 3.3)
+- bcrypt cost 12 + dummy hash timing protection
+- Error codes per taxonomy (`AUTH_INVALID_CREDENTIALS`, etc.)
+- Rate limits:
+  - Login: 10/min IP + 5/15min email
+  - Password reset: 3/hour email
+  - Refresh: 30/min user
+- PII middleware for email (det) + phone (probab)
+
+### Avoid
+
+- MFA (scope out of MVP)
+- SSO / federated auth (post-MVP)
+- Password policy configurability (hardcode per spec)
+- Client-side JWT parsing (server /auth/me kullan)
+- localStorage for tokens (memory Zustand)
+- Session cookie (only refresh token cookie)
+
+## Done Definition
+
+### Backend
+
+- [ ] Prisma migrate dev başarılı, seed çalışıyor
+- [ ] Encryption service unit test (round-trip + deterministic consistency)
+- [ ] 8 auth endpoint: login, logout, refresh, password-reset-request, password-reset-confirm, change-password, consent/accept, me
+- [ ] 3 guard global register (AppModule provider'da APP_GUARD)
+- [ ] Rate limit'ler apply
+- [ ] Error responses taxonomy codes
+- [ ] Service coverage ≥ 90% (high-risk modül)
+- [ ] Integration test: login → refresh → refresh theft detection → logout end-to-end
+
+### Frontend
+
+- [ ] AuthLayout centered card UI
+- [ ] Login page: form + error display + rate limit awareness
+- [ ] Password reset flow end-to-end (request + confirm)
+- [ ] Zustand auth-store memory-only
+- [ ] axios interceptor: 401→refresh retry, attach token + CSRF
+- [ ] Middleware: protected routes redirect to /login
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` — green
+- [ ] E2E test: successful login + failed login + password reset (3 critical journey)
+
+### Manual smoke test
+
+```bash
+# Backend
+curl -X POST localhost:3001/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"superadmin@leanmgmt.local","password":"AdminPass123!@#"}'
+# → { success: true, data: { accessToken, csrfToken }, refresh_token cookie set }
+
+curl localhost:3001/api/v1/auth/me \
+  -H "Authorization: Bearer <accessToken>"
+# → { success: true, data: { id, sicil, firstName, ... } }
+
+# Frontend
+# Go /login → submit valid creds → redirected to /dashboard
+```
+
+## Explicit Don'ts
+
+- MFA implementation — roadmap Wave 1
+- Password policy configurable — hardcode 12+ char rules
+- JWT secret in code — env only
+- Logging tokens/passwords (Pino redaction)
+- Skip timing-attack protection "test için"
+- `/auth/me` caching frontend'te (always fresh)
+- Alternative session mechanism (cookie-only, stateful session)
+
+## Related ADRs
+
+- ADR-0008: JWT HS256 over RS256
+- ADR-0009: Refresh token family tracking (theft detection)
+- ADR-0010: bcrypt cost 12 + timing-attack protection
+- ADR-0011: Deterministic email encryption (lookup + KVKK)
+- ADR-0012: Access token memory-only, refresh httpOnly cookie
+
+---
+
+Phase done → `docs/10_IMPLEMENTATION_ROADMAP.md` Faz 2 check mark.

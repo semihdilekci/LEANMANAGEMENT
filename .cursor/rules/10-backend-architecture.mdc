@@ -1,0 +1,321 @@
+---
+description: Backend architecture — NestJS + Fastify + Prisma module structure, DI, error hierarchy, response envelope
+globs:
+  - "apps/api/**/*.ts"
+---
+
+# Backend Architecture
+
+Backend NestJS 10 + Fastify adapter. Prisma 5 ORM. Her modül standardize klasör yapısı izler.
+
+## Modül Klasör Yapısı
+
+```
+apps/api/src/<module>/
+├── <module>.controller.ts       # HTTP routes
+├── <module>.service.ts          # Business logic
+├── <module>.module.ts           # DI wiring
+├── <module>.exceptions.ts       # Domain exceptions
+├── dto/                         # Request/response DTOs (types from shared-schemas)
+│   ├── create-<entity>.dto.ts
+│   └── update-<entity>.dto.ts
+├── guards/                      # Module-specific guards (if needed)
+├── decorators/                  # Module-specific decorators (if needed)
+└── <module>.service.test.ts     # Unit tests (co-located)
+```
+
+Module-level test'ler `apps/api/test/<module>.integration.test.ts` altında.
+
+## Module Registration
+
+Her modül kendi `Module` sınıfını export eder:
+
+```typescript
+@Module({
+  imports: [PrismaModule, RedisModule],
+  controllers: [UsersController],
+  providers: [UsersService, UsersRepository],
+  exports: [UsersService],  // başka modüllerde kullanılacaksa
+})
+export class UsersModule {}
+```
+
+`AppModule` tüm modülleri import eder:
+
+```typescript
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    RedisModule,
+    AuthModule,
+    UsersModule,
+    RolesModule,
+    // ...
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: PermissionGuard },
+    { provide: APP_GUARD, useClass: CsrfGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
+    { provide: APP_FILTER, useClass: GlobalExceptionFilter },
+  ],
+})
+export class AppModule {}
+```
+
+Global guards/interceptors/filters `AppModule` provider'larında register edilir.
+
+## Response Envelope (Global Interceptor)
+
+Tüm success response'lar standardize envelope:
+
+```typescript
+{
+  success: true,
+  data: <actual response>
+}
+```
+
+`ResponseEnvelopeInterceptor` otomatik sarar — controller sadece `data` kısmını return eder:
+
+```typescript
+@Get(':id')
+async findById(@Param('id') id: string) {
+  return this.usersService.findById(id);  // Service UserResponse döner, interceptor envelope ekler
+}
+```
+
+Pagination için:
+
+```typescript
+{
+  success: true,
+  data: {
+    items: [...],
+    pagination: {
+      nextCursor: "...",
+      hasMore: true,
+      limit: 20
+    }
+  }
+}
+```
+
+## Error Response Format
+
+Error response envelope:
+
+```typescript
+{
+  success: false,
+  error: {
+    code: 'USER_SICIL_DUPLICATE',
+    message: 'Bu sicil zaten kayıtlı',
+    details: { sicil: '12345678' }  // opsiyonel, context-specific
+  }
+}
+```
+
+`GlobalExceptionFilter` typed exception'ları bu formata map eder.
+
+## Exception Hierarchy
+
+```typescript
+// apps/api/src/common/exceptions/app.exception.ts
+export class AppException extends Error {
+  constructor(
+    public readonly code: string,
+    public readonly message: string,
+    public readonly httpStatus: number,
+    public readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+  }
+}
+```
+
+Module-specific exception'lar `AppException`'dan extend eder:
+
+```typescript
+// apps/api/src/users/users.exceptions.ts
+export class UserSicilDuplicateException extends AppException {
+  constructor(sicil?: string) {
+    super(
+      'USER_SICIL_DUPLICATE',
+      'Bu sicil zaten kayıtlı',
+      409,
+      sicil ? { sicil } : undefined,
+    );
+  }
+}
+
+export class UserNotFoundException extends AppException {
+  constructor() {
+    super('USER_NOT_FOUND', 'Kullanıcı bulunamadı', 404);
+  }
+}
+
+export class UserManagerCycleException extends AppException {
+  constructor() {
+    super('USER_MANAGER_CYCLE', 'Yönetici atamasında döngü tespit edildi', 422);
+  }
+}
+```
+
+Global filter exception'ı yakalar, error envelope'a map eder, HTTP status set eder.
+
+## Dependency Injection
+
+Constructor injection zorunlu. Field injection yok. Opsiyonel dependency `@Optional()`:
+
+```typescript
+@Injectable()
+export class FeatureService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly metrics?: MetricsService,
+  ) {}
+}
+```
+
+Circular dependency varsa refactor et — shared logic'i üçüncü service'e çıkar. `forwardRef` son çare.
+
+## Common Module
+
+`apps/api/src/common/` cross-cutting:
+
+```
+common/
+├── decorators/
+│   ├── public.decorator.ts
+│   ├── current-user.decorator.ts
+│   ├── require-permission.decorator.ts
+│   └── audit.decorator.ts
+├── exceptions/
+│   └── app.exception.ts          # base class
+├── filters/
+│   └── global-exception.filter.ts
+├── interceptors/
+│   ├── response-envelope.interceptor.ts
+│   └── audit.interceptor.ts
+├── pipes/
+│   └── zod-validation.pipe.ts
+├── encryption/
+│   └── encryption.service.ts
+└── common.module.ts
+```
+
+`CommonModule` `@Global()` işaretli — her yerde kullanılır.
+
+## Controllers — Thin
+
+Controller minimal iş yapar:
+- Route tanımı
+- Decorator'lar (permission, validation, rate limit)
+- Service çağrısı
+- Response
+
+Business logic controller'da yer almaz:
+
+```typescript
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  @RequirePermission(Permission.USER_LIST_VIEW)
+  async list(
+    @Query(new ZodValidationPipe(UserListQuerySchema)) query: UserListQuery,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.findMany(query, actor);
+  }
+
+  @Post()
+  @RequirePermission(Permission.USER_CREATE)
+  async create(
+    @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserInput,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.create(dto, actor);
+  }
+}
+```
+
+## Services — Fat
+
+Tüm business logic service'te. Pattern detay `apps/api/**/*.service.ts` rule'unda (auto-attach).
+
+## Repository Layer (Opsiyonel)
+
+Basit modüller için Prisma Client direkt service'te kullanılır. Kompleks query'ler için `<module>.repository.ts`:
+
+```typescript
+@Injectable()
+export class UsersRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findByCompanyWithFilters(filters: UserFilters) {
+    return this.prisma.users.findMany({
+      where: this.buildWhereClause(filters),
+      include: { roles: true, company: true },
+    });
+  }
+}
+```
+
+MVP'de repository çoğu modül için overkill — service direkt Prisma'yı kullanır.
+
+## Config Management
+
+`@nestjs/config` ile. `.env.local` dev, AWS Secrets Manager staging/prod.
+
+```typescript
+// apps/api/src/config/config.schema.ts
+export const ConfigSchema = z.object({
+  NODE_ENV: z.enum(['development', 'staging', 'production']),
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+  JWT_ACCESS_SECRET_CURRENT: z.string().min(32),
+  // ...
+});
+
+export type Config = z.infer<typeof ConfigSchema>;
+```
+
+Config boot-time'da validate edilir. Invalid config → startup fail (fail-fast).
+
+## Logging (Pino)
+
+Structured JSON logging:
+
+```typescript
+private readonly logger = new Logger(UsersService.name);
+
+async create(input, actor) {
+  this.logger.log({
+    event: 'user.create.started',
+    actorId: actor.id,
+    input: { sicil: input.sicil },  // PII dikkat: password, token yasak
+  });
+  // ...
+}
+```
+
+Sensitive field'lar redaction ile loglara girmez (Pino redaction config).
+
+## Banned Patterns
+
+- Controller'da Prisma query (service layer bypass)
+- Inline error response (`throw new BadRequestException('...')` yerine typed exception)
+- `any` type
+- Promise.all içinde error swallowing (explicit `Promise.allSettled` + handle)
+- `@Injectable({ scope: Scope.REQUEST })` gereksiz yere (default singleton yeter)
+- Manuel transaction management (Prisma `$transaction` callback kullan)
+
+---
+
+Detay: `docs/04_BACKEND_SPEC.md` — kapsamlı backend mimari referansı

@@ -1,0 +1,350 @@
+---
+description: Frontend forms — RHF + Zod + shadcn patterns, unsaved-changes warning, server error mapping
+globs:
+  - "apps/web/src/**/*{Form,form}*.tsx"
+  - "apps/web/src/app/**/new/page.tsx"
+  - "apps/web/src/app/**/edit/page.tsx"
+---
+
+# Frontend Forms — RHF + Zod + shadcn
+
+Proje'nin tüm form'ları bu pattern'i izler. Sapma explicit ADR gerektirir.
+
+**Görsel / layout:** Form alanları, kart çerçevesi, buton görünümü için `docs/lean-design-system/` (`ls-input`, `ls-btn`, token’lar) — `26-lean-design-system.mdc`.
+
+## Zorunlu Stack
+
+- `react-hook-form` — form state
+- `@hookform/resolvers/zod` — Zod adapter
+- `zod` — schema (`@leanmgmt/shared-schemas`'tan import)
+- shadcn `<Form>`, `<FormField>`, `<FormItem>`, `<FormLabel>`, `<FormControl>`, `<FormMessage>` — accessibility için
+
+Alternative library (Formik, Final Form) yasak. Inline Zod schema yasak.
+
+## Canonical Form
+
+```typescript
+'use client';
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'next/navigation';
+import { AxiosError } from 'axios';
+import { toast } from 'sonner';
+import { CreateUserSchema, type CreateUserInput } from '@leanmgmt/shared-schemas';
+import { useCreateUserMutation } from '@/lib/queries/users';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } 
+  from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+
+export function UserForm() {
+  const router = useRouter();
+  const createUser = useCreateUserMutation();
+
+  const form = useForm<CreateUserInput>({
+    resolver: zodResolver(CreateUserSchema),
+    defaultValues: {
+      sicil: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      // Her field için defaultValue zorunlu — uncontrolled → controlled warning
+    },
+  });
+
+  useUnsavedChangesWarning(form.formState.isDirty);
+
+  const onSubmit = async (values: CreateUserInput) => {
+    try {
+      const user = await createUser.mutateAsync(values);
+      toast.success('Kullanıcı oluşturuldu');
+      router.push(`/users/${user.id}`);
+    } catch (err) {
+      handleFormError(err, form);
+    }
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-lg">
+        <FormField
+          control={form.control}
+          name="sicil"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Sicil *</FormLabel>
+              <FormControl>
+                <Input {...field} maxLength={8} placeholder="12345678" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Diğer field'lar benzer */}
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={() => router.back()}>
+            İptal
+          </Button>
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting && 
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Kullanıcı Oluştur
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+```
+
+## Server Error Mapping — Priority Order
+
+Axios error yakalanınca öncelik sırası:
+
+1. **Field-spesifik error code** → field'a setError
+2. **VALIDATION_FAILED with fields** → her field'a setError
+3. **Generic message** → toast
+
+```typescript
+// lib/form-errors.ts
+import { AxiosError } from 'axios';
+import { UseFormReturn } from 'react-hook-form';
+import { toast } from 'sonner';
+
+const FIELD_ERROR_MAP: Record<string, { field: string; message: string }> = {
+  USER_SICIL_DUPLICATE: { field: 'sicil', message: 'Bu sicil zaten kayıtlı' },
+  USER_EMAIL_DUPLICATE: { field: 'email', message: 'Bu email zaten kayıtlı' },
+  USER_PHONE_DUPLICATE: { field: 'phone', message: 'Bu telefon zaten kayıtlı' },
+  // ...
+};
+
+export function handleFormError(err: unknown, form: UseFormReturn<any>) {
+  if (!(err instanceof AxiosError)) {
+    toast.error('Beklenmeyen bir hata oluştu');
+    return;
+  }
+
+  const data = err.response?.data?.error;
+  if (!data) {
+    toast.error('Sunucuya ulaşılamadı');
+    return;
+  }
+
+  // Priority 1: field-specific mapping
+  const mapped = FIELD_ERROR_MAP[data.code];
+  if (mapped) {
+    form.setError(mapped.field as any, { message: mapped.message });
+    return;
+  }
+
+  // Priority 2: server-side validation with field details
+  if (data.code === 'VALIDATION_FAILED' && data.details?.fields) {
+    for (const [field, msg] of Object.entries(data.details.fields)) {
+      form.setError(field as any, { message: msg as string });
+    }
+    return;
+  }
+
+  // Priority 3: generic toast
+  toast.error(data.message ?? 'Bir hata oluştu');
+}
+```
+
+Generic "something went wrong" toast yalnız field-spesifik yakalanamadığında. Kullanıcı neyi düzelteceğini görmeli.
+
+## useUnsavedChangesWarning Hook
+
+```typescript
+// hooks/useUnsavedChangesWarning.ts
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export function useUnsavedChangesWarning(isDirty: boolean) {
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = '';  // Chrome legacy
+    };
+
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // Next.js app router'da route navigation için ek handler
+  // (implementation detail — see docs)
+}
+```
+
+**Her uzun form (3+ field) mount'unda çağır.** Veri kaybı silent → kabul edilmez UX.
+
+## Create vs Edit — Aynı Component
+
+İki ayrı form component yazma. Tek component + mode detection:
+
+```typescript
+interface UserFormProps {
+  initialData?: UserResponse;
+  userId?: string;
+}
+
+export function UserForm({ initialData, userId }: UserFormProps) {
+  const isEdit = !!userId;
+  const schema = isEdit ? UpdateUserSchema : CreateUserSchema;
+  
+  const form = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: initialData ?? createEmptyDefaults(),
+  });
+
+  // Edit mode'da sicil disabled
+  const sicilDisabled = isEdit;
+
+  const mutation = isEdit 
+    ? useUpdateUserMutation(userId) 
+    : useCreateUserMutation();
+
+  // ...
+}
+```
+
+Duplication = drift. Tek kaynak sürdürülebilir.
+
+## Default Values
+
+Her field için defaultValue zorunlu:
+
+```typescript
+defaultValues: {
+  sicil: '',
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  companyId: undefined,  // select için null/undefined ok
+  isActive: true,
+  dateOfBirth: null,
+}
+```
+
+`undefined` boş string değil. Required field için `''` kullan (React uncontrolled warning engellenir).
+
+## Submit Button States
+
+```typescript
+<Button 
+  type="submit" 
+  disabled={form.formState.isSubmitting}
+>
+  {form.formState.isSubmitting && 
+    <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+  {isEdit ? 'Değişiklikleri Kaydet' : 'Oluştur'}
+</Button>
+```
+
+- `isSubmitting` → disabled + spinner (double-submit prevent)
+- `isValid` **genellikle kullanma** — frontend validation yanıltıcı olabilir; asıl kontrol server-side
+
+İstisna: preview-style form'larda `isValid` disable için kabul.
+
+## Form Level Error Summary (Büyük Form)
+
+10+ field'lı form'larda alttaki submit button yakınında error summary göster:
+
+```typescript
+{Object.keys(form.formState.errors).length > 0 && (
+  <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3">
+    <p className="text-sm text-destructive font-medium">
+      Lütfen aşağıdaki hataları düzeltin:
+    </p>
+    <ul className="mt-2 text-sm text-destructive list-disc list-inside">
+      {Object.entries(form.formState.errors).map(([field, err]) => (
+        <li key={field}>{err.message as string}</li>
+      ))}
+    </ul>
+  </div>
+)}
+```
+
+## Accessibility
+
+shadcn pattern otomatik ARIA:
+- `<FormField>` → `aria-describedby` message'a
+- `<FormLabel>` → `htmlFor` input'a
+- `<FormMessage>` → error live region
+
+Ek yapılması gerekenler:
+- Required field'lar label'a `*` ekle (visual) + Zod schema min(1) (programmatic)
+- Fieldset kullan grup için (`<FormItem>` + `<legend>`)
+- Focus management — submit fail'de ilk error field'a focus (RHF otomatik)
+
+## Loading / Success / Error UX
+
+| Durum | UX |
+|---|---|
+| Edit için data fetch | Skeleton form 500ms sonra |
+| Submit başlıyor | Button spinner + disabled |
+| Submit başarılı (create) | Toast + redirect detay sayfasına |
+| Submit başarılı (edit) | Toast + redirect back veya detay |
+| Submit field error | Inline mesaj via setError |
+| Submit generic error | Toast + form aynı kalır (retry için) |
+| Network error | Toast "Bağlantı hatası. Tekrar deneyin." |
+
+## Complex Field Types
+
+### Select (shadcn)
+
+```typescript
+<FormField
+  control={form.control}
+  name="companyId"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Şirket *</FormLabel>
+      <Select onValueChange={field.onChange} value={field.value}>
+        <FormControl>
+          <SelectTrigger>
+            <SelectValue placeholder="Şirket seçin" />
+          </SelectTrigger>
+        </FormControl>
+        <SelectContent>
+          {companies?.map((c) => (
+            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+```
+
+### DatePicker
+
+shadcn Popover + Calendar + date-fns. Ayrı component (`<DateField>`) oluştur, formda kullan.
+
+### File Upload
+
+Özel component `<FileUpload>` — upload initiate → S3 → mark-scanning → scan poll. Documents upload flow başka rule'da.
+
+## Banned Patterns
+
+- Inline Zod schema — shared-schemas'tan import zorunlu
+- `form.reset()` success sonrası — redirect et
+- Uncontrolled inputs (`defaultValue` sadece RHF ile)
+- Async validation (`rules: { validate: async }`) — submit'te server handle
+- `<form action={serverAction}>` — server actions MVP'de yok
+- Sadece toast, field error mapping yok — field-specific code için setError zorunlu
+- Multiple forms aynı route'ta (split into routes)
+- Form state Zustand'da — RHF kullan
+
+---
+
+Detay: `docs/05_FRONTEND_SPEC.md` Bölüm 6-7 (Form pattern + Loading/Error UX)

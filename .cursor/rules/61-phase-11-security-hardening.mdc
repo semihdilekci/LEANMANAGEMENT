@@ -1,0 +1,145 @@
+---
+description: "[Faz 11] Security + go-live — 4 iterasyon/chat (app headers → supply chain/infra → drills+pentest → checklist+runbooks). “Faz 11 — İterasyon N”."
+---
+
+# Faz 11: Security Hardening + Go-Live
+
+## Goal
+
+Pre-production security hardening. CSP strict. WAF tuning. External pentest + remediation. Dependency audit (Snyk). Secret rotation drill. Go-live checklist. Incident response runbook. KVKK compliance final review. Production launch.
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@61-phase-11-security-hardening` + **“Faz 11 — İterasyon N”**. İnsan/onay gerektiren adımlar (pentest firması, hukuk) için chat’te **bekleme durumu** açıkça işaretlensin.
+
+### İterasyon 1 — Uygulama güvenlik başlıkları + CSP
+
+**Hedef:** Next/Nest tarafında CSP (nonce/strict-dynamic), HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`; inline script temizliği planı.
+
+**Bu iterasyonda yok:** Pentest raporu kapatma (İter 3).
+
+**Stop:** [ ] Header’lar staging’de doğrulandı; [ ] ADR-0032 taslağı. PR/onay.
+
+### İterasyon 2 — Bağımlılık + WAF + IAM + S3/DB sertleştirme
+
+**Hedef:** `pnpm audit` + Snyk HIGH+; WAF managed+custom; IAM least-privilege review; S3 public block; DB parameter group hardening.
+
+**Stop:** [ ] HIGH+ bulgu sayısı sıfır veya zamanlı waiver kaydı. PR/onay.
+
+### İterasyon 3 — Pentest bulguları + secret rotation + backup/DR drill
+
+**Hedef:** CRITICAL/HIGH remediate; JWT rotation drill staging; backup restore + DR dokümantasyonu (RTO/RPO).
+
+**Stop:** [ ] Pentest temiz veya imzalı istisna planı; [ ] drill raporu. PR/onay.
+
+### İterasyon 4 — Go-live checklist + runbook’lar + uyumluluk + launch protokolü
+
+**Hedef:** `docs/runbooks/*` (6+), monitoring/alert testleri, KVKK envanter özeti, legal review tick, go-live günü protokolü, rollback testi.
+
+**Stop:** Faz 11 Done Definition + post-launch Week 1 planı; roadmap işareti.
+
+## Required Context
+
+- `docs/07_SECURITY_IMPLEMENTATION.md` — complete security reference
+- `docs/09_DEV_WORKFLOW.md` Bölüm 12 (Go-live) + Bölüm 13 (Incident response)
+
+## Scope
+
+### Security hardening
+
+- **CSP (Content Security Policy)**: strict-dynamic + nonce, inline script elimination
+- **HSTS**: max-age 63072000, includeSubDomains, preload
+- **Security headers**: X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- **WAF rules**: AWS managed + custom (rate limit + geo block Türkiye-only if needed)
+- **Dependency audit**: `pnpm audit`, Snyk full scan — all HIGH+ fixed
+- **Secret rotation drill**: JWT secret rotate in prod (test rollback plan)
+- **DB security**: parameter group hardened, audit log enabled
+- **S3**: block public access verified, bucket policy restricts cross-account
+- **IAM**: all roles least-privilege re-review
+
+### External pentest
+
+- Scope: production-like environment (staging)
+- Engagement: external firm (2 hafta)
+- Remediation priority:
+  - CRITICAL → immediate fix, blocker for go-live
+  - HIGH → fix before go-live
+  - MEDIUM → fix within 4 week of go-live
+  - LOW → backlog
+- Final sign-off: clean pentest report or remediation plan signed
+
+### Go-live checklist
+
+- [ ] All CRITICAL + HIGH pentest findings remediated
+- [ ] Load test final: 1000 concurrent, SLO met in staging production-like
+- [ ] Backup + restore drill successful (point-in-time recovery tested)
+- [ ] DR drill: restore snapshot to fresh region (documented RTO + RPO)
+- [ ] Monitoring dashboards: CloudWatch + Sentry set up, PagerDuty on-call rotation
+- [ ] Alerts: error rate, P95 latency, DB CPU, Redis memory, free disk, audit chain integrity
+- [ ] Runbooks: incident response, common issue resolution, escalation tree
+- [ ] KVKK: PII inventory + processing activity register (Varlık Envanteri + Veri İşleme Envanteri)
+- [ ] Privacy policy + T&C live
+- [ ] Legal review complete
+- [ ] User communication: rollout schedule, support channels
+- [ ] Training: admin team briefing on key features + incident response
+
+### Incident response runbook
+
+`docs/runbooks/` altında:
+- Authentication outage
+- Database failover
+- Audit chain integrity breach
+- Data exposure incident
+- Ransomware / encryption attack
+- Service degradation (partial outage)
+- Account compromise (user account takeover suspected)
+
+Her runbook:
+- Symptoms (nasıl fark edilir)
+- Initial triage (dakikalar içinde)
+- Investigation (30-60 dk)
+- Remediation (saatler)
+- Post-incident (retrospective + ADR)
+
+## Done Definition
+
+- [ ] Pentest report: clean or documented remediation plan
+- [ ] Secret rotation drill passed in staging (end-to-end)
+- [ ] Backup restore drill: restore successful to fresh DB, data verified
+- [ ] DR drill: cross-region restore < 4 hours RTO
+- [ ] Monitoring: 100% SLI coverage, alerts tested (artificial failure triggered PagerDuty)
+- [ ] Runbooks: 6+ written, team walkthrough done
+- [ ] KVKK compliance: DPO sign-off (if applicable)
+- [ ] Final load test: passed SLO
+- [ ] Security champion review: checklist complete
+- [ ] Go-live date agreed with stakeholders
+- [ ] Rollback plan documented + tested
+
+## Go-Live Day Protocol
+
+1. **Freeze** — no merges to main 48 hours before
+2. **Deploy** — off-peak hours, incremental traffic shift (5% → 25% → 50% → 100%)
+3. **Monitor** — all dashboards watched, 2-hour war room
+4. **Rollback trigger** — if error rate >1% for 10 min, revert
+5. **Post-deploy** — 24-hour intensive monitoring, on-call rotation
+6. **All-clear** — 48 hours stable → declare go-live complete
+
+## Post-Launch (Week 1-2)
+
+- Daily war room (30 min)
+- User feedback collection (survey + interviews)
+- Bug triage (escalate if hotfix needed)
+- Performance monitoring (any regression?)
+- Security monitoring (WAF rules firing? unexpected traffic?)
+
+## Related ADRs
+
+- ADR-0032: CSP policy details
+- ADR-0033: WAF rule tuning (if project-specific)
+- ADR-0034: Incident response escalation levels
+
+---
+
+Phase done → Go-Live date → project in maintenance mode.
+
+Roadmap Faz 11 check mark + post-launch milestone.

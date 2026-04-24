@@ -1,0 +1,296 @@
+---
+description: Auth module — JWT HS256 + refresh rotation with family tracking, bcrypt cost 12 + timing attack protection, guards (JWT/CSRF/Consent), session management
+globs:
+  - "apps/api/src/auth/**"
+  - "apps/api/src/common/decorators/current-user.decorator.ts"
+  - "apps/api/src/common/decorators/public.decorator.ts"
+---
+
+# Backend Auth Module
+
+Auth modülü en kritik güvenlik yüzeyi. Her karar deliberate — "basit tutalım" mentality burada geçmez.
+
+## JWT — HS256 Simetrik İmzalama
+
+Algoritma: **HS256** (HMAC-SHA256). RS256 değil — single-backend deployment için operational simplicity.
+
+```typescript
+// Access token
+const accessToken = jwt.sign(
+  { sub: user.id, sessionId: session.id, jti: nanoid() },
+  config.jwtAccessSecretCurrent,
+  { algorithm: 'HS256', expiresIn: '15m' },
+);
+
+// Refresh token (farklı secret)
+const refreshToken = jwt.sign(
+  { sub: user.id, sessionId: session.id, familyId, generation, jti: nanoid() },
+  config.jwtRefreshSecretCurrent,
+  { algorithm: 'HS256', expiresIn: '14d' },
+);
+```
+
+### TTL'ler
+
+- **Access token**: 15 dakika (memory only on frontend)
+- **Refresh token**: 14 gün (httpOnly cookie)
+- **Session inactivity timeout**: 30 dakika (cron revoke)
+
+### Dual-Key Rotation Window
+
+Signing secret 180 günde rotate. Rotation sırasında dual-key verify:
+
+```typescript
+try {
+  return jwt.verify(token, config.jwtAccessSecretCurrent);
+} catch {
+  if (config.jwtAccessSecretPrevious) {
+    try {
+      return jwt.verify(token, config.jwtAccessSecretPrevious);
+    } catch {
+      throw new AuthTokenInvalidException();
+    }
+  }
+  throw new AuthTokenInvalidException();
+}
+```
+
+15 dk window sonrası `PREVIOUS` kaldırılır.
+
+## Refresh Token Family Tracking
+
+Her login yeni family_id oluşturur. Her refresh yeni token (generation++) — eski token invalidate. Eski token ikinci kez kullanılırsa **theft detected**, family revoke.
+
+Redis key şeması:
+
+```
+refresh_token_family:{familyId}
+  → { userId, sessionId, generation: 5, createdAt, lastRotatedAt }
+  TTL: 14 gün
+
+family_revoked:{familyId}
+  → { revokedAt, reason }
+  TTL: 30 gün (forensic)
+```
+
+Theft detection logic:
+
+```typescript
+async refresh(refreshToken: string) {
+  const payload = this.verifyRefreshToken(refreshToken);
+  const family = await this.redis.hgetall(`refresh_token_family:${payload.familyId}`);
+  
+  if (!family || await this.redis.exists(`family_revoked:${payload.familyId}`)) {
+    throw new AuthSessionRevokedException();
+  }
+
+  if (parseInt(family.generation) !== payload.generation) {
+    // THEFT — old token used
+    await this.revokeFamily(payload.familyId, 'THEFT_DETECTED');
+    await this.prisma.sessions.updateMany({
+      where: { refresh_token_family_id: payload.familyId, revoked_at: null },
+      data: { revoked_at: new Date(), revoked_reason: 'THEFT_DETECTED' },
+    });
+    await this.auditService.log({ action: 'REFRESH_TOKEN_THEFT_DETECTED', /* ... */ });
+    throw new AuthSessionRevokedException();
+  }
+
+  // Rotation: new tokens, increment generation
+  const newGeneration = parseInt(family.generation) + 1;
+  // ...
+}
+```
+
+## bcrypt Cost 12 + Timing Attack Protection
+
+User yoksa bile bcrypt compare çalıştırılır (dummy hash) — response süresi bilgi sızdırmaz:
+
+```typescript
+private static readonly DUMMY_HASH = 
+  '$2a$12$DummyHashForTimingAttackProtection_aaaaaaaaaaaaaaaaaaaaaa';
+
+async login(email: string, password: string, ip: string, userAgent: string) {
+  const user = await this.prisma.users.findUnique({ 
+    where: { email, is_active: true } 
+  });
+  
+  const hashToCompare = user?.password_hash ?? UsersService.DUMMY_HASH;
+  const valid = await bcrypt.compare(password, hashToCompare);
+  
+  if (!user || !valid) {
+    if (user) {
+      await this.trackFailedLogin(user, ip, userAgent);
+    }
+    throw new AuthInvalidCredentialsException();
+  }
+  // ... success flow
+}
+```
+
+## Rate Limits (Auth-Specific)
+
+| Endpoint | Limit | Window | Identifier |
+|---|---|---|---|
+| `POST /auth/login` | 10 | 1 dk | IP |
+| `POST /auth/login` | 5 | 15 dk | email |
+| `POST /auth/password-reset-request` | 3 | 1 saat | email |
+| `POST /auth/password-reset-confirm` | 10 | 1 saat | IP |
+| `POST /auth/refresh` | 30 | 1 dk | user |
+| `POST /auth/change-password` | 5 | 1 saat | user |
+
+Login için composite limit (IP + email) — custom throttler guard.
+
+## Account Lockout
+
+- `LOGIN_MAX_ATTEMPTS` (5) başarısız deneme → `locked_until = NOW + 15 dk`
+- Başarılı login → `failed_login_count = 0`
+- Kilitli user login denerse → `AuthAccountLockedException` with `unlocksAt`
+- Progressive delay (1/2/4/8 sn) ardışık başarısız denemelerde
+
+## Password Policy
+
+Zod schema (`@leanmgmt/shared-schemas/auth`):
+
+```typescript
+export const PasswordSchema = z
+  .string()
+  .min(12, 'En az 12 karakter olmalı')
+  .max(128)
+  .regex(/[A-Z]/, 'En az 1 büyük harf olmalı')
+  .regex(/[a-z]/, 'En az 1 küçük harf olmalı')
+  .regex(/\d/, 'En az 1 rakam olmalı')
+  .regex(/[!@#$%^&*()_+\-=\[\]{};:'"\\,.<>/?]/, 'En az 1 özel karakter olmalı')
+  .refine((v) => !/\s/.test(v), 'Boşluk içeremez');
+```
+
+Ek kontroller (server-only):
+- HIBP check (k-anonymity API)
+- Son 5 şifre reuse kontrol
+- Kullanıcı bilgisi (email, sicil) ile benzerlik kontrol
+- 90 gün expiry (setting)
+
+## Guards
+
+Üç guard global:
+
+### JwtAuthGuard
+
+- JWT extract (`Authorization: Bearer ...`)
+- Verify imza + expiry
+- Revoked token check (Redis blacklist)
+- `request.user` payload injection
+
+`@Public()` decorator ile bypass.
+
+### CsrfGuard
+
+- GET/HEAD/OPTIONS bypass
+- Mutating request'lerde: `X-CSRF-Token` header == `csrf_token` cookie
+- Mismatch → 403 `CSRF_TOKEN_INVALID`
+
+### ConsentGuard
+
+- User'ın `consent_accepted_version_id` aktif consent version ile match
+- Mismatch → 403 `AUTH_CONSENT_REQUIRED`
+- Frontend bu response'ta `ConsentModal` blocking açar
+
+## Consent Akışı
+
+```typescript
+@Post('/auth/consent/accept')
+@RequirePermission(Permission.NONE)  // just authenticated
+async acceptConsent(
+  @Body(new ZodValidationPipe(ConsentAcceptSchema)) dto,
+  @CurrentUser() actor,
+) {
+  const activeVersion = await this.consentService.getActiveVersion();
+  if (dto.consentVersionId !== activeVersion.id) {
+    throw new ConsentVersionMismatchException();
+  }
+  
+  await this.prisma.$transaction(async (tx) => {
+    await tx.users.update({
+      where: { id: actor.id },
+      data: {
+        consent_accepted_version_id: activeVersion.id,
+        consent_accepted_at: new Date(),
+      },
+    });
+    await tx.consent_acceptance_history.create({
+      data: {
+        user_id: actor.id,
+        consent_version_id: activeVersion.id,
+        accepted_at: new Date(),
+        ip: /* from request */,
+        user_agent: /* from request */,
+      },
+    });
+  });
+}
+```
+
+## Password Reset Akışı
+
+1. `POST /auth/password-reset-request` — email alır, token oluşturur, Redis'e hash ile kaydeder (TTL 1 saat), email queue
+2. User emaildeki linkten döner, token submit eder
+3. `POST /auth/password-reset-confirm` — token verify (Redis), yeni şifre set, session'ları revoke
+4. Token tek kullanımlık — submit sonrası Redis'ten silinir
+
+Enumeration koruması: non-existent email için de 200 döner (generic message), Redis'e yazmaz.
+
+## Decorators
+
+### @Public()
+
+```typescript
+// apps/api/src/common/decorators/public.decorator.ts
+import { SetMetadata } from '@nestjs/common';
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+```
+
+### @CurrentUser()
+
+```typescript
+// apps/api/src/common/decorators/current-user.decorator.ts
+export const CurrentUser = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext): AuthenticatedUser => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user;
+  },
+);
+```
+
+Usage:
+```typescript
+async create(@Body() dto, @CurrentUser() actor: AuthenticatedUser) {
+  return this.service.create(dto, actor);
+}
+```
+
+## Session Management
+
+`sessions` table her login için kayıt. Revoke tetikleyicileri:
+
+| Trigger | Revoked sessions |
+|---|---|
+| User logout | Yalnız mevcut |
+| Password change | Diğer tüm session'lar (mevcut korunur) |
+| Admin manual revoke | Belirtilen |
+| Account deactivate | Tüm |
+| Inactivity timeout (cron 5 dk) | Inactive > 30 dk |
+| Theft detection | Family'deki tüm |
+
+## Banned Patterns
+
+- `JWT_SECRET` hardcode (env var zorunlu)
+- Access token localStorage/sessionStorage (memory only — frontend kuralı ama backend'in response'u bunu destekler)
+- `bcrypt.compare` short-circuit (user yoksa bile çalışır)
+- Generic "Invalid" error (typed exception)
+- `jwt.decode()` verify yerine (hiçbir zaman!)
+- Password log'lama (Pino redaction)
+- Session expiry'i token expiry'e bağlama (sessions table kendi lifecycle)
+
+---
+
+Detay: `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 2-3 (Auth flow + Token management)

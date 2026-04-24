@@ -1,0 +1,380 @@
+---
+description: Permission system — RBAC + ABAC hybrid, resolver service, Redis cache invalidation, 4-layer enforcement (guard + decorator + ownership + field-level)
+globs:
+  - "apps/api/src/roles/**"
+  - "apps/api/src/common/decorators/require-permission.decorator.ts"
+  - "apps/api/src/common/guards/permission.guard.ts"
+  - "packages/shared-types/src/permissions.ts"
+---
+
+# Permission System — RBAC + ABAC Hybrid
+
+Sistem saf RBAC ile başlamıyor — attribute-bazlı otomatik rol ataması (ABAC) zorunlu. Hybrid model.
+
+## Permission Enum (Shared Types)
+
+`packages/shared-types/src/permissions.ts`:
+
+```typescript
+export enum Permission {
+  // User management
+  USER_LIST_VIEW = 'USER_LIST_VIEW',
+  USER_CREATE = 'USER_CREATE',
+  USER_UPDATE_ATTRIBUTE = 'USER_UPDATE_ATTRIBUTE',
+  USER_DEACTIVATE = 'USER_DEACTIVATE',
+  USER_REACTIVATE = 'USER_REACTIVATE',
+  USER_SESSION_VIEW = 'USER_SESSION_VIEW',
+  // Role management
+  ROLE_VIEW = 'ROLE_VIEW',
+  ROLE_CREATE = 'ROLE_CREATE',
+  ROLE_UPDATE = 'ROLE_UPDATE',
+  ROLE_DELETE = 'ROLE_DELETE',
+  ROLE_ASSIGN = 'ROLE_ASSIGN',
+  ROLE_PERMISSION_MANAGE = 'ROLE_PERMISSION_MANAGE',  // hassas
+  ROLE_RULE_MANAGE = 'ROLE_RULE_MANAGE',              // hassas
+  // Process management
+  PROCESS_KTI_START = 'PROCESS_KTI_START',
+  PROCESS_VIEW_ALL = 'PROCESS_VIEW_ALL',  // hassas
+  PROCESS_CANCEL = 'PROCESS_CANCEL',       // hassas
+  PROCESS_ROLLBACK = 'PROCESS_ROLLBACK',   // hassas
+  // Master data
+  MASTER_DATA_VIEW = 'MASTER_DATA_VIEW',
+  MASTER_DATA_MANAGE = 'MASTER_DATA_MANAGE',
+  // Admin
+  AUDIT_LOG_VIEW = 'AUDIT_LOG_VIEW',           // hassas
+  SYSTEM_SETTINGS_EDIT = 'SYSTEM_SETTINGS_EDIT',  // hassas
+  EMAIL_TEMPLATE_EDIT = 'EMAIL_TEMPLATE_EDIT',    // hassas
+  CONSENT_VERSION_EDIT = 'CONSENT_VERSION_EDIT',  // hassas
+  // ... tam liste docs'ta
+}
+```
+
+Permission metadata:
+
+```typescript
+export interface PermissionMetadata {
+  key: string;
+  category: 'MENU' | 'ACTION' | 'DATA' | 'FIELD';
+  description: string;
+  isSensitive: boolean;  // UI'da kırmızı rozet, atama sırasında ek onay
+}
+
+export const PERMISSION_METADATA: Record<Permission, PermissionMetadata> = {
+  [Permission.USER_CREATE]: {
+    key: 'USER_CREATE',
+    category: 'ACTION',
+    description: 'Yeni kullanıcı oluşturma',
+    isSensitive: true,
+  },
+  // ... tam liste
+};
+```
+
+Yeni permission eklerken **tek yerden** genişletilir (enum + metadata + seed).
+
+## PermissionResolverService
+
+Her auth request'te permission set Redis'ten çekilir. Cache miss → DB'den resolve + cache'e yaz:
+
+```typescript
+@Injectable()
+export class PermissionResolverService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+    private readonly attributeRuleEvaluator: AttributeRuleEvaluatorService,
+  ) {}
+
+  async getUserPermissions(userId: string): Promise<Set<Permission>> {
+    const cacheKey = `user_permissions:${userId}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) return new Set(JSON.parse(cached));
+
+    const permissions = await this.resolveFromDb(userId);
+    await this.redis.setex(cacheKey, 300, JSON.stringify([...permissions]));
+    return permissions;
+  }
+
+  private async resolveFromDb(userId: string): Promise<Set<Permission>> {
+    // 1. Direct role assignments
+    const directAssignments = await this.prisma.user_roles.findMany({
+      where: { user_id: userId, source: 'DIRECT' },
+      include: { role: { include: { role_permissions: true } } },
+    });
+
+    // 2. Attribute rule matches
+    const user = await this.prisma.users.findUnique({ where: { id: userId } });
+    const matchingRules = await this.attributeRuleEvaluator.findMatchingRules(user);
+    const ruleRoleIds = matchingRules.map((r) => r.role_id);
+    const ruleRoles = await this.prisma.roles.findMany({
+      where: { id: { in: ruleRoleIds } },
+      include: { role_permissions: true },
+    });
+
+    // 3. Union
+    const allRoles = [...directAssignments.map((ua) => ua.role), ...ruleRoles];
+    const permissions = new Set<Permission>();
+    for (const role of allRoles) {
+      for (const rp of role.role_permissions) {
+        permissions.add(rp.permission_key as Permission);
+      }
+    }
+    return permissions;
+  }
+
+  async hasPermission(userId: string, required: Permission): Promise<boolean> {
+    const permissions = await this.getUserPermissions(userId);
+    return permissions.has(required);
+  }
+
+  async invalidateUser(userId: string): Promise<void> {
+    await this.redis.del(`user_permissions:${userId}`);
+  }
+
+  async invalidateRole(roleId: string): Promise<void> {
+    // Affected users: direct + rule-matched
+    const direct = await this.prisma.user_roles.findMany({
+      where: { role_id: roleId },
+      select: { user_id: true },
+    });
+    const ruleMatched = await this.findUsersMatchingRole(roleId);
+
+    const userIds = new Set([
+      ...direct.map((d) => d.user_id),
+      ...ruleMatched.map((u) => u.id),
+    ]);
+
+    if (userIds.size === 0) return;
+
+    const pipeline = this.redis.pipeline();
+    for (const uid of userIds) {
+      pipeline.del(`user_permissions:${uid}`);
+    }
+    await pipeline.exec();
+  }
+}
+```
+
+Cache TTL 5 dakika. Invalidation explicit (aşağıdaki trigger'lar).
+
+## Cache Invalidation Triggers
+
+| Event | Action |
+|---|---|
+| User direct role atanmalı/çıkarılma | `invalidateUser(userId)` |
+| Rol'e permission ekleme/kaldırma | `invalidateRole(roleId)` |
+| Kullanıcı attribute değişimi (company, department, vs.) | `invalidateUser(userId)` |
+| Attribute rule ekleme/güncelleme/silme | `invalidateRole(ruleRoleId)` (etkilenen rol) |
+| User deactivate | `invalidateUser(userId)` + session revoke |
+
+NestJS EventEmitter2 kullanılır:
+
+```typescript
+// Emit
+this.eventEmitter.emit('user.role.changed', { userId, roleId });
+
+// Listen
+@OnEvent('user.role.changed')
+async handleUserRoleChange(payload) {
+  await this.permissionResolver.invalidateUser(payload.userId);
+}
+```
+
+## Attribute Rule Evaluator
+
+Attribute rule örneği (DB'de):
+
+```json
+{
+  "id": "rule_123",
+  "role_id": "role_USER_MANAGER",
+  "condition_groups": [
+    {
+      "conditions": [
+        { "attribute": "companyId", "operator": "equals", "value": "comp_ACME" },
+        { "attribute": "departmentId", "operator": "equals", "value": "dep_IT" }
+      ]
+    },
+    {
+      "conditions": [
+        { "attribute": "positionTitle", "operator": "contains", "value": "Yönetici" }
+      ]
+    }
+  ]
+}
+```
+
+Semantics: `(companyId=ACME AND departmentId=IT) OR (positionTitle contains "Yönetici")`. OR between groups, AND within group.
+
+Operator'lar:
+- `equals`, `not_equals`
+- `contains`, `not_contains` (string)
+- `starts_with`, `ends_with`
+- `in`, `not_in` (array)
+- `greater_than`, `less_than` (date/number)
+
+```typescript
+@Injectable()
+export class AttributeRuleEvaluatorService {
+  evaluateRule(user: User, rule: AttributeRule): boolean {
+    return rule.condition_groups.some((group) => 
+      group.conditions.every((condition) => this.evaluateCondition(user, condition))
+    );
+  }
+
+  private evaluateCondition(user: User, condition: Condition): boolean {
+    const userValue = this.getAttributeValue(user, condition.attribute);
+    switch (condition.operator) {
+      case 'equals': return userValue === condition.value;
+      case 'contains': return String(userValue).includes(condition.value);
+      // ...
+    }
+  }
+}
+```
+
+## 4-Katman Enforcement
+
+Her endpoint sırayla 4 kontrol:
+
+### Katman 1: JwtAuthGuard
+
+Token valid + not revoked. `AppModule`'da global guard.
+
+### Katman 2: PermissionGuard + @RequirePermission
+
+Decorator okur, cache'ten permission set alır, required ile kontrol.
+
+```typescript
+@Injectable()
+export class PermissionGuard implements CanActivate {
+  constructor(
+    private reflector: Reflector,
+    private permissionResolver: PermissionResolverService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const required = this.reflector.get<Permission[]>('permissions', context.getHandler());
+    if (!required?.length) return true;
+
+    const { user } = context.switchToHttp().getRequest();
+    const permissions = await this.permissionResolver.getUserPermissions(user.sub);
+
+    const missing = required.filter((p) => !permissions.has(p));
+    if (missing.length > 0) {
+      throw new PermissionDeniedException({ required, missing });
+    }
+    return true;
+  }
+}
+```
+
+### Katman 3: Resource Ownership (Service-Level)
+
+Permission varsa bile kaynak sahipliği check:
+
+```typescript
+async findByDisplayId(displayId: string, actor: AuthenticatedUser) {
+  const process = await this.prisma.processes.findUnique({
+    where: { display_id: displayId },
+    include: { tasks: { include: { assignees: true } } },
+  });
+  if (!process) throw new ProcessNotFoundException();
+
+  const isOwner = process.started_by_user_id === actor.id;
+  const isAssignee = process.tasks.some((t) => 
+    t.assignees.some((a) => a.user_id === actor.id)
+  );
+  const hasViewAll = await this.permissionResolver.hasPermission(
+    actor.id, 
+    Permission.PROCESS_VIEW_ALL,
+  );
+
+  if (!isOwner && !isAssignee && !hasViewAll) {
+    throw new ProcessAccessDeniedException();
+  }
+
+  return this.serialize(process, actor);
+}
+```
+
+Ownership rules (domain-specific):
+
+| Entity | Kural |
+|---|---|
+| Process | Starter OR task assignee OR PROCESS_VIEW_ALL |
+| Task | Assignee OR parent process starter OR PROCESS_VIEW_ALL |
+| Document | Uploader OR parent context erişilebilir OR admin permission |
+| User (read) | Self OR USER_LIST_VIEW |
+| User (edit) | USER_UPDATE_ATTRIBUTE AND NOT self |
+| Notification | Recipient (daima self) |
+| Audit log | AUDIT_LOG_VIEW (Superadmin only) |
+
+### Katman 4: Field-Level Filter (Response Serializer)
+
+Entity'yi görme, her field'ını görme değil. Serializer permission-aware:
+
+```typescript
+private serialize(process: Process, actor: AuthenticatedUser) {
+  const isOwner = process.started_by_user_id === actor.id;
+  const hasViewAll = /* check */;
+  const isFullAccess = isOwner || hasViewAll;
+
+  return {
+    id: process.id,
+    displayId: process.display_id,
+    status: process.status,
+    tasks: process.tasks.map((task) => {
+      const isAssignee = task.assignees.some((a) => a.user_id === actor.id);
+      const taskFullAccess = isFullAccess || isAssignee;
+
+      return {
+        id: task.id,
+        stepLabel: task.step_label,
+        status: task.status,
+        // Full access fields
+        formData: taskFullAccess ? task.form_data : null,
+        documents: taskFullAccess ? task.documents : [],
+        reason: taskFullAccess ? task.reason : null,
+      };
+    }),
+  };
+}
+```
+
+Field gizlemek = `null` return. Silmek değil. Frontend "Bu bilgi paylaşılmamış" placeholder gösterir.
+
+## @RequirePermission Decorator
+
+```typescript
+// apps/api/src/common/decorators/require-permission.decorator.ts
+import { SetMetadata } from '@nestjs/common';
+import { Permission } from '@leanmgmt/shared-types';
+
+export const RequirePermission = (...permissions: Permission[]) =>
+  SetMetadata('permissions', permissions);
+```
+
+Usage:
+```typescript
+@Post('/users')
+@RequirePermission(Permission.USER_CREATE)
+async create(...) { ... }
+
+@Patch('/roles/:id/permissions')
+@RequirePermission(Permission.ROLE_PERMISSION_MANAGE)
+async updateRolePermissions(...) { ... }
+```
+
+## Banned Patterns
+
+- Permission check'i yalnız frontend'te (backend zorunlu)
+- Permission cache'i inline atlama ("bu request için DB'den resolve et")
+- Hard-coded permission string (`'USER_CREATE'` — enum kullan)
+- Cache invalidation "sonra" bırakma (anında emit)
+- Role değişikliğinde manuel cache silme (event pattern'i kullan)
+- Field-level filter'ı frontend'te yapma (sensitive data leak)
+
+---
+
+Detay: `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 4 (4-katman enforcement)

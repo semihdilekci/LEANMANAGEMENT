@@ -1,0 +1,335 @@
+---
+description: Database patterns — Prisma usage, encryption middleware (email/phone), transactions, migration conventions, query optimization
+globs:
+  - "apps/api/prisma/**"
+  - "apps/api/**/*.service.ts"
+  - "apps/api/**/*.repository.ts"
+---
+
+# Backend Database Patterns
+
+Prisma 5 ORM. Aurora PostgreSQL 16. Her query intentional — premature optimization yok, ama N+1 kabul edilmez.
+
+## Prisma Client Injection
+
+Service'ler `PrismaService` kullanır:
+
+```typescript
+@Injectable()
+export class UsersService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findById(id: string) {
+    return this.prisma.users.findUnique({ where: { id } });
+  }
+}
+```
+
+`PrismaService` connection lifecycle'ı yönetir (NestJS lifecycle hooks).
+
+## Transaction Pattern
+
+Multi-table write = transaction zorunlu:
+
+```typescript
+async create(input, actor) {
+  return this.prisma.$transaction(async (tx) => {
+    const user = await tx.users.create({ data: ... });
+    await tx.user_roles.create({ data: { user_id: user.id, role_id: ... } });
+    await tx.audit_logs.create({ data: ... });
+    return user;
+  });
+}
+```
+
+Transaction içinde:
+- Exception → otomatik rollback
+- `tx` kullan (not `this.prisma`) — aynı connection'da izolasyon
+- Side effect (notifications, emails) transaction DIŞINDA — commit sonrası EventEmitter
+
+Isolation level default `READ_COMMITTED`. Concurrency-sensitive query'lerde `SERIALIZABLE`:
+
+```typescript
+await this.prisma.$transaction(async (tx) => {
+  // ...
+}, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+```
+
+## Encryption Middleware
+
+PII kolon'ları Prisma middleware ile otomatik encrypt/decrypt:
+
+```typescript
+// apps/api/src/common/encryption/encryption.middleware.ts
+export function createEncryptionMiddleware(encryption: EncryptionService) {
+  return async (params: Prisma.MiddlewareParams, next) => {
+    // On write: encrypt
+    if (params.action === 'create' || params.action === 'update') {
+      if (params.model === 'users') {
+        if (params.args.data.email) {
+          params.args.data.email = encryption.deterministicEncrypt(
+            params.args.data.email.toLowerCase()
+          );
+        }
+        if (params.args.data.phone) {
+          params.args.data.phone = encryption.probabilisticEncrypt(params.args.data.phone);
+        }
+      }
+    }
+
+    // On where clause: encrypt lookup fields
+    if (params.action === 'findUnique' || params.action === 'findFirst' || 
+        params.action === 'findMany' || params.action === 'update') {
+      if (params.model === 'users' && params.args.where?.email) {
+        params.args.where.email = encryption.deterministicEncrypt(
+          params.args.where.email.toLowerCase()
+        );
+      }
+    }
+
+    const result = await next(params);
+
+    // On read: decrypt
+    if (params.model === 'users' && result) {
+      const rows = Array.isArray(result) ? result : [result];
+      for (const row of rows) {
+        if (row.email) row.email = encryption.deterministicDecrypt(row.email);
+        if (row.phone) row.phone = encryption.probabilisticDecrypt(row.phone);
+      }
+    }
+
+    return result;
+  };
+}
+```
+
+Middleware `PrismaService.onModuleInit()`'te register:
+
+```typescript
+onModuleInit() {
+  this.$use(createEncryptionMiddleware(this.encryption));
+}
+```
+
+## Query Optimization
+
+### Avoid N+1
+
+```typescript
+// ✗ N+1
+const users = await this.prisma.users.findMany();
+for (const user of users) {
+  user.roles = await this.prisma.user_roles.findMany({ where: { user_id: user.id } });
+}
+
+// ✓ Single query with include
+const users = await this.prisma.users.findMany({
+  include: { roles: true },
+});
+```
+
+### Select vs Include
+
+`select` daha küçük payload:
+
+```typescript
+// If you only need specific fields
+await this.prisma.users.findMany({
+  select: { id: true, first_name: true, last_name: true },
+});
+
+// If you need relations:
+await this.prisma.users.findMany({
+  include: { roles: true, company: true },
+});
+```
+
+Network + memory büyük data set'ler için `select` tercih.
+
+### Cursor-Based Pagination
+
+Büyük tablolarda offset yavaş — cursor kullan:
+
+```typescript
+async findMany(query: ListQuery) {
+  const items = await this.prisma.users.findMany({
+    take: query.limit + 1,  // fetch one extra to detect hasMore
+    cursor: query.cursor ? { id: decodeCursor(query.cursor) } : undefined,
+    skip: query.cursor ? 1 : 0,
+    orderBy: { created_at: 'desc' },
+    where: { /* filters */ },
+  });
+
+  const hasMore = items.length > query.limit;
+  if (hasMore) items.pop();
+
+  const nextCursor = hasMore ? encodeCursor(items[items.length - 1].id) : null;
+  return { items, pagination: { nextCursor, hasMore, limit: query.limit } };
+}
+```
+
+### Counts
+
+Büyük tablolarda `count()` yavaş. İhtiyaç varsa:
+- Stored aggregates (materialized view)
+- Approximate count (`pg_class.reltuples`)
+- Pagination'da `hasMore` yeter (total count gereksiz)
+
+## Prisma Schema Conventions
+
+```prisma
+// apps/api/prisma/schema.prisma
+model users {
+  id                         String    @id @default(uuid()) @db.Uuid
+  sicil                      String    @unique @db.VarChar(8)
+  first_name                 String    @db.VarChar(100)
+  last_name                  String    @db.VarChar(100)
+  email                      String    @unique @db.Text  // encrypted deterministic
+  phone                      String?   @db.Text           // encrypted probabilistic
+  password_hash              String?
+  is_active                  Boolean   @default(true)
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+  // relations
+  roles                      user_roles[]
+  sessions                   sessions[]
+  created_processes          processes[] @relation("ProcessStarter")
+  
+  @@index([is_active, created_at])
+  @@index([company_id, is_active])
+}
+```
+
+Conventions:
+- snake_case (PostgreSQL native)
+- UUID PK (`@db.Uuid`)
+- `created_at`, `updated_at` standart
+- Soft delete: `is_active Boolean @default(true)` — `deleted_at` yerine
+- Index explicit — filter combinations için composite index
+
+## Migration Pattern
+
+Yeni migration:
+
+```bash
+# Schema düzenle
+# apps/api/prisma/schema.prisma — add field
+
+# Migration oluştur (dev DB'ye uygular + migration file)
+pnpm --filter api prisma migrate dev --name add_user_hire_date
+```
+
+Migration file naming: `<timestamp>_<verb>_<noun>`:
+- `20260115120000_add_user_phone_column`
+- `20260120143000_create_index_users_email`
+- `20260201100000_rename_sicil_to_employee_number`
+
+### Migration Review Checklist
+
+Her migration PR'ında:
+- [ ] Breaking change mi? Expand-contract pattern uygulanıyor mu?
+- [ ] Large table ALTER? `CREATE INDEX CONCURRENTLY` kullan
+- [ ] DROP var mı? Rollback SQL yaz
+- [ ] Backfill gerekiyor mu? Performance impact değerlendir
+- [ ] Row-level lock süresi?
+
+### Zero-Downtime Migration (Expand-Contract)
+
+Breaking schema change için 5 adım:
+
+1. **Expand** — new column nullable
+2. **Dual write** — code hem eski hem yeni kolona yazar
+3. **Backfill** — eski data yeni kolona (batch script)
+4. **Switch read** — code yeni kolondan okur
+5. **Contract** — eski kolonu drop et (1 hafta sonra)
+
+Her adım ayrı PR + deploy.
+
+### `migrate deploy` vs `db push`
+
+- **`prisma migrate deploy`** — prod + staging. Migration files uygular. Idempotent.
+- **`prisma db push`** — dev only. Fast iteration. Migration file YOK.
+- **Prod'da `db push` asla çalıştırılmaz.**
+
+## Raw SQL
+
+`$queryRaw` / `$executeRaw` — yalnızca Prisma'nın yetersiz kaldığı durumlarda. Template literal kullan (parameterized):
+
+```typescript
+// ✓ Safe
+await this.prisma.$queryRaw`
+  SELECT * FROM users WHERE email = ${email} AND is_active = true
+`;
+
+// ✗ YASAK
+await this.prisma.$queryRawUnsafe(
+  `SELECT * FROM users WHERE email = '${email}'`  // SQL injection
+);
+```
+
+ESLint rule: `$queryRawUnsafe`, `$executeRawUnsafe` banned (kod review'da explicit ADR gerekli).
+
+## Audit Log (Special Table)
+
+`audit_logs` append-only. UPDATE/DELETE PostgreSQL trigger ile engel:
+
+```sql
+CREATE TRIGGER trigger_audit_logs_prevent_modification
+BEFORE UPDATE OR DELETE ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION audit_logs_prevent_modification();
+```
+
+Ayrıca DB role:
+
+```sql
+REVOKE UPDATE, DELETE ON audit_logs FROM leanmgmt_app;
+GRANT SELECT, INSERT ON audit_logs TO leanmgmt_app;
+```
+
+Chain hash trigger otomatik compute (INSERT before). Application code hash compute etmez.
+
+## Indexes
+
+Composite index'ler filter + sort combinations için:
+
+```sql
+-- Users list filter + sort
+CREATE INDEX users_active_created_idx ON users (is_active, created_at DESC);
+CREATE INDEX users_company_active_idx ON users (company_id, is_active);
+
+-- Processes by starter
+CREATE INDEX processes_starter_status_idx ON processes (started_by_user_id, status);
+
+-- Tasks by status
+CREATE INDEX tasks_status_sla_idx ON tasks (status, sla_due_at) WHERE status IN ('PENDING', 'CLAIMED');
+```
+
+Partial index ile performance gain (yalnız aktif task'lar için).
+
+## Connection Pool
+
+Prisma Client default pool 10. Yüksek load için `DATABASE_URL` query param:
+
+```
+postgresql://...?connection_limit=20&pool_timeout=10
+```
+
+ECS task başına pool. 3 task × 20 = 60 concurrent connection. Aurora limit kontrol et.
+
+## Banned Patterns
+
+- Controller'da Prisma query (service layer bypass)
+- `prisma.$queryRawUnsafe(...)` (SQL injection)
+- Transaction yerine sequential `await` (partial write riski)
+- `findMany` without pagination (tüm tabloyu belleğe alır)
+- Migration reverting via manual SQL (Prisma history bozulur — `migrate reset` dev'de)
+- Raw connection management (`prisma.$connect()` boot'ta otomatik)
+- N+1 queries (tespit edilirse refactor)
+- `skip` offset pagination (cursor kullan)
+
+---
+
+Detay:
+- `docs/02_DATABASE_SCHEMA.md` — tam ERD + migration stratejisi
+- `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 10.3 (Encryption at rest)
+- `docs/09_DEV_WORKFLOW.md` Bölüm 9 (Migration pattern)

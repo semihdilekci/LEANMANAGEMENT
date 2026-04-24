@@ -1,0 +1,133 @@
+---
+description: "[Faz 7] Notifications — 3 iterasyon/chat (in-app+prefs → email+worker → UI+templates). “Faz 7 — İterasyon N”."
+---
+
+# Faz 7: Notifications
+
+## Goal
+
+Notification modülü — in-app + email. Event-driven generation (task.created, task.claimed, task.completed, sla.approaching, sla.overdue, process.cancelled, etc.). User-level notification preferences (enable/disable per channel per event). Email template'ler (Handlebars veya React Email). Daily digest (opt-in). Notification center UI (bell + dropdown + dedicated page).
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@57-phase-07-notifications` + **“Faz 7 — İterasyon N”** (dokümantasyonda “Faz 7” = bildirimler).
+
+### İterasyon 1 — In-app çekirdek + preferences + generator
+
+**Hedef:** `notifications/*`, `notification-generator` event listener’ları, preferences GET/PUT; DB persistence; tercihlere göre in-app üretim.
+
+**Minimum bağlam:** `docs/02_DATABASE_SCHEMA.md` 12–13; `docs/03_API_CONTRACTS.md` 9.8.
+
+**Bu iterasyonda yok:** SES e-posta gönderimi, digest cron (İter 2).
+
+**Stop:** [ ] Event→DB integration test; [ ] preferences respected (email kapalıysa queue’ya düşmeme veya no-op). PR/onay.
+
+### İterasyon 2 — Email queue + templates + SES + digest/cleanup worker
+
+**Hedef:** `email-templates` backend, BullMQ email consumer, digest ve cleanup cron’ları; şablon seti (spec’teki liste).
+
+**Bu iterasyonda yok:** Admin template editör UI (İter 3).
+
+**Stop:** [ ] SES sandbox testi; [ ] queue retry davranışı. PR/onay.
+
+### İterasyon 3 — UI (bell, center, preferences) + admin template editor
+
+**Hedef:** Notification bell/dropdown/full page, preferences formu, admin email template sayfaları; E2E/smoke.
+
+**Stop:** Faz 7 Done Definition; roadmap işareti.
+
+## Required Context
+
+- `docs/01_DOMAIN_MODEL.md` Bölüm 6 (Notifications)
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 12-13 (notifications, email_templates)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.8 (Notifications)
+- `docs/06_SCREEN_CATALOG.md` — S-NOTIFICATION-CENTER, S-NOTIFICATION-PREFERENCES, S-EMAIL-TEMPLATE-*
+
+## Scope
+
+### Backend
+
+```
+apps/api/src/notifications/
+├── notifications.module.ts
+├── notifications.controller.ts              # list, mark-read, mark-all-read, unread-count
+├── notifications.service.ts
+├── notification-generator.service.ts        # EventEmitter listener
+├── notification-preferences.service.ts
+├── notification-preferences.controller.ts
+└── dto/*.ts
+
+apps/api/src/email-templates/
+├── email-templates.module.ts
+├── email-templates.controller.ts            # admin CRUD
+├── email-templates.service.ts
+└── dto/*.ts
+
+apps/api/src/worker/src/notifications/
+├── email-sender.consumer.ts                 # BullMQ
+├── digest-cron.ts                           # Daily digest
+└── notification-cleanup-cron.ts             # 90 gün eski sil
+```
+
+### Frontend
+
+```
+apps/web/src/app/(app)/
+├── notifications/page.tsx                    # S-NOTIFICATION-CENTER
+└── settings/notifications/page.tsx           # S-NOTIFICATION-PREFERENCES
+
+apps/web/src/app/(admin)/admin/email-templates/
+├── page.tsx                                  # S-EMAIL-TEMPLATE-LIST
+└── [id]/edit/page.tsx                        # S-EMAIL-TEMPLATE-EDIT
+
+apps/web/src/components/notifications/
+├── NotificationBell.tsx                      # Header icon + badge
+├── NotificationDropdown.tsx                  # Recent 5
+├── NotificationList.tsx                      # Full page
+└── NotificationPreferencesForm.tsx
+```
+
+## Constraints
+
+- Event-driven: `@OnEvent('task.created')` listeners in NotificationGenerator
+- Notification persistence: DB + TanStack Query cache
+- In-app first, email optional (per preference)
+- Email: SES + BullMQ queue (async, retry on failure)
+- Template: Handlebars syntax (`{{firstName}}, {{taskUrl}}`)
+- Preferences: user-level, per event type × per channel (in-app / email / digest)
+- Default preferences seeded: critical notifications on (task assigned, SLA overdue), optional off (digest)
+- Mark read: single + all
+- Cleanup cron: 90 gün eski notification sil
+
+## Done Definition
+
+- [ ] 8+ notification event type generate edilir (task.created, task.claimed, task.completed, sla.approaching, sla.overdue, process.cancelled, process.completed, role.assigned)
+- [ ] Email SES integration working (SES sandbox'ta test)
+- [ ] Email templates: login-welcome, password-reset, task-assigned, sla-approaching, sla-overdue, daily-digest
+- [ ] Preferences endpoint: GET + PUT
+- [ ] Notification center: list, mark-read, unread-count
+- [ ] Notification bell badge: unread count visible
+- [ ] Admin email template editor with preview
+- [ ] Integration test: event emit → notification DB + email queue
+- [ ] Preferences respected: user disabled email → no email sent
+- [ ] Cleanup cron test (90 day old notifications purged)
+
+## Explicit Don'ts
+
+- SMS notifications (post-MVP)
+- Push notifications (requires mobile)
+- Bulk notification broadcast (admin announcement — post-MVP)
+- Notification grouping/threading (flat list MVP)
+- Real-time notification push via WebSocket (polling yeter — project identity MVP scope dışı)
+- Slack/Teams integration (post-MVP)
+
+## Related ADRs
+
+- ADR-0022: Event-driven notification generation (vs inline in services)
+- ADR-0023: SES for transactional email
+- ADR-0024: Handlebars template syntax
+- ADR-0025: Polling vs WebSocket for in-app (poll yeter — 30s interval)
+
+---
+
+Phase done → roadmap Faz 7 check mark.

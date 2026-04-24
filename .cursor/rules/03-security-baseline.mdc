@@ -1,0 +1,155 @@
+---
+description: Security baseline — 6 mandatory checks for every code change. Her endpoint, her form, her DB query için uygulanır. Skip YASAK.
+alwaysApply: true
+---
+
+# Security Baseline — Skip Yasak
+
+Her endpoint, her form, her DB query, her file upload handler **altı kontrolü** geçmeli. Biri atlanırsa PR reddedilir. CI hepsini yakalayamaz — self-discipline birincil savunma.
+
+## 1. Permission Enforcement
+
+Mutating controller method'unda `@RequirePermission(Permission.X)` zorunlu. Read-only method'larda ya `@RequirePermission` ya da service içinde resource ownership check.
+
+```typescript
+// ✓ Doğru
+@Post('/users')
+@RequirePermission(Permission.USER_CREATE)
+async create(
+  @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserInput,
+  @CurrentUser() actor: AuthenticatedUser,
+) {
+  return this.usersService.create(dto, actor);
+}
+
+// ✗ Yanlış — decorator yok, PR reddedilir
+@Post('/users')
+async create(@Body() dto: CreateUserInput) { ... }
+```
+
+Public endpoint'ler (`/auth/login`, `/auth/password-reset-request`) → `@Public()` ile işaretlenir. Decorator'sız endpoint kabul edilmez.
+
+Frontend `<PermissionGate>` **UX gizleme**, **güvenlik değil**. Backend enforcement zorunlu.
+
+## 2. Input Validation — Zod Shared Schema
+
+Request DTO'lar `@leanmgmt/shared-schemas`'tan import edilir. Inline schema yasak — backend ve frontend tek doğruluk kaynağını paylaşır.
+
+```typescript
+import { CreateUserSchema, type CreateUserInput } from '@leanmgmt/shared-schemas';
+
+@Post('/users')
+async create(
+  @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserInput,
+) { ... }
+```
+
+Schema her zaman `.strict()` — bilinmeyen field reddedilir. Payload pollution + type drift'i önler.
+
+## 3. PII Encryption at Rest
+
+PII kolon envanteri:
+- `email` — **deterministic encryption** (lookup için, aynı input aynı ciphertext)
+- `phone` — **probabilistic encryption** (random IV, her encrypt farklı)
+- `first_name`, `last_name` — encryption yok (kabul edilen risk düzeyi)
+
+Yeni PII kolon eklerken:
+1. Kolon gerçekten PII mi? (TCK, adres, sağlık → evet; görev başlığı → hayır)
+2. Lookup gerekiyor mu? → deterministic; yoksa probabilistic
+3. `EncryptionService` middleware field listesine ekle
+4. Mevcut satırlar için backfill migration yaz
+
+## 4. Audit Log
+
+State-değiştiren her operation `@Audit(action, entityType)` decorator'ı ile kaydedilir. Silent writes yok.
+
+```typescript
+@Audit('USER_CREATED', 'USER')
+async create(input, actor) { ... }
+
+@Audit('PROCESS_CANCELLED', 'PROCESS')
+async cancel(displayId, reason, actor) { ... }
+
+@Audit('ROLE_PERMISSION_UPDATED', 'ROLE')
+async updateRolePermissions(roleId, permissions, actor) { ... }
+```
+
+Audit DB trigger'ı ile append-only. UPDATE/DELETE attempt PostgreSQL exception → trigger koruması sağlam. Chain hash her kayıtta compute edilir, nightly verify cron chain bütünlüğünü kontrol eder.
+
+## 5. Rate Limit
+
+Default: 600 req/dk/user (module-level throttler). Sensitive/expensive endpoint için override:
+
+| Endpoint | Limit | Window | Identifier |
+|---|---|---|---|
+| `POST /auth/login` | 10 | 1 dk | IP |
+| `POST /auth/login` | 5 | 15 dk | email |
+| `POST /auth/password-reset-request` | 3 | 1 saat | email |
+| `POST /auth/password-reset-request` | 5 | 1 saat | IP |
+| `POST /auth/password-reset-confirm` | 10 | 1 saat | IP |
+| `POST /auth/refresh` | 30 | 1 dk | user |
+| `POST /documents/upload-initiate` | 20 | 1 dk | user |
+| `POST /admin/*/export` | 5 | 1 saat | user |
+| `POST /admin/email-templates/:id/send-test` | 10 | 1 saat | user |
+
+```typescript
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
+@Post('/auth/login')
+@Public()
+async login(...) { ... }
+```
+
+Yeni sensitive endpoint ekliyorsan: düşük limit + konservatif window. Sonradan gevşetmek kolay, sıkıştırmak zor.
+
+## 6. XSS Protection
+
+- **React component'lar** — autoescape default, bypass yasak
+- **`dangerouslySetInnerHTML`** — ESLint banned. Mecbur kalınırsa DOMPurify sanitize sonrası
+- **Email/consent/markdown render** — server-side DOMPurify sanitize önce gönderilir
+- **User-generated content UI'da** — React autoescape yeterli; innerHTML manipülasyon yasak
+
+```typescript
+// ✗ Yasak
+<div dangerouslySetInnerHTML={{ __html: userInput }} />
+
+// ✓ Gerçekten gerekliyse (admin-controlled content):
+import DOMPurify from 'isomorphic-dompurify';
+
+<div dangerouslySetInnerHTML={{ 
+  __html: DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ['p', 'strong', 'em', 'ul', 'ol', 'li', 'a'],
+    ALLOWED_ATTR: ['href'],
+  })
+}} />
+```
+
+CSP header `strict-dynamic` + nonce ile inline script'leri kısıtlar. `unsafe-inline` kesinlikle kullanılmaz.
+
+## Quick Mental Checklist
+
+Her kod değişikliğinden önce:
+
+- [ ] Permission decorator yerinde mi?
+- [ ] Shared Zod schema kullanıldı mı?
+- [ ] Yeni PII kolon encrypted mi?
+- [ ] State değişimi audit tetikliyor mu?
+- [ ] Rate limit sensitivity için uygun mu?
+- [ ] User input raw HTML olarak render edilmiyor mu?
+
+Herhangi birine "hayır" veya "emin değilim" → düzelt ve sonra commit et.
+
+## Frontend Tarafı — Token Güvenliği
+
+- **Access token**: Zustand memory only. `localStorage`/`sessionStorage` kesinlikle YASAK (XSS risk)
+- **Refresh token**: httpOnly + Secure + SameSite=Strict cookie (JS erişemez)
+- **CSRF token**: double-submit pattern. Memory + non-HttpOnly cookie + `X-CSRF-Token` header mutating request'lerde
+
+```typescript
+// Axios interceptor
+config.headers['X-CSRF-Token'] = getCsrfToken();  // Zustand'dan
+config.withCredentials = true;                      // cookie gönderimi
+```
+
+---
+
+Detay: `docs/07_SECURITY_IMPLEMENTATION.md` — kapsamlı güvenlik implementasyon referansı

@@ -1,0 +1,297 @@
+---
+description: Deep walkthrough for implementing a Critical screen from the Screen Catalog specification — extends 41-add-new-screen with detailed section-by-section mapping of Screen Catalog fields to code, worked example, and quality criteria. Use when implementing any screen tagged Critical in docs/06_SCREEN_CATALOG.md or when the agent needs deeper guidance than the basic add-new-screen procedure.
+---
+
+# Screen Catalog'dan Kritik Ekran Uygulama (Detaylı)
+
+Bu prosedür `41-add-new-screen.mdc`'yi detaylandırır. Kritik screen'ler için spec → code mapping section-by-section.
+
+Temel prosedür için 41 rule'a bakıp, detaylı mapping için bu rule'u kullan.
+
+**Görsel uygulama:** `docs/lean-design-system/` (token + `ls-*`) — `26-lean-design-system.mdc`; spec’teki layout ile birlikte düşün.
+
+## Critical Screen Spec Sections → Code Mapping
+
+Her Critical screen şu section'ları içerir. Her biri koda yansır:
+
+### Section: Route, Access, Layout
+
+| Spec field | Code implementation |
+|---|---|
+| Route: `/users/new` | `apps/web/src/app/(app)/users/new/page.tsx` |
+| Access: Authenticated + Permission | Middleware + `<PermissionGate>` or layout guard |
+| Layout: AppLayout | Route group `(app)/` |
+| Level: Critical | Full template, E2E if in critical journey |
+
+### Section: Visual Structure (Numbered Sections)
+
+Spec'te örneğin:
+1. Page title + breadcrumb
+2. Form card
+3. Action buttons (primary submit + cancel)
+4. Error summary (if needed)
+
+Kod'a mapping:
+
+```typescript
+// NewUserPage
+<FormLayout
+  title="Yeni Kullanıcı"           // 1: Page title
+  breadcrumbs={[...]}               // 1: Breadcrumb
+>
+  <UserForm />                       // 2: Form card
+</FormLayout>
+
+// UserForm
+<Form {...form}>
+  <form onSubmit={form.handleSubmit(onSubmit)}>
+    {/* Field 1-N */}
+    <FormField ... />
+    
+    {/* Error summary — only if big form */}
+    <ErrorSummary errors={form.formState.errors} />
+    
+    {/* Action buttons — 3 */}
+    <div className="flex justify-end gap-2">
+      <Button type="button" variant="outline">İptal</Button>
+      <Button type="submit">Oluştur</Button>
+    </div>
+  </form>
+</Form>
+```
+
+### Section: Data Source
+
+Spec:
+> **API**: `POST /api/v1/users`  
+> **Query key**: `queryKeys.users.lists()` (for invalidation)  
+> **Mutation key**: `useCreateUserMutation`  
+> **Invalidate on success**: `queryKeys.users.lists()`
+
+Kod:
+
+```typescript
+// lib/queries/users.ts
+export function useCreateUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateUserInput) => 
+      apiClient.post('/api/v1/users', input).then((r) => r.data.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+
+// UserForm
+const createUser = useCreateUserMutation();
+```
+
+### Section: State Management
+
+Spec:
+> **Server state**: None (create screen)  
+> **Local state**: None  
+> **URL state**: None (unless edit with params)  
+> **Form state**: RHF — CreateUserSchema
+
+Kod:
+
+```typescript
+const form = useForm<CreateUserInput>({
+  resolver: zodResolver(CreateUserSchema),
+  defaultValues: { /* all fields */ },
+});
+```
+
+### Section: State Screens
+
+Spec tablosu:
+
+| Durum | UX |
+|---|---|
+| Initial | Form boş, focus ilk field'da |
+| Submit in progress | Submit button disabled + spinner |
+| Submit success | Toast "Kullanıcı oluşturuldu" + redirect `/users/:id` |
+| Submit field error | Inline `<FormMessage>` field üstünde |
+| Submit generic error | Toast hata mesajı |
+| Unsaved changes exit attempt | `beforeunload` confirm |
+
+Kod (partial):
+
+```typescript
+useUnsavedChangesWarning(form.formState.isDirty);
+
+const onSubmit = async (values) => {
+  try {
+    const user = await createUser.mutateAsync(values);
+    toast.success('Kullanıcı oluşturuldu');        // Success
+    router.push(`/users/${user.id}`);              // Redirect
+  } catch (err) {
+    handleFormError(err, form);                    // Field or generic error
+  }
+};
+
+<Button 
+  type="submit" 
+  disabled={form.formState.isSubmitting}           // In progress
+>
+  {form.formState.isSubmitting && <Loader2 />}
+  Oluştur
+</Button>
+```
+
+### Section: Interactions
+
+Spec:
+> - İlk field'a otomatik focus
+> - Tab ile field'lar arası gez
+> - Enter submit tetikler
+> - İptal button → previous page (router.back())
+
+Kod:
+
+```typescript
+// Auto-focus first field
+const firstFieldRef = useRef<HTMLInputElement>(null);
+useEffect(() => {
+  firstFieldRef.current?.focus();
+}, []);
+
+<Input {...field} ref={firstFieldRef} />
+
+// Enter submit — native form behavior (onSubmit)
+// Tab navigation — native (correct DOM order)
+
+// Cancel button
+<Button type="button" variant="outline" onClick={() => router.back()}>
+  İptal
+</Button>
+```
+
+### Section: Edge Cases
+
+Spec örnekleri:
+> - Company dropdown empty (hiç company yoksa) → disable form + info mesajı
+> - Manager seçimi için user list çok büyük → autocomplete
+> - Email case-sensitivity: lowercase'e çevir submit'te
+> - Sicil format validation failed → inline error
+
+Her edge case kod'da handle:
+
+```typescript
+const { data: companies } = useCompaniesQuery();
+
+if (!companies?.length) {
+  return (
+    <div className="p-6 text-center">
+      <p className="text-muted-foreground">
+        Kullanıcı oluşturmak için önce en az bir şirket tanımlanmalı.
+      </p>
+      <PermissionGate requires={Permission.MASTER_DATA_MANAGE}>
+        <Button onClick={() => router.push('/admin/companies/new')}>
+          Şirket Oluştur
+        </Button>
+      </PermissionGate>
+    </div>
+  );
+}
+
+// Email lowercase — Zod schema'da `.toLowerCase()` var, ek gerek yok
+// Sicil validation — Zod regex, FormMessage otomatik
+```
+
+### Section: Form Fields (Form-Bearing Screens)
+
+Spec tablosu:
+
+| Field | Type | Validation | Default | Disabled When |
+|---|---|---|---|---|
+| sicil | text | 8 digit numeric | `''` | edit mode |
+| firstName | text | 1-100 char | `''` | - |
+| email | email | valid email | `''` | - |
+| companyId | select | required uuid | `undefined` | - |
+| managerUserId | select (autocomplete) | optional uuid | `undefined` | - |
+
+Kod her row'u reflect eder — FormField + validation message + defaultValues + disabled prop.
+
+## Worked Example: S-USER-NEW
+
+Tam implementation walkthrough (spec'in Annex 16.3'ünde — buraya kısa).
+
+### Files Created
+
+```
+apps/web/src/app/(app)/users/new/page.tsx           # 15 lines — page shell
+apps/web/src/components/users/UserForm.tsx          # 180 lines — form component
+apps/web/src/components/users/UserForm.test.tsx     # 80 lines — unit test
+apps/web/src/lib/queries/users.ts                   # +1 mutation (existing file)
+apps/web/tests/e2e/user-create.spec.ts              # 30 lines — E2E (if critical)
+```
+
+### Files Modified
+
+```
+apps/web/src/lib/query-keys.ts                      # +users key factory if not existing
+```
+
+Total delta: ~300 satır yeni + test'ler. Standard screen budget.
+
+## Secondary Screen Farkı
+
+Secondary screen'lerde spec daha az detaylı (özet format). Implementation:
+- Aynı adımlar, ama daha az section
+- E2E test genellikle yok
+- Edge case'ler çoğu kez "standard" (liste paginated, detay fetch error'a dayanıklı)
+
+Critical vs Secondary Quality Bar:
+- Critical: tam test coverage, accessibility pass, E2E if journey
+- Secondary: unit test coverage sufficient, a11y automatic (semantic HTML yeter)
+
+## Quality Kriterleri (Critical Screen İçin)
+
+- [ ] **Visual fidelity**: spec section'larıyla UI match
+- [ ] **Data layer**: spec'teki query/mutation keys + invalidation
+- [ ] **State completeness**: loading, empty, error, success — hepsi implement
+- [ ] **Interactions**: spec'teki her action wire
+- [ ] **Edge cases**: spec listesinde her case handle
+- [ ] **Permission gates**: role-gated action'lar hide/show doğru
+- [ ] **Accessibility**: keyboard nav, focus, ARIA (25-a11y rule)
+- [ ] **Error handling**: field-specific + generic (22-forms rule)
+- [ ] **Unit test**: happy + error path + edge case
+- [ ] **E2E test**: kritik journey'deyse
+- [ ] **Bundle impact**: <50 KB delta (genellikle yeni chunk <20 KB)
+- [ ] **Screen Catalog güncel**: implementation sırasında spec sapma varsa doc update
+
+## Sık Yapılan Sapmalar
+
+### 1. Edge Case'leri Atlamak
+
+Spec'te "eğer şirket yoksa X" var, kod yok. Review'da tespit edilir. Spec geçici sayılmıyor.
+
+### 2. PermissionGate Atlamak
+
+Admin-only action auth user'a gözüküyor. Backend zaten reject edecek, ama UX kötü.
+
+### 3. Custom Component Yazmak
+
+shared'de `<DataTable>` var, developer kendi table'ını yazıyor. Tutarsızlık + bakım yükü.
+
+### 4. Form Error Toast-Only
+
+Server USER_SICIL_DUPLICATE döndü, toast gösteriyor, field error yok. Kullanıcı neyi düzeltsin?
+
+### 5. Breadcrumb Atlamak
+
+Critical screen'lerde breadcrumb zorunlu. Navigation context verir.
+
+### 6. Spec Güncel Tutmak Unutmak
+
+Implementation sırasında "bu field aslında gereksiz" tespit → koddan kaldırıldı. Ama spec'te hâlâ var. Drift. Spec güncelle.
+
+---
+
+Referans:
+- `docs/06_SCREEN_CATALOG.md` — full catalog (43 screens: 12 critical, 31 secondary)
+- `docs/05_FRONTEND_SPEC.md` — pattern reference
+- Related rules: 41-add-new-screen (basic procedure), 22-frontend-forms, 23-frontend-queries, 24-frontend-components, 25-frontend-a11y, 26-lean-design-system

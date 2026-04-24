@@ -1,0 +1,459 @@
+---
+description: Testing patterns — Vitest unit + integration, Playwright e2e, testcontainers, factory pattern, mocking strategy
+globs:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "apps/api/test/**"
+  - "apps/web/tests/**"
+  - "vitest.config.ts"
+  - "playwright.config.ts"
+---
+
+# Testing Patterns
+
+Test piramidi: %70 unit, %20 integration, %10 e2e. Coverage eşikleri risk-based (auth 90%+, UI 60-70%).
+
+## Vitest Config
+
+```typescript
+// vitest.config.ts (root)
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',  // backend default; frontend 'jsdom' override
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary', 'lcov'],
+      thresholds: {
+        lines: 75,
+        branches: 65,
+        functions: 80,
+        statements: 75,
+      },
+      exclude: [
+        '**/*.test.ts', '**/*.test.tsx',
+        '**/node_modules/**', '**/dist/**',
+        '**/*.config.ts', '**/test/**',
+        '**/migrations/**', '**/seed.ts',
+      ],
+    },
+  },
+});
+```
+
+Per-module stricter thresholds (örn. auth module):
+
+```typescript
+// apps/api/src/auth/vitest.config.ts
+export default defineConfig({
+  test: {
+    coverage: {
+      thresholds: {
+        lines: 90, branches: 85, functions: 100, statements: 90,
+      },
+    },
+  },
+});
+```
+
+## Unit Test Pattern (Backend Service)
+
+```typescript
+// apps/api/src/users/users.service.test.ts
+import { Test } from '@nestjs/testing';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { UsersService } from './users.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { UserSicilDuplicateException } from './users.exceptions';
+import { makeAuthenticatedUser, makeUser, makeCreateUserInput } from '@/test/factories';
+
+describe('UsersService', () => {
+  let service: UsersService;
+  let prisma: Mocked<PrismaService>;
+
+  beforeEach(async () => {
+    const module = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: PrismaService, useValue: createMockPrisma() },
+        { provide: AuditService, useValue: { log: vi.fn() } },
+      ],
+    }).compile();
+
+    service = module.get(UsersService);
+    prisma = module.get(PrismaService) as any;
+  });
+
+  describe('create', () => {
+    it('yeni kullanıcı oluşturur', async () => {
+      const input = makeCreateUserInput();
+      const actor = makeAuthenticatedUser();
+      prisma.users.findFirst.mockResolvedValue(null);
+      prisma.$transaction.mockImplementation((fn) => fn(prisma));
+      prisma.users.create.mockResolvedValue(makeUser({ sicil: input.sicil }));
+
+      const result = await service.create(input, actor);
+
+      expect(result.sicil).toBe(input.sicil);
+      expect(prisma.users.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          sicil: input.sicil,
+          created_by_user_id: actor.id,
+        }),
+      });
+    });
+
+    it('sicil zaten varsa UserSicilDuplicateException fırlatır', async () => {
+      const input = makeCreateUserInput();
+      const actor = makeAuthenticatedUser();
+      prisma.users.findFirst.mockResolvedValue(makeUser({ sicil: input.sicil }));
+
+      await expect(service.create(input, actor))
+        .rejects.toThrow(UserSicilDuplicateException);
+    });
+
+    it('manager cycle tespit ederse UserManagerCycleException fırlatır', async () => {
+      // ...
+    });
+  });
+});
+```
+
+Her public method için:
+- Happy path
+- Her exception path (min 1 per exception)
+- Edge case (empty, null, boundary)
+
+Trivial test yok (`expect(x).toBeDefined()`) — davranış doğrula.
+
+## Factory Pattern
+
+Test data factories `apps/api/src/test/factories/`:
+
+```typescript
+// apps/api/src/test/factories/user.ts
+import { faker } from '@faker-js/faker/locale/tr';
+
+export function makeUser(overrides?: Partial<User>): User {
+  return {
+    id: faker.string.uuid(),
+    sicil: faker.string.numeric(8),
+    first_name: faker.person.firstName(),
+    last_name: faker.person.lastName(),
+    email: faker.internet.email().toLowerCase(),
+    phone: null,
+    password_hash: null,
+    is_active: true,
+    company_id: faker.string.uuid(),
+    manager_user_id: null,
+    created_at: new Date(),
+    updated_at: new Date(),
+    ...overrides,
+  };
+}
+
+export function makeAuthenticatedUser(overrides?: Partial<AuthenticatedUser>): AuthenticatedUser {
+  return {
+    id: faker.string.uuid(),
+    sicil: faker.string.numeric(8),
+    email: faker.internet.email().toLowerCase(),
+    ...overrides,
+  };
+}
+
+export function makeCreateUserInput(overrides?: Partial<CreateUserInput>): CreateUserInput {
+  return {
+    sicil: faker.string.numeric(8),
+    firstName: faker.person.firstName(),
+    lastName: faker.person.lastName(),
+    email: faker.internet.email().toLowerCase(),
+    companyId: faker.string.uuid(),
+    ...overrides,
+  };
+}
+```
+
+Her test yeni UUID + deterministic overrides. Global state yok.
+
+## Integration Test (testcontainers)
+
+Real DB + Redis Docker container'lar:
+
+```typescript
+// apps/api/test/integration-setup.ts
+import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
+import { execSync } from 'child_process';
+
+let pgContainer: StartedPostgreSqlContainer;
+let redisContainer: StartedRedisContainer;
+
+export async function setupTestContainers() {
+  pgContainer = await new PostgreSqlContainer('postgres:16-alpine')
+    .withDatabase('leanmgmt_test')
+    .withUsername('leanmgmt')
+    .withPassword('leanmgmt')
+    .start();
+
+  redisContainer = await new RedisContainer('redis:7-alpine').start();
+
+  process.env.DATABASE_URL = pgContainer.getConnectionUri();
+  process.env.REDIS_URL = `redis://${redisContainer.getHost()}:${redisContainer.getMappedPort(6379)}`;
+
+  // Run migrations
+  execSync('pnpm --filter api prisma migrate deploy', { env: process.env, stdio: 'inherit' });
+  execSync('pnpm --filter api prisma db seed', { env: process.env, stdio: 'inherit' });
+}
+
+export async function teardownTestContainers() {
+  await pgContainer?.stop();
+  await redisContainer?.stop();
+}
+```
+
+```typescript
+// apps/api/test/users.integration.test.ts
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { INestApplication } from '@nestjs/common';
+import { AppModule } from '@/app.module';
+import { setupTestContainers, teardownTestContainers } from './integration-setup';
+import { AuthHelper } from './helpers/auth';
+
+describe('POST /api/v1/users (integration)', () => {
+  let app: INestApplication;
+  let authHelper: AuthHelper;
+
+  beforeAll(async () => {
+    await setupTestContainers();
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+    authHelper = new AuthHelper(app);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await teardownTestContainers();
+  });
+
+  it('Superadmin token ile kullanıcı oluşturur', async () => {
+    const token = await authHelper.loginAs('superadmin@test.com');
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .set('Authorization', `Bearer ${token.accessToken}`)
+      .set('X-CSRF-Token', token.csrfToken)
+      .send({
+        sicil: '99999999',
+        firstName: 'Test',
+        lastName: 'User',
+        email: 'test99@example.com',
+        companyId: token.companyId,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.id).toBeDefined();
+    expect(res.body.data.sicil).toBe('99999999');
+  });
+
+  it('permission olmadan 403 döner', async () => {
+    const token = await authHelper.loginAs('regular@test.com');
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .set('Authorization', `Bearer ${token.accessToken}`)
+      .send({ sicil: '99999999', /* ... */ });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PERMISSION_DENIED');
+  });
+
+  it('duplicate sicil 409 döner', async () => {
+    // ... setup existing user
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .set('Authorization', `Bearer ${superadminToken}`)
+      .send({ sicil: existingSicil, /* ... */ });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('USER_SICIL_DUPLICATE');
+  });
+});
+```
+
+Each test case complete user journey — creation → list → detail → deactivate.
+
+## Frontend Component Test
+
+```typescript
+// apps/web/src/components/users/UserForm.test.tsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { UserForm } from './UserForm';
+
+function renderWithClient(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ 
+    defaultOptions: { queries: { retry: false } } 
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  );
+}
+
+describe('<UserForm>', () => {
+  it('geçerli verilerle submit olur ve redirect eder', async () => {
+    const user = userEvent.setup();
+    vi.mock('@/lib/queries/users', () => ({
+      useCreateUserMutation: () => ({
+        mutateAsync: vi.fn().mockResolvedValue({ id: 'new-user-123' }),
+        isPending: false,
+      }),
+    }));
+
+    renderWithClient(<UserForm />);
+
+    await user.type(screen.getByLabelText(/sicil/i), '12345678');
+    await user.type(screen.getByLabelText(/^ad/i), 'Ahmet');
+    await user.type(screen.getByLabelText(/soyad/i), 'Yılmaz');
+    await user.type(screen.getByLabelText(/e-posta/i), 'ahmet@example.com');
+    await user.click(screen.getByRole('button', { name: /oluştur/i }));
+
+    // Assert redirect or success indicator
+    await screen.findByText(/oluşturuldu/i);
+  });
+
+  it('server-side USER_SICIL_DUPLICATE hatasını field-level gösterir', async () => {
+    // Mock mutation to reject
+    // Submit form
+    // Assert inline error on sicil field
+  });
+});
+```
+
+## E2E Test (Playwright)
+
+```typescript
+// apps/web/tests/auth.e2e.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('Auth Flow', () => {
+  test('başarılı login sonrası dashboard görünür', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="email"]', 'test@example.com');
+    await page.fill('input[name="password"]', 'TestPass123!@#');
+    await page.click('button:has-text("Giriş Yap")');
+
+    await expect(page).toHaveURL('/dashboard');
+    await expect(page.locator('h1')).toContainText('Görevlerim');
+  });
+
+  test('yanlış şifre ile login hatası gösterir', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="email"]', 'test@example.com');
+    await page.fill('input[name="password"]', 'wrong-password');
+    await page.click('button:has-text("Giriş Yap")');
+
+    await expect(page.locator('[role="alert"]')).toContainText(/geçersiz/i);
+  });
+});
+```
+
+E2E sadece **kritik user journey**'ler (MVP'de 6 test):
+1. Login → Dashboard
+2. Login → KTİ başlat
+3. Manager task claim + approve
+4. Admin user create
+5. Password reset full flow
+6. Session timeout → re-login
+
+E2E pahalı (runtime + flaky). Aşırı kullanma — unit/integration yeterli.
+
+## Selector Strategy (Playwright)
+
+- **data-testid** banned (production shipping test code)
+- **Role-based locators** tercih: `getByRole('button', { name: /kaydet/i })`
+- **Label-based**: `getByLabel('E-posta')`
+- **Text-based**: `getByText(/oluşturuldu/i)` (case-insensitive regex)
+
+## Mocking Strategy
+
+### Mock Hierarchy
+
+1. **Prefer real implementations** — encryption, Zod validation, transformation
+2. **Mock external boundaries** — DB in unit tests, email sender, external API
+3. **Avoid mocking the thing you're testing** — infinite loop risk
+
+### MSW for Frontend Queries
+
+```typescript
+// apps/web/test/msw-setup.ts
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+
+export const server = setupServer(
+  http.get('/api/v1/users', () => {
+    return HttpResponse.json({
+      success: true,
+      data: { items: [makeUser(), makeUser()], pagination: {} },
+    });
+  }),
+);
+```
+
+## Load Test (k6)
+
+```javascript
+// load-tests/scenarios/steady-state.js
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export const options = {
+  stages: [
+    { duration: '2m', target: 100 },
+    { duration: '5m', target: 1000 },
+    { duration: '10m', target: 1000 },
+    { duration: '2m', target: 0 },
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<500', 'p(99)<1000'],
+    http_req_failed: ['rate<0.001'],
+  },
+};
+
+export default function () {
+  const loginRes = http.post(`${__ENV.BASE_URL}/api/v1/auth/login`, { /* ... */ });
+  check(loginRes, { 'login 200': (r) => r.status === 200 });
+  const token = loginRes.json('data.accessToken');
+
+  const listRes = http.get(`${__ENV.BASE_URL}/api/v1/users`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  check(listRes, { 'list 200': (r) => r.status === 200, 'list <500ms': (r) => r.timings.duration < 500 });
+
+  sleep(1);
+}
+```
+
+Staging'de çalıştırılır (prod-like). Weekly scheduled + release-öncesi.
+
+## Banned Patterns
+
+- `data-testid="..."` (shipping test code; use semantic selectors)
+- `setTimeout` test içinde (use `await waitFor` or explicit mock timer)
+- Test'te `console.log` leftover (CI lint catches)
+- Test'ler arası shared state (each test fresh setup)
+- Mock test-under-test'in internal'ı (test the behavior, not implementation)
+- Trivial assertion (`expect(result).toBeDefined()`) — davranış doğrula
+- Snapshot test UI component'larda (kolay break, value düşük)
+- `describe.skip` / `it.skip` commit etmek
+- Test file outside source tree (co-locate: `foo.ts` + `foo.test.ts`)
+
+---
+
+Detay: `docs/08_TESTING_STRATEGY.md` — tam test strategy + coverage matrix

@@ -1,0 +1,330 @@
+---
+description: Step-by-step procedure for adding a new REST API endpoint — covers Zod schema definition in shared-schemas, permission enum extension, service method with transactions, controller route with decorators, unit + integration tests, and API documentation update. Use when task involves creating, extending, or modifying backend HTTP endpoints under apps/api/src/*/controller.ts.
+---
+
+# Yeni Endpoint Ekleme Prosedürü
+
+10 adımlık tam prosedür. Her adım bir concern handle eder — atlamak sonradan CI veya review'da maliyetli.
+
+## Step 1: Zod Schema Tanımla
+
+`packages/shared-schemas/src/<module>/<entity>.ts`:
+
+```typescript
+import { z } from 'zod';
+
+export const CreateUserSchema = z.object({
+  sicil: z.string().regex(/^\d{8}$/, '8 haneli numerik'),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  email: z.string().email().toLowerCase().max(254),
+  phone: z.string().regex(/^\+?[\d\s\-()]+$/).optional(),
+  companyId: z.string().uuid(),
+  managerUserId: z.string().uuid().optional(),
+}).strict();  // unknown field reddet
+
+export type CreateUserInput = z.infer<typeof CreateUserSchema>;
+```
+
+`.strict()` zorunlu — payload pollution + type drift engelleme.
+
+## Step 2: Permission Tanımla (Yeni İse)
+
+Yeni permission gerekiyorsa `packages/shared-types/src/permissions.ts`:
+
+```typescript
+export enum Permission {
+  // ... existing
+  USER_CREATE = 'USER_CREATE',
+  // ...
+}
+
+export const PERMISSION_METADATA: Record<Permission, PermissionMetadata> = {
+  [Permission.USER_CREATE]: {
+    key: 'USER_CREATE',
+    category: PermissionCategory.ACTION,
+    description: 'Yeni kullanıcı oluşturma',
+    isSensitive: true,
+  },
+};
+```
+
+Seed'e ekle — `apps/api/prisma/seed.ts`:
+
+```typescript
+const superadminRole = await prisma.roles.findUnique({ where: { code: 'SUPERADMIN' } });
+await prisma.role_permissions.upsert({
+  where: { 
+    role_id_permission_key: { 
+      role_id: superadminRole.id, 
+      permission_key: 'USER_CREATE' 
+    } 
+  },
+  update: {},
+  create: { role_id: superadminRole.id, permission_key: 'USER_CREATE' },
+});
+```
+
+Tüm environment'larda seed çalıştır (dev, staging, prod).
+
+## Step 3: Domain Exception Tanımla
+
+`apps/api/src/<module>/<module>.exceptions.ts`:
+
+```typescript
+import { AppException } from '@/common/exceptions/app.exception';
+
+export class UserSicilDuplicateException extends AppException {
+  constructor(sicil?: string) {
+    super('USER_SICIL_DUPLICATE', 'Bu sicil zaten kayıtlı', 409, sicil ? { sicil } : undefined);
+  }
+}
+```
+
+## Step 4: Service Method Yaz
+
+`apps/api/src/<module>/<module>.service.ts`:
+
+```typescript
+@Audit('USER_CREATED', 'USER')
+async create(input: CreateUserInput, actor: AuthenticatedUser): Promise<UserResponse> {
+  // 1. Domain validation (beyond Zod)
+  const existing = await this.prisma.users.findFirst({ 
+    where: { sicil: input.sicil } 
+  });
+  if (existing) throw new UserSicilDuplicateException(input.sicil);
+
+  // 2. Cross-reference validation
+  if (input.managerUserId) {
+    await this.ensureNoManagerCycle(input.managerUserId, null);
+  }
+
+  // 3. Transaction: write + audit + cache invalidation
+  const user = await this.prisma.$transaction(async (tx) => {
+    return tx.users.create({
+      data: {
+        ...input,
+        created_by_user_id: actor.id,
+      },
+    });
+  });
+
+  // 4. Return serialized (no raw entity)
+  return this.serialize(user, actor);
+}
+
+private serialize(user: User, actor: AuthenticatedUser): UserResponse {
+  return {
+    id: user.id,
+    sicil: user.sicil,
+    firstName: user.first_name,
+    lastName: user.last_name,
+    email: user.email,
+    isActive: user.is_active,
+    createdAt: user.created_at.toISOString(),
+  };
+}
+```
+
+## Step 5: Controller Route Ekle
+
+`apps/api/src/<module>/<module>.controller.ts`:
+
+```typescript
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Post()
+  @RequirePermission(Permission.USER_CREATE)
+  async create(
+    @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserInput,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.create(dto, actor);
+  }
+}
+```
+
+Required decorator'lar:
+- `@RequirePermission(Permission.X)` — auth
+- `@Body(new ZodValidationPipe(Schema))` — input validation
+- `@Audit(...)` — service'te (decorator veya manuel)
+
+## Step 6: Rate Limit (Hassas İse)
+
+Sensitive/expensive endpoint için:
+
+```typescript
+@Post('/login')
+@Public()
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
+async login(...) { ... }
+```
+
+Default global (600/dk/user) yeterli olmayan durumlar için override.
+
+## Step 7: Unit Test Yaz
+
+`apps/api/src/<module>/<module>.service.test.ts`:
+
+```typescript
+describe('UsersService.create', () => {
+  it('geçerli input ile kullanıcı oluşturur', async () => {
+    const input = makeCreateUserInput();
+    const actor = makeAuthenticatedUser();
+    prisma.users.findFirst.mockResolvedValue(null);
+    prisma.$transaction.mockImplementation((fn) => fn(prisma));
+    prisma.users.create.mockResolvedValue(makeUser({ sicil: input.sicil }));
+
+    const result = await service.create(input, actor);
+
+    expect(result.sicil).toBe(input.sicil);
+  });
+
+  it('duplicate sicil olduğunda UserSicilDuplicateException fırlatır', async () => {
+    const input = makeCreateUserInput();
+    prisma.users.findFirst.mockResolvedValue(makeUser({ sicil: input.sicil }));
+
+    await expect(service.create(input, makeAuthenticatedUser()))
+      .rejects.toThrow(UserSicilDuplicateException);
+  });
+
+  it('manager cycle varsa UserManagerCycleException fırlatır', async () => {
+    // ...
+  });
+});
+```
+
+Minimum 3 test:
+- Happy path
+- Her typed exception için 1 test
+- Edge case (null/boundary values)
+
+Coverage hedef %85+ yeni service için.
+
+## Step 8: Integration Test Yaz
+
+`apps/api/test/<module>.integration.test.ts`:
+
+```typescript
+describe('POST /api/v1/users', () => {
+  it('Superadmin token ile kullanıcı oluşturur', async () => {
+    const token = await authHelper.loginAs(superadmin);
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .set('Authorization', `Bearer ${token.accessToken}`)
+      .set('X-CSRF-Token', token.csrfToken)
+      .send(validInput);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.id).toBeDefined();
+
+    // DB verify
+    const user = await prisma.users.findUnique({ 
+      where: { id: res.body.data.id } 
+    });
+    expect(user.email).toBe(validInput.email);
+
+    // Audit verify
+    const audit = await prisma.audit_logs.findFirst({
+      where: { action: 'USER_CREATED', entity_id: user.id },
+    });
+    expect(audit).toBeDefined();
+  });
+
+  it('permission olmadan 403 döner', async () => {
+    const regularToken = await authHelper.loginAs(regularUser);
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/users')
+      .set('Authorization', `Bearer ${regularToken.accessToken}`)
+      .send(validInput);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PERMISSION_DENIED');
+  });
+
+  it('CSRF token yoksa 403 döner', async () => {
+    // ...
+  });
+});
+```
+
+Integration test gerçek DI graph'ı test eder — unit'in yakalayamadığı wiring hataları burada çıkar.
+
+## Step 9: Dokümantasyon Güncelle
+
+`docs/03_API_CONTRACTS.md` — modül bölümüne endpoint entry:
+
+```markdown
+### 9.2.1 Yeni Kullanıcı Oluştur — `POST /api/v1/users`
+
+**Permission:** `USER_CREATE`  
+**Rate Limit:** Default (600/dk/user)
+
+#### Request
+\`\`\`typescript
+{
+  sicil: string,      // 8 haneli
+  firstName: string,  // 1-100 karakter
+  lastName: string,
+  email: string,      // lowercase, max 254
+  phone?: string,
+  companyId: string,  // UUID
+  managerUserId?: string
+}
+\`\`\`
+
+#### Response — 201
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "sicil": "12345678",
+    "firstName": "Ahmet",
+    // ...
+  }
+}
+\`\`\`
+
+#### Errors
+- `USER_SICIL_DUPLICATE` (409) — sicil zaten kayıtlı
+- `USER_EMAIL_DUPLICATE` (409) — email zaten kayıtlı
+- `USER_MANAGER_CYCLE` (422) — manager atamasında döngü
+- `VALIDATION_FAILED` (400) — input invalid
+```
+
+Undocumented endpoint = breaking contract. Frontend team okur.
+
+## Step 10: Self-Review Checklist
+
+PR öncesi:
+
+- [ ] `pnpm lint` — green
+- [ ] `pnpm typecheck` — green
+- [ ] `pnpm test` — green, service coverage ≥ 85%
+- [ ] `pnpm test:integration` — green
+- [ ] Manual smoke test: `curl` endpoint çalışıyor
+- [ ] Audit log kaydı oluşuyor (integration test verify)
+- [ ] Error'lar typed exception (bare 500 yok)
+- [ ] `docs/03_API_CONTRACTS.md` güncel
+- [ ] Commit: `feat(<module>): <endpoint açıklaması>`
+- [ ] PR description'da test plan + güvenlik notu
+
+## Sık Yapılan Hatalar
+
+1. **`@RequirePermission` unutmak** — en yaygın. CI lint rule yakalar ama review'da da dikkat.
+2. **Raw Prisma entity leak** — serialize et, `UserResponse` döndür.
+3. **Integration test atlamak** — "unit pass, yeter". DI bugs unit'te çıkmaz.
+4. **Inline Zod schema** — shared-schemas'tan import zorunlu.
+5. **Generic 500 response** — typed exception kullan.
+6. **Transaction dışında side effect** — email/event commit sonrası.
+7. **Serialization permission unaware** — field-level permission check serializer'da.
+
+---
+
+Referans implementasyon: `docs/04_BACKEND_SPEC.md` Bölüm 16.1 (User CRUD Tam Walkthrough)  
+Detay: `docs/04_BACKEND_SPEC.md` Bölüm 5-7

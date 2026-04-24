@@ -1,0 +1,109 @@
+---
+description: "[Faz 9] Dashboard+reports — 2 iterasyon/chat (widgets+reports → a11y+Lighthouse). “Faz 9 — İterasyon N”."
+---
+
+# Faz 9: Dashboard + Polish
+
+## Goal
+
+Kullanıcı dashboard (widget-based: my tasks, my processes, SLA alerts, team KPIs). Basic reporting (process counts, completion times, user activity). UX polish: loading state refinement, keyboard shortcuts, accessibility full audit. Empty state content refinement (first-run guide).
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+`@59-phase-09-dashboard-polish` + **“Faz 9 — İterasyon N”**.
+
+### İterasyon 1 — Dashboard widget’ları + reports API + charts + shortcuts
+
+**Hedef:** `dashboard/page`, dört widget, `reports/*` backend aggregation + report sayfaları, recharts, `useKeyboardShortcuts`, tarih aralığı + CSV export, lazy load.
+
+**Minimum bağlam:** `docs/06_SCREEN_CATALOG.md` S-DASHBOARD, S-REPORT-*; `docs/05_FRONTEND_SPEC.md` ilgili bölümler.
+
+**Bu iterasyonda yok:** axe-core PR gate tüm route’lar; Lighthouse hedef sprinti (İter 2).
+
+**Stop:** [ ] Widget veri sözleşmeleri; [ ] raporlar doğru aggregate. PR/onay.
+
+### İterasyon 2 — A11y audit + Lighthouse + loading/empty state polish
+
+**Hedef:** axe-core sıfır ihlal; manuel screen reader notları; skeleton/empty state; Lighthouse eşikleri; `pnpm lighthouse` kanıtı.
+
+**Stop:** Faz 9 Done Definition tamamı; roadmap işareti.
+
+## Required Context
+
+- `docs/06_SCREEN_CATALOG.md` — S-DASHBOARD, S-REPORT-*
+- `docs/05_FRONTEND_SPEC.md` Bölüm 11 (Accessibility) + Bölüm 12 (UX details)
+- `docs/lean-design-system/` — widget/chart kartları için token ve `ls-*` (README + `tokens.css`)
+- Auto-attached: 25-frontend-a11y, 26-lean-design-system (`apps/web` dosyası açıkken)
+
+## Scope
+
+### Files to create / modify
+
+```
+apps/web/src/app/(app)/
+├── dashboard/page.tsx                        # S-DASHBOARD
+└── reports/
+    ├── page.tsx                               # S-REPORT-DASHBOARD
+    ├── processes/page.tsx                     # S-REPORT-PROCESSES
+    └── users/page.tsx                         # S-REPORT-USERS
+
+apps/web/src/components/dashboard/
+├── MyTasksWidget.tsx
+├── MyProcessesWidget.tsx
+├── SlaAlertsWidget.tsx
+└── TeamKpiWidget.tsx
+
+apps/web/src/components/reports/
+├── ProcessCountChart.tsx                      # recharts
+├── CompletionTimeChart.tsx
+└── UserActivityChart.tsx
+
+apps/web/src/hooks/
+├── useKeyboardShortcuts.ts                    # G+T for tasks, G+D for dashboard
+└── ... polish hooks
+
+apps/api/src/reports/
+├── reports.module.ts
+├── reports.controller.ts                     # aggregated query endpoints
+└── reports.service.ts
+```
+
+## Constraints
+
+- Dashboard widgets lazy-loaded (Suspense + RSC)
+- Reports aggregation: PostgreSQL aggregate queries (materialized view post-MVP if slow)
+- Charts: recharts (no D3 complexity — MVP)
+- Keyboard shortcuts: `?` help modal, `G+T` tasks, `G+D` dashboard, `Esc` close modal
+- Accessibility full audit: axe-core PR gate + manual screen reader test
+- Bundle budget strict — charts lazy-loaded only on report pages
+
+## Done Definition
+
+- [ ] Dashboard: 4 widget + permission-gated visibility
+- [ ] Dashboard data queries: stale time 60s, refetch on window focus
+- [ ] Reports: process count by type + status, completion time median/p95, user activity timeline
+- [ ] Report date range picker + CSV export
+- [ ] Keyboard shortcut help modal (`?`)
+- [ ] Accessibility: all routes pass axe-core with zero violations
+- [ ] Manual screen reader test: dashboard + tasks + process detail
+- [ ] Loading states: skeleton shapes match final layout (no layout shift)
+- [ ] Empty states: first-run guide + filter-empty distinction
+- [ ] `pnpm lighthouse` — all critical routes score 80+ performance, 90+ a11y
+
+## Explicit Don'ts
+
+- Custom chart library (recharts yeter)
+- Drag-and-drop dashboard (fixed layout MVP)
+- Multi-dashboard support (single dashboard MVP)
+- Advanced analytics (funnels, cohorts — post-MVP)
+- Dashboard widget builder (admin UI) — post-MVP
+- Real-time dashboard (poll yeter)
+
+## Related ADRs
+
+- ADR-0028: recharts over D3 for MVP
+- ADR-0029: Aggregate queries vs materialized views (defer)
+
+---
+
+Phase done → roadmap Faz 9 check mark.

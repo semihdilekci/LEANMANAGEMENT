@@ -1,0 +1,434 @@
+---
+description: Process engine — state machines, ProcessTypeRegistry pattern, task claim/complete action-based handlers, KTİ workflow (BEFORE_AFTER_KAIZEN)
+globs:
+  - "apps/api/src/processes/**"
+  - "apps/api/src/tasks/**"
+---
+
+# Backend Process Engine
+
+Her iş süreci (process type) ProcessTypeRegistry pattern'i ile tanımlanır — yeni süreç tipi eklemek registry'ye bir workflow ekleme kadar basit olmalı.
+
+## Process Type Registry
+
+```typescript
+// apps/api/src/processes/process-type-registry.service.ts
+@Injectable()
+export class ProcessTypeRegistryService {
+  private readonly workflows = new Map<ProcessType, ProcessWorkflow>();
+
+  register(type: ProcessType, workflow: ProcessWorkflow) {
+    this.workflows.set(type, workflow);
+  }
+
+  get(type: ProcessType): ProcessWorkflow {
+    const wf = this.workflows.get(type);
+    if (!wf) throw new ProcessTypeNotRegisteredException(type);
+    return wf;
+  }
+}
+```
+
+Workflow interface:
+
+```typescript
+export interface ProcessWorkflow {
+  type: ProcessType;
+  initialStep: StepDefinition;
+  steps: StepDefinition[];
+  determineNextStep(
+    currentStep: StepDefinition,
+    task: Task,
+    completionAction: string,
+    context: WorkflowContext,
+  ): Promise<StepDefinition | null>;  // null = terminal
+  resolveAssignees(step: StepDefinition, context: WorkflowContext): Promise<string[]>;
+  getSlaMinutes(step: StepDefinition): number;
+}
+```
+
+Her workflow app bootstrap'ta register:
+
+```typescript
+// apps/api/src/processes/processes.module.ts
+@Module({ ... })
+export class ProcessesModule implements OnModuleInit {
+  constructor(
+    private readonly registry: ProcessTypeRegistryService,
+    private readonly ktiWorkflow: KtiWorkflow,
+  ) {}
+
+  onModuleInit() {
+    this.registry.register(ProcessType.BEFORE_AFTER_KAIZEN, this.ktiWorkflow);
+  }
+}
+```
+
+## KTİ Workflow (BEFORE_AFTER_KAIZEN)
+
+State machine:
+
+```
+INITIATED (bypass — start endpoint direct IN_PROGRESS'e geçer)
+    ↓
+IN_PROGRESS (KTİ_MANAGER_APPROVAL task pending)
+    ↓ [action]
+    ├─ APPROVE → COMPLETED
+    ├─ REJECT → REJECTED (terminal)
+    └─ REQUEST_REVISION → IN_PROGRESS (KTİ_REVISION task to initiator)
+                              ↓ [resubmit]
+                              → IN_PROGRESS (KTİ_MANAGER_APPROVAL again)
+
+Any state (non-terminal) → CANCELLED (admin cancel)
+Any state (with prev task) → ROLLBACK (new task for prev step, current SKIPPED_BY_ROLLBACK)
+```
+
+Step tanımları:
+
+```typescript
+// apps/api/src/processes/workflows/kti.workflow.ts
+@Injectable()
+export class KtiWorkflow implements ProcessWorkflow {
+  readonly type = ProcessType.BEFORE_AFTER_KAIZEN;
+  
+  readonly initialStep: StepDefinition = {
+    code: 'KTI_INITIATION',
+    label: 'KTİ Başlatma',
+    claimMode: 'DIRECT',
+    allowedActions: ['SUBMIT'],
+    formSchema: KtiInitiationSchema,
+  };
+
+  readonly steps: StepDefinition[] = [
+    this.initialStep,
+    {
+      code: 'KTI_MANAGER_APPROVAL',
+      label: 'Yönetici Onay',
+      claimMode: 'DIRECT',  // tek assignee (manager)
+      allowedActions: ['APPROVE', 'REJECT', 'REQUEST_REVISION'],
+      formSchema: KtiApprovalSchema,
+      slaMinutes: 72 * 60,  // 72 saat
+    },
+    {
+      code: 'KTI_REVISION',
+      label: 'Revize',
+      claimMode: 'DIRECT',
+      allowedActions: ['RESUBMIT'],
+      formSchema: KtiRevisionSchema,
+      slaMinutes: 48 * 60,
+    },
+  ];
+
+  async determineNextStep(
+    currentStep: StepDefinition,
+    task: Task,
+    action: string,
+    context: WorkflowContext,
+  ): Promise<StepDefinition | null> {
+    if (currentStep.code === 'KTI_INITIATION') {
+      return this.steps.find((s) => s.code === 'KTI_MANAGER_APPROVAL');
+    }
+
+    if (currentStep.code === 'KTI_MANAGER_APPROVAL') {
+      if (action === 'APPROVE') return null;  // → COMPLETED
+      if (action === 'REJECT') return null;   // → REJECTED
+      if (action === 'REQUEST_REVISION') {
+        return this.steps.find((s) => s.code === 'KTI_REVISION');
+      }
+    }
+
+    if (currentStep.code === 'KTI_REVISION') {
+      return this.steps.find((s) => s.code === 'KTI_MANAGER_APPROVAL');
+    }
+
+    throw new InvalidWorkflowTransitionException();
+  }
+
+  async resolveAssignees(step: StepDefinition, context: WorkflowContext): Promise<string[]> {
+    if (step.code === 'KTI_MANAGER_APPROVAL') {
+      const initiator = await context.prisma.users.findUnique({
+        where: { id: context.process.started_by_user_id },
+      });
+      if (!initiator.manager_user_id) {
+        throw new UserNotFoundException('Kullanıcının yöneticisi tanımlı değil');
+      }
+      return [initiator.manager_user_id];
+    }
+
+    if (step.code === 'KTI_REVISION') {
+      return [context.process.started_by_user_id];
+    }
+
+    throw new InvalidWorkflowStepException();
+  }
+
+  getSlaMinutes(step: StepDefinition): number {
+    return step.slaMinutes ?? 0;
+  }
+}
+```
+
+## KTİ Embedded Start
+
+KTİ başlatma özel — ayrı endpoint (`POST /processes/kti/start`) çünkü başlatma + form submit aynı anda:
+
+```typescript
+@Post('/processes/kti/start')
+@RequirePermission(Permission.PROCESS_KTI_START)
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
+async startKti(
+  @Body(new ZodValidationPipe(KtiStartSchema)) dto: KtiStartInput,
+  @CurrentUser() actor: AuthenticatedUser,
+) {
+  return this.processesService.startKti(dto, actor);
+}
+```
+
+Service implementation:
+
+```typescript
+async startKti(dto: KtiStartInput, actor: AuthenticatedUser) {
+  // 1. Validate — docs scan status, manager exists
+  for (const docId of [...dto.beforePhotoDocumentIds, ...dto.afterPhotoDocumentIds]) {
+    const doc = await this.prisma.documents.findUnique({ where: { id: docId } });
+    if (!doc) throw new DocumentNotFoundException();
+    if (doc.scan_status === 'PENDING') throw new DocumentScanPendingException();
+    if (doc.scan_status === 'INFECTED') throw new DocumentInfectedException();
+  }
+
+  const initiator = await this.prisma.users.findUnique({ where: { id: actor.id } });
+  if (!initiator.manager_user_id) {
+    throw new UserNoManagerException();
+  }
+
+  // 2. Create process + first task in transaction
+  const { process, task } = await this.prisma.$transaction(async (tx) => {
+    const sequence = await tx.$queryRaw`SELECT nextval('process_kti_sequence') AS next`;
+    const displayId = `KTI-${String(sequence[0].next).padStart(6, '0')}`;
+
+    const process = await tx.processes.create({
+      data: {
+        display_id: displayId,
+        process_type: 'BEFORE_AFTER_KAIZEN',
+        status: 'IN_PROGRESS',
+        started_by_user_id: actor.id,
+        started_at: new Date(),
+      },
+    });
+
+    // Link documents
+    for (const docId of dto.beforePhotoDocumentIds) {
+      await tx.process_documents.create({
+        data: { process_id: process.id, document_id: docId, role: 'BEFORE' },
+      });
+    }
+    // ...
+
+    // Create manager approval task
+    const workflow = this.registry.get(ProcessType.BEFORE_AFTER_KAIZEN);
+    const managerStep = workflow.steps.find((s) => s.code === 'KTI_MANAGER_APPROVAL');
+    const assigneeIds = await workflow.resolveAssignees(managerStep, {
+      process,
+      prisma: tx,
+    });
+
+    const task = await tx.tasks.create({
+      data: {
+        process_id: process.id,
+        step_code: managerStep.code,
+        step_label: managerStep.label,
+        status: 'PENDING',
+        sla_due_at: new Date(Date.now() + managerStep.slaMinutes * 60 * 1000),
+        form_schema: managerStep.formSchema,
+      },
+    });
+
+    for (const assigneeId of assigneeIds) {
+      await tx.task_assignees.create({
+        data: { task_id: task.id, user_id: assigneeId, role: 'ASSIGNEE' },
+      });
+    }
+
+    return { process, task };
+  });
+
+  // 3. Side effects (outside transaction)
+  await this.auditService.log({ 
+    action: 'PROCESS_STARTED', 
+    entityType: 'PROCESS', 
+    entityId: process.id, 
+  });
+  await this.eventEmitter.emit('task.created', { taskId: task.id });
+
+  return this.serialize(process, actor);
+}
+```
+
+## Task Claim Flow
+
+Claim mode'a bağlı:
+
+- **DIRECT mode** — tek assignee; claim yok, direkt CLAIMED
+- **COMPETITIVE mode** — birden fazla aday; ilk claim eden sahiplenir, peer assignee'ler eviction
+
+```typescript
+async claim(taskId: string, actor: AuthenticatedUser) {
+  return this.prisma.$transaction(async (tx) => {
+    // 1. Lock row (pessimistic)
+    const task = await tx.$queryRaw<Task[]>`
+      SELECT * FROM tasks WHERE id = ${taskId} FOR UPDATE
+    `;
+    if (!task[0]) throw new TaskNotFoundException();
+    
+    if (task[0].status !== 'PENDING') {
+      throw new TaskClaimLostException();  // already claimed
+    }
+
+    // 2. Verify actor is among assignees
+    const assignment = await tx.task_assignees.findFirst({
+      where: { task_id: taskId, user_id: actor.id },
+    });
+    if (!assignment) throw new TaskAccessDeniedException();
+
+    // 3. Update task
+    const updated = await tx.tasks.update({
+      where: { id: taskId },
+      data: {
+        status: 'CLAIMED',
+        claimed_by_user_id: actor.id,
+        claimed_at: new Date(),
+      },
+    });
+
+    // 4. Remove peer assignees (COMPETITIVE mode)
+    if (task[0].claim_mode === 'COMPETITIVE') {
+      await tx.task_assignees.deleteMany({
+        where: { task_id: taskId, user_id: { not: actor.id } },
+      });
+      // Notify peers via event
+    }
+
+    return this.serialize(updated, actor);
+  });
+}
+```
+
+## Task Complete Action
+
+```typescript
+async complete(taskId: string, dto: TaskCompleteInput, actor: AuthenticatedUser) {
+  return this.prisma.$transaction(async (tx) => {
+    const task = await tx.tasks.findUnique({ 
+      where: { id: taskId },
+      include: { process: true },
+    });
+    if (!task) throw new TaskNotFoundException();
+    if (task.claimed_by_user_id !== actor.id) {
+      throw new TaskAccessDeniedException();
+    }
+    if (task.status !== 'CLAIMED') {
+      throw new TaskNotInCompletableStateException();
+    }
+
+    // Validate action is allowed for this step
+    const workflow = this.registry.get(task.process.process_type as ProcessType);
+    const step = workflow.steps.find((s) => s.code === task.step_code);
+    if (!step.allowedActions.includes(dto.action)) {
+      throw new TaskCompletionActionInvalidException();
+    }
+
+    // Reason required for REJECT / REQUEST_REVISION
+    if (['REJECT', 'REQUEST_REVISION'].includes(dto.action) && !dto.reason) {
+      throw new TaskReasonRequiredException();
+    }
+
+    // Mark task complete
+    await tx.tasks.update({
+      where: { id: taskId },
+      data: {
+        status: 'COMPLETED',
+        completed_at: new Date(),
+        completion_action: dto.action,
+        reason: dto.reason,
+        form_data: dto.formData,
+      },
+    });
+
+    // Determine next step
+    const nextStep = await workflow.determineNextStep(
+      step, task, dto.action, { process: task.process, prisma: tx }
+    );
+
+    if (nextStep === null) {
+      // Terminal — update process status
+      const finalStatus = dto.action === 'APPROVE' ? 'COMPLETED' : 'REJECTED';
+      await tx.processes.update({
+        where: { id: task.process_id },
+        data: { status: finalStatus, completed_at: new Date() },
+      });
+    } else {
+      // Create next task
+      const assigneeIds = await workflow.resolveAssignees(nextStep, {
+        process: task.process,
+        prisma: tx,
+      });
+      const newTask = await tx.tasks.create({
+        data: {
+          process_id: task.process_id,
+          step_code: nextStep.code,
+          step_label: nextStep.label,
+          status: 'PENDING',
+          sla_due_at: new Date(Date.now() + workflow.getSlaMinutes(nextStep) * 60 * 1000),
+          form_schema: nextStep.formSchema,
+        },
+      });
+      for (const uid of assigneeIds) {
+        await tx.task_assignees.create({
+          data: { task_id: newTask.id, user_id: uid, role: 'ASSIGNEE' },
+        });
+      }
+    }
+  });
+}
+```
+
+## Process Cancel + Rollback
+
+Cancel:
+
+```typescript
+async cancel(displayId: string, reason: string, actor: AuthenticatedUser) {
+  // Permission check: PROCESS_CANCEL
+  // Terminal check: completed/rejected/cancelled processes cannot be cancelled
+  // Update: process.status = CANCELLED, active task.status = SKIPPED_BY_ROLLBACK
+  // Audit
+}
+```
+
+Rollback:
+
+```typescript
+async rollback(displayId: string, reason: string, actor: AuthenticatedUser) {
+  // Permission check: PROCESS_ROLLBACK
+  // Find active task (status IN_PROGRESS/CLAIMED)
+  // Find previous completed task
+  // If none → throw PROCESS_NOT_ROLLBACKABLE
+  // Create new task for previous step (assignees from workflow)
+  // Mark current task SKIPPED_BY_ROLLBACK with rollback_target_task_id
+  // Process stays IN_PROGRESS
+  // Audit
+}
+```
+
+## Banned Patterns
+
+- Hard-coding process type logic in ProcessesService (use registry)
+- Bypassing state machine transitions (every status change must go through workflow.determineNextStep)
+- Using Prisma raw SQL for display_id (use PostgreSQL sequence)
+- Skipping transaction wrapping in multi-table writes
+- Forgetting to emit events after state changes (notifications depend on this)
+- Task completion without checking `claimed_by_user_id === actor.id`
+
+---
+
+Detay: `docs/01_DOMAIN_MODEL.md` Bölüm 3-4 (state machines) + `docs/04_BACKEND_SPEC.md` Bölüm 8 (ProcessTypeRegistry pattern)

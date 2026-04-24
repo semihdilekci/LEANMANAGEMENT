@@ -1,0 +1,358 @@
+---
+description: Audit logging — append-only table, chain hash integrity, @Audit decorator usage, state-change logging
+globs:
+  - "apps/api/src/audit/**"
+  - "apps/api/src/common/decorators/audit.decorator.ts"
+  - "apps/api/src/common/interceptors/audit.interceptor.ts"
+---
+
+# Audit Logging
+
+Audit log sistemin en savunmacı katmanı. Tampering imkansız (3 mekanizma), chain integrity nightly verify, her state değişim zorunlu kayıt.
+
+## Append-Only Garanti (3 Mekanizma)
+
+### Mekanizma 1: DB Trigger
+
+UPDATE/DELETE attempt PostgreSQL exception:
+
+```sql
+CREATE OR REPLACE FUNCTION audit_logs_prevent_modification()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_logs tablosu append-only — UPDATE/DELETE yasak';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_audit_logs_prevent_update
+BEFORE UPDATE OR DELETE ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION audit_logs_prevent_modification();
+```
+
+### Mekanizma 2: DB Role/Grant
+
+Application user yalnız SELECT/INSERT yetkisine sahip:
+
+```sql
+-- Migration
+REVOKE UPDATE, DELETE ON audit_logs FROM leanmgmt_app;
+GRANT SELECT, INSERT ON audit_logs TO leanmgmt_app;
+```
+
+Application bypass etmek isterse DB seviyesinde reddedilir.
+
+### Mekanizma 3: Chain Hash
+
+Her kayıt öncekinin hash'ini reference alır. Tek satır değişirse zincir kırılır.
+
+```sql
+audit_logs tablosu:
+  sequence_number    bigint monotonic
+  timestamp          timestamptz
+  user_id            uuid
+  action             text
+  entity_type        text
+  entity_id          text
+  details            jsonb
+  ip                 inet
+  user_agent         text
+  outcome            text
+  prev_hash          text
+  current_hash       text
+```
+
+Trigger insert'te hash compute eder:
+
+```sql
+CREATE OR REPLACE FUNCTION audit_logs_compute_hash()
+RETURNS TRIGGER AS $$
+DECLARE
+  prev_record audit_logs%ROWTYPE;
+BEGIN
+  SELECT * INTO prev_record FROM audit_logs 
+  ORDER BY sequence_number DESC LIMIT 1;
+
+  NEW.prev_hash := COALESCE(
+    prev_record.current_hash, 
+    '0000000000000000000000000000000000000000000000000000000000000000'
+  );
+  NEW.sequence_number := COALESCE(prev_record.sequence_number, 0) + 1;
+
+  NEW.current_hash := encode(
+    digest(
+      NEW.prev_hash ||
+      NEW.sequence_number::text ||
+      NEW.timestamp::text ||
+      COALESCE(NEW.user_id::text, '') ||
+      NEW.action ||
+      COALESCE(NEW.entity_type, '') ||
+      COALESCE(NEW.entity_id, '') ||
+      COALESCE(NEW.details::text, '') ||
+      COALESCE(NEW.ip::text, '') ||
+      NEW.outcome,
+      'sha256'
+    ),
+    'hex'
+  );
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_audit_logs_before_insert
+BEFORE INSERT ON audit_logs
+FOR EACH ROW EXECUTE FUNCTION audit_logs_compute_hash();
+```
+
+Application code **hash compute etmez** — DB'nin sorumluluğu. Tampering surface minimize.
+
+## @Audit Decorator Usage
+
+State-değiştiren service method'unda:
+
+```typescript
+@Audit('USER_CREATED', 'USER')
+async create(input, actor) { ... }
+
+@Audit('PROCESS_CANCELLED', 'PROCESS')
+async cancel(displayId, reason, actor) { ... }
+
+@Audit('ROLE_PERMISSION_UPDATED', 'ROLE')
+async updateRolePermissions(roleId, permissions, actor) { ... }
+```
+
+Decorator + Interceptor:
+
+```typescript
+// apps/api/src/common/decorators/audit.decorator.ts
+export const AUDIT_METADATA_KEY = 'audit';
+export const Audit = (action: string, entityType: string) =>
+  SetMetadata(AUDIT_METADATA_KEY, { action, entityType });
+```
+
+```typescript
+// apps/api/src/common/interceptors/audit.interceptor.ts
+@Injectable()
+export class AuditInterceptor implements NestInterceptor {
+  constructor(
+    private reflector: Reflector,
+    private auditService: AuditService,
+  ) {}
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const metadata = this.reflector.get<{ action: string; entityType: string }>(
+      AUDIT_METADATA_KEY, context.getHandler(),
+    );
+    if (!metadata) return next.handle();
+
+    const request = context.switchToHttp().getRequest();
+    const actor = request.user;
+
+    return next.handle().pipe(
+      tap(async (response) => {
+        // SUCCESS path — log successful state change
+        await this.auditService.log({
+          action: metadata.action,
+          entityType: metadata.entityType,
+          entityId: this.extractEntityId(response, request),
+          userId: actor?.sub,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'],
+          outcome: 'SUCCESS',
+          details: this.sanitizeDetails(request.body, response),
+        });
+      }),
+      catchError(async (err) => {
+        // FAILURE path — log failed attempt
+        await this.auditService.log({
+          action: metadata.action,
+          entityType: metadata.entityType,
+          userId: actor?.sub,
+          ip: request.ip,
+          outcome: 'FAILURE',
+          details: { error: err.code ?? 'UNKNOWN', message: err.message },
+        });
+        throw err;
+      }),
+    );
+  }
+}
+```
+
+Log hem success hem failure durumunda yazılır — failed attempt'ler forensic için değerli.
+
+## AuditService — Manuel Log
+
+Decorator'ın kapsamadığı durumlar için:
+
+```typescript
+@Injectable()
+export class AuditService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async log(entry: AuditLogEntry): Promise<void> {
+    await this.prisma.audit_logs.create({
+      data: {
+        timestamp: new Date(),
+        user_id: entry.userId,
+        action: entry.action,
+        entity_type: entry.entityType,
+        entity_id: entry.entityId,
+        details: entry.details ?? {},
+        ip: entry.ip,
+        user_agent: entry.userAgent,
+        outcome: entry.outcome,
+        // prev_hash, sequence_number, current_hash — DB trigger tarafından set edilir
+      },
+    });
+  }
+}
+```
+
+Manuel log örnekleri:
+
+```typescript
+// REFRESH_TOKEN_THEFT_DETECTED — özel durum
+await this.auditService.log({
+  action: 'REFRESH_TOKEN_THEFT_DETECTED',
+  entityType: 'SESSION',
+  entityId: sessionId,
+  userId: userId,
+  details: { familyId, attemptedGeneration },
+  outcome: 'SECURITY_EVENT',
+});
+
+// LOGIN_SUCCESS — login flow'unda service kendisi yazar
+await this.auditService.log({
+  action: 'LOGIN_SUCCESS',
+  userId: user.id,
+  ip: ip,
+  outcome: 'SUCCESS',
+});
+```
+
+## Detail Sanitization
+
+Sensitive data audit log'a GİRMEMELİ — password, tokens, PII full.
+
+```typescript
+private sanitizeDetails(body: any, response: any) {
+  const redactedKeys = ['password', 'currentPassword', 'newPassword', 
+                        'token', 'accessToken', 'refreshToken', 'csrfToken',
+                        'ssn', 'creditCard'];
+  
+  return {
+    input: this.redact(body, redactedKeys),
+    resultId: response?.id,
+  };
+}
+
+private redact(obj: any, keys: string[]): any {
+  // Deep clone + redact matching keys → '***REDACTED***'
+}
+```
+
+PII (email, phone) audit'te OK — zaten encrypted at rest.
+
+## Action Naming Convention
+
+`<ENTITY>_<VERB>` uppercase snake_case:
+
+- `USER_CREATED`, `USER_UPDATED`, `USER_DEACTIVATED`, `USER_REACTIVATED`, `USER_ANONYMIZED`
+- `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_DELETED`
+- `ROLE_PERMISSION_UPDATED`, `ROLE_ASSIGNED`, `ROLE_UNASSIGNED`
+- `PROCESS_STARTED`, `PROCESS_COMPLETED`, `PROCESS_REJECTED`, `PROCESS_CANCELLED`, `PROCESS_ROLLBACK`
+- `TASK_CREATED`, `TASK_CLAIMED`, `TASK_COMPLETED`, `TASK_SKIPPED`
+- `LOGIN_SUCCESS`, `LOGIN_FAILURE`, `LOGOUT`
+- `TOKEN_REFRESHED`, `REFRESH_TOKEN_THEFT_DETECTED`
+- `PASSWORD_CHANGED`, `PASSWORD_RESET_REQUESTED`, `PASSWORD_RESET_COMPLETED`
+- `SYSTEM_SETTINGS_UPDATED`, `CONSENT_VERSION_PUBLISHED`
+
+## Chain Integrity Verification
+
+Nightly cron (03:00):
+
+```sql
+CREATE OR REPLACE FUNCTION verify_audit_chain()
+RETURNS TABLE(is_valid boolean, broken_at_id uuid, total_checked bigint) AS $$
+DECLARE
+  expected_prev_hash text := '0000000000000000000000000000000000000000000000000000000000000000';
+  rec RECORD;
+  total bigint := 0;
+  computed_hash text;
+BEGIN
+  FOR rec IN SELECT * FROM audit_logs ORDER BY sequence_number ASC LOOP
+    total := total + 1;
+    
+    IF rec.prev_hash != expected_prev_hash THEN
+      RETURN QUERY SELECT false, rec.id, total;
+      RETURN;
+    END IF;
+    
+    computed_hash := encode(digest(
+      rec.prev_hash || rec.sequence_number::text || rec.timestamp::text ||
+      COALESCE(rec.user_id::text, '') || rec.action ||
+      COALESCE(rec.entity_type, '') || COALESCE(rec.entity_id, '') ||
+      COALESCE(rec.details::text, '') || COALESCE(rec.ip::text, '') || rec.outcome,
+      'sha256'
+    ), 'hex');
+    
+    IF computed_hash != rec.current_hash THEN
+      RETURN QUERY SELECT false, rec.id, total;
+      RETURN;
+    END IF;
+    
+    expected_prev_hash := rec.current_hash;
+  END LOOP;
+  
+  RETURN QUERY SELECT true, null::uuid, total;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Sonuç `audit_chain_integrity_checks` tablosuna yazılır. Broken chain → CRITICAL alert (email + Slack + PagerDuty).
+
+## Concurrent Insert Tolerance
+
+Transaction isolation `READ_COMMITTED` yeterli. Concurrent insert'ler farklı sequence_number alır (serial atomicity), chain doğru sıralanır. `SELECT ... FOR UPDATE` gerekmez.
+
+Integration test ile verify:
+
+```typescript
+it('should maintain chain integrity under concurrent inserts', async () => {
+  const promises = Array.from({ length: 100 }, (_, i) =>
+    prisma.audit_logs.create({ data: { /* ... */ } })
+  );
+  await Promise.all(promises);
+
+  const logs = await prisma.audit_logs.findMany({ orderBy: { sequence_number: 'asc' } });
+  expect(logs).toHaveLength(100);
+  for (let i = 1; i < logs.length; i++) {
+    expect(logs[i].prev_hash).toBe(logs[i - 1].current_hash);
+  }
+});
+```
+
+## Auto-Repair YOK
+
+Chain kırılırsa otomatik repair **yasak** — tampering kanıtlarını bozar.
+
+Doğru response:
+1. Broken chain → incident response (CRITICAL alert)
+2. Son N kayıt WAL + snapshot'tan restore
+3. Hangi kayıt tampered tespit (hash mismatch)
+4. Forensic report + action items
+5. Yeni baseline'la zincir yeniden başlar (0x00... prev_hash)
+
+## Banned Patterns
+
+- Application code'da hash compute (DB trigger zorunlu)
+- Sensitive data audit detail'e koyma (password, token yasak)
+- Silent state change (decorator yoksa manuel log)
+- Audit log UPDATE denemesi (DB reddedecek, test edince hata alınır)
+- `logger.info('user created')` → audit log yerine (audit == DB persistence)
+- Console.log audit (Pino structured logging + DB audit ayrı concern'lar)
+
+---
+
+Detay: `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 12 (Audit Log Zinciri)

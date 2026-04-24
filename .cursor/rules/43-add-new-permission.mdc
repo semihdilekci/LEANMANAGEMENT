@@ -1,0 +1,335 @@
+---
+description: Procedure for adding a new permission to the RBAC/ABAC system — covers Permission enum extension, metadata definition, seed data updates, backend usage, frontend PermissionGate, cache invalidation implications, and testing. Use when task involves authorization rules, adding granular access control, or extending role capabilities.
+---
+
+# Yeni Permission Ekleme Prosedürü
+
+Permission sistemi tek yerden (shared-types) genişletilir. Birden fazla dosya koordineli güncellenmeli — tek eksiklik çalışmaz veya güvenlik açığı yaratır.
+
+## Step 1: Permission Enum Genişlet
+
+`packages/shared-types/src/permissions.ts`:
+
+```typescript
+export enum Permission {
+  // ... existing
+  USER_CREATE = 'USER_CREATE',
+  USER_UPDATE_ATTRIBUTE = 'USER_UPDATE_ATTRIBUTE',
+  
+  // NEW
+  USER_SESSION_REVOKE = 'USER_SESSION_REVOKE',
+}
+```
+
+Naming convention: `<DOMAIN>_<ACTION>_<DETAIL>` uppercase snake_case:
+- `USER_CREATE` (basit)
+- `ROLE_PERMISSION_UPDATE` (nested action)
+- `PROCESS_VIEW_ALL` (scope expansion)
+- `EMAIL_TEMPLATE_SEND_TEST` (specific capability)
+
+Benzer permission zaten varsa (`USER_SESSION_VIEW`) aynı pattern — `USER_SESSION_REVOKE`.
+
+## Step 2: Metadata Tanımla
+
+Aynı dosyada:
+
+```typescript
+export const PERMISSION_METADATA: Record<Permission, PermissionMetadata> = {
+  // ... existing
+  [Permission.USER_SESSION_REVOKE]: {
+    key: 'USER_SESSION_REVOKE',
+    category: PermissionCategory.ACTION,
+    description: 'Kullanıcı session\'ını sonlandırma',
+    isSensitive: true,  // admin panel güvenlik impact
+  },
+};
+```
+
+### Category Seçimi
+
+| Category | Ne için | Örnek |
+|---|---|---|
+| `MENU` | Menu item'ına erişim | `USER_LIST_VIEW`, `AUDIT_LOG_VIEW` |
+| `ACTION` | Specific operation | `USER_CREATE`, `PROCESS_CANCEL` |
+| `DATA` | Data scope expansion | `PROCESS_VIEW_ALL`, `USER_LIST_GLOBAL` |
+| `FIELD` | Field-level exposure | `USER_SESSION_VIEW`, `PII_FULL_VIEW` |
+
+### isSensitive Flag
+
+Sensitive = admin panel'de kırmızı rozet + yetki atarken ek onay. Kriterler:
+
+- Admin operation (sistem ayarları, consent management)
+- Destructive (user deactivate, session revoke)
+- Data scope expansion (tüm süreçleri görme)
+- Audit log access
+- Permission management (meta)
+
+Normal feature action `isSensitive: false` yeterli.
+
+## Step 3: Seed Data Güncelle
+
+`apps/api/prisma/seed.ts` — hangi role'ler bu permission'a sahip olsun:
+
+```typescript
+// Superadmin tüm yeni permission'ları alır (güvenli)
+async function seedSuperadmin(prisma: PrismaClient) {
+  const superadmin = await prisma.roles.upsert({ 
+    where: { code: 'SUPERADMIN' }, 
+    update: {}, 
+    create: { code: 'SUPERADMIN', name: 'Superadmin', is_system: true } 
+  });
+
+  for (const permission of Object.values(Permission)) {
+    await prisma.role_permissions.upsert({
+      where: { 
+        role_id_permission_key: { 
+          role_id: superadmin.id, 
+          permission_key: permission 
+        } 
+      },
+      update: {},
+      create: { role_id: superadmin.id, permission_key: permission },
+    });
+  }
+}
+
+// Başka role için spesifik
+async function seedAdminRole(prisma: PrismaClient) {
+  const admin = await prisma.roles.upsert({ where: { code: 'ADMIN' }, /* ... */ });
+  
+  const adminPermissions = [
+    Permission.USER_LIST_VIEW,
+    Permission.USER_CREATE,
+    Permission.USER_UPDATE_ATTRIBUTE,
+    Permission.USER_DEACTIVATE,
+    Permission.USER_SESSION_REVOKE,  // NEW — admin bu permission'ı almalı
+    // ...
+  ];
+
+  for (const permission of adminPermissions) {
+    await prisma.role_permissions.upsert({ /* upsert */ });
+  }
+}
+```
+
+Tüm environment'larda seed çalıştır:
+
+```bash
+# Local dev
+pnpm --filter api prisma db seed
+
+# Staging/prod — CI/CD'de otomatik çalışır post-deploy
+```
+
+## Step 4: Backend'de Kullan
+
+Controller method'unda `@RequirePermission`:
+
+```typescript
+@Post(':id/sessions/:sessionId/revoke')
+@RequirePermission(Permission.USER_SESSION_REVOKE)
+@Audit('USER_SESSION_REVOKED', 'SESSION')
+async revokeSession(
+  @Param('id') userId: string,
+  @Param('sessionId') sessionId: string,
+  @CurrentUser() actor: AuthenticatedUser,
+) {
+  return this.usersService.revokeSession(userId, sessionId, actor);
+}
+```
+
+Service içinde ek domain kontrol:
+
+```typescript
+async revokeSession(userId: string, sessionId: string, actor: AuthenticatedUser) {
+  // Permission guard geçti — actor USER_SESSION_REVOKE'e sahip
+  // Ama ek: actor kendi session'ını revoke etmesin via bu endpoint (logout ayrı)
+  if (userId === actor.id) {
+    throw new CannotRevokeOwnSessionException();
+  }
+  // ...
+}
+```
+
+## Step 5: Frontend PermissionGate
+
+UI hide:
+
+```typescript
+<PermissionGate requires={Permission.USER_SESSION_REVOKE}>
+  <Button 
+    variant="destructive" 
+    onClick={() => setRevokeOpen(true)}
+  >
+    Session Sonlandır
+  </Button>
+</PermissionGate>
+```
+
+Menu item için — eğer yeni permission bir menu'yü açıyorsa:
+
+```typescript
+// Sidebar component
+<PermissionGate requires={Permission.AUDIT_LOG_VIEW}>
+  <NavItem href="/admin/audit-logs" icon={FileText}>Audit Log</NavItem>
+</PermissionGate>
+```
+
+Frontend'de güvenlik değil — UX temizliği. Backend zaten koruyor.
+
+## Step 6: Cache Invalidation Tetikle
+
+Yeni permission'ı role'e atayan endpoint otomatik cache invalidate etmeli:
+
+```typescript
+// apps/api/src/roles/roles.service.ts
+@Audit('ROLE_PERMISSION_UPDATED', 'ROLE')
+async updateRolePermissions(
+  roleId: string,
+  permissionKeys: Permission[],
+  actor: AuthenticatedUser,
+) {
+  await this.prisma.$transaction(async (tx) => {
+    // Mevcut permission'ları sil, yenileri ekle
+    await tx.role_permissions.deleteMany({ where: { role_id: roleId } });
+    await tx.role_permissions.createMany({
+      data: permissionKeys.map((key) => ({ role_id: roleId, permission_key: key })),
+    });
+  });
+
+  // CRITICAL: Bu role'e sahip tüm user'ların cache'ini invalidate et
+  this.eventEmitter.emit('role.permissions.changed', { roleId });
+}
+```
+
+```typescript
+// apps/api/src/roles/role-cache-invalidation.listener.ts
+@Injectable()
+export class RoleCacheInvalidationListener {
+  constructor(private permissionResolver: PermissionResolverService) {}
+
+  @OnEvent('role.permissions.changed')
+  async handlePermissionsChanged({ roleId }: { roleId: string }) {
+    await this.permissionResolver.invalidateRole(roleId);
+  }
+}
+```
+
+Permission resolver rule (`12-backend-permissions.mdc`) detay.
+
+## Step 7: Test Ekle
+
+### Unit test — permission metadata
+
+```typescript
+describe('PERMISSION_METADATA', () => {
+  it('USER_SESSION_REVOKE metadata tanımlı', () => {
+    expect(PERMISSION_METADATA[Permission.USER_SESSION_REVOKE]).toEqual({
+      key: 'USER_SESSION_REVOKE',
+      category: PermissionCategory.ACTION,
+      description: 'Kullanıcı session\'ını sonlandırma',
+      isSensitive: true,
+    });
+  });
+});
+```
+
+Otomatik contract test:
+
+```typescript
+it('her Permission enum için metadata tanımlı', () => {
+  for (const permission of Object.values(Permission)) {
+    expect(PERMISSION_METADATA[permission]).toBeDefined();
+    expect(PERMISSION_METADATA[permission].key).toBe(permission);
+  }
+});
+```
+
+### Integration test — endpoint guard
+
+```typescript
+describe('POST /users/:id/sessions/:sessionId/revoke', () => {
+  it('USER_SESSION_REVOKE permission olmadan 403 döner', async () => {
+    const regular = await authHelper.loginAs('regular@test.com');
+    
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/users/${someUserId}/sessions/${sessionId}/revoke`)
+      .set('Authorization', `Bearer ${regular.accessToken}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PERMISSION_DENIED');
+  });
+
+  it('USER_SESSION_REVOKE olan kullanıcı session sonlandırabilir', async () => {
+    const admin = await authHelper.loginAs('admin@test.com');
+    
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/users/${someUserId}/sessions/${sessionId}/revoke`)
+      .set('Authorization', `Bearer ${admin.accessToken}`);
+
+    expect(res.status).toBe(200);
+    
+    // Audit verify
+    const audit = await prisma.audit_logs.findFirst({
+      where: { action: 'USER_SESSION_REVOKED', entity_id: sessionId },
+    });
+    expect(audit).toBeDefined();
+  });
+});
+```
+
+### Cache invalidation test
+
+```typescript
+it('role permission değişiminde etkilenen user cache invalidate olur', async () => {
+  const user = await createTestUserWithRole(adminRoleId);
+  await permissionResolver.getUserPermissions(user.id);  // cache warm
+  
+  const cachedBefore = await redis.get(`user_permissions:${user.id}`);
+  expect(cachedBefore).toBeDefined();
+
+  await rolesService.updateRolePermissions(adminRoleId, [/* new perms */], actor);
+
+  const cachedAfter = await redis.get(`user_permissions:${user.id}`);
+  expect(cachedAfter).toBeNull();  // invalidated
+});
+```
+
+## Step 8: Dokümantasyon Güncelle
+
+`docs/07_SECURITY_IMPLEMENTATION.md` — permission matrix:
+
+```markdown
+| Permission | Key | Category | Sensitive | Açıklama |
+|---|---|---|---|---|
+| ... | ... | ... | ... | ... |
+| Session Revoke | `USER_SESSION_REVOKE` | ACTION | ✓ | Kullanıcı session'ını sonlandırma |
+```
+
+## Self-Review Checklist
+
+- [ ] `Permission` enum'a eklendi
+- [ ] `PERMISSION_METADATA` eklendi (key, category, description, isSensitive doğru)
+- [ ] Seed'de ilgili role'e atandı (en azından Superadmin)
+- [ ] Backend endpoint `@RequirePermission` ile
+- [ ] Service'te ek domain kontrol varsa yazıldı (örn. "kendi session'unu revoke etme")
+- [ ] Frontend `<PermissionGate>` ile sarıldı
+- [ ] Cache invalidation otomatik tetikleniyor (role değişiminde)
+- [ ] Metadata contract test geçiyor
+- [ ] Integration test 403 + 200 scenarios
+- [ ] `docs/07_SECURITY_IMPLEMENTATION.md` matrix güncel
+- [ ] Seed çalıştırıldı local dev'de
+
+## Sık Yapılan Hatalar
+
+1. **Metadata atlamak** — enum var, metadata yok → admin panel'de "undefined" gözükür
+2. **Seed atlamak** — permission var ama hiç kullanıcıya atanmamış → UI'da hiç kullanılamaz
+3. **Cache invalidation eksik** — permission eklendi, ama kullanıcı yenileme yapmadan eski cache'ten reject
+4. **Backend enforcement'ı unut** — sadece PermissionGate koyup backend açık bırakma (major security bug)
+5. **Category yanlış** — ACTION olması gereken şeye FIELD koymak → UI grouping bozulur
+6. **Sensitive flag yanlış** — gerçekten hassas şeyi false işaretlemek
+7. **Naming inconsistent** — `USER_SESSION_REVOKE` vs `SESSION_USER_REVOKE`
+
+---
+
+Detay: `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 4 (Permission System Architecture)

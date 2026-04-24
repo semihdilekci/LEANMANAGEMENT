@@ -1,0 +1,373 @@
+---
+description: Frontend architecture — Next.js 15 App Router, RSC vs client components, state boundaries (TanStack Query / Zustand / URL / RHF)
+globs:
+  - "apps/web/src/**/*.{ts,tsx}"
+---
+
+# Frontend Architecture
+
+Next.js 15 App Router + React 19. RSC default, `'use client'` explicit opt-in. State 4 kategori'de ayrılmış — her kategori tek sorumlu tool.
+
+## Lean Design System (görsel — zorunlu)
+
+Görünüm, tema, spacing ve hazır UI sınıfları için **`docs/lean-design-system/`** tek doğruluk kaynağıdır: `README.md` → `tokens.css` → `components.css`. Yeni ekran veya stil: magic değer yerine token / `ls-*` kullan; eksik token önce pakete eklenir (README “Token dışına çıkma”).
+
+`apps/web/**/*.{tsx,ts,css}` üzerinde çalışırken **`26-lean-design-system.mdc`** otomatik eklenir — atla yok sayma.
+
+## App Router Yapısı
+
+```
+apps/web/src/
+├── app/
+│   ├── (auth)/              # AuthLayout route group
+│   │   ├── login/page.tsx
+│   │   └── reset-password/page.tsx
+│   ├── (app)/               # AppLayout route group
+│   │   ├── layout.tsx       # Nested layout
+│   │   ├── dashboard/page.tsx
+│   │   ├── processes/...
+│   │   ├── tasks/...
+│   │   └── users/...
+│   ├── (admin)/             # AdminLayout route group
+│   │   └── admin/...
+│   ├── layout.tsx           # Root layout
+│   ├── middleware.ts        # Auth redirect
+│   └── globals.css
+├── components/
+│   ├── ui/                  # shadcn/ui primitives
+│   ├── shared/              # Cross-feature (Breadcrumb, DataTable, etc.)
+│   ├── users/               # Feature: users
+│   ├── processes/           # Feature: processes
+│   └── ...
+├── lib/
+│   ├── api-client.ts        # Axios instance
+│   ├── queries/             # TanStack Query hooks (per module)
+│   ├── query-keys.ts        # Query key factory
+│   └── utils.ts             # cn() helper vs.
+├── hooks/                   # Custom hooks
+├── stores/                  # Zustand stores
+└── types/                   # Frontend-only types
+```
+
+## RSC vs Client Component
+
+**Default: Server Component.** Client only when gerekli.
+
+### Server Component (default)
+
+- Markup-heavy static content
+- Veriyi backend'den fetch (route-level `async` + `await`)
+- SEO-sensitive içerik
+- Sub-navigation component'lar
+
+```typescript
+// apps/web/src/app/(app)/dashboard/page.tsx
+import { getServerSession } from '@/lib/session';
+
+export default async function DashboardPage() {
+  const session = await getServerSession();
+  // Server-side data fetch — RSC
+  return <DashboardWidgets userId={session.userId} />;
+}
+```
+
+### Client Component
+
+`'use client'` directive ekle. Tetikleyiciler:
+
+- `useState`, `useEffect`, hook kullanımı
+- Event handler (`onClick`, `onChange`)
+- Browser API (`localStorage` kullanıyorsa — ki biz kullanmıyoruz)
+- Third-party library olmalı client (örn. recharts, framer-motion)
+
+```typescript
+// apps/web/src/components/users/UserForm.tsx
+'use client';
+
+import { useForm } from 'react-hook-form';
+// ...
+```
+
+### Geçiş Noktası
+
+Route-level page default RSC. Interaction içeren feature component `'use client'`:
+
+```typescript
+// app/(app)/users/page.tsx — RSC (server)
+import { UserList } from '@/components/users/UserList';
+
+export default function UsersPage() {
+  return (
+    <div>
+      <h1>Kullanıcılar</h1>
+      <UserList />  {/* Client component within */}
+    </div>
+  );
+}
+
+// components/users/UserList.tsx — Client
+'use client';
+export function UserList() {
+  const { data } = useUsersQuery();  // TanStack Query — client side
+  // ...
+}
+```
+
+## State Boundaries — 4 Kategori
+
+Her state tek aracında:
+
+### 1. Server State → TanStack Query
+
+API'den gelen tüm data. Cache, invalidation, optimistic update.
+
+```typescript
+// lib/queries/users.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
+
+export function useUserQuery(id: string) {
+  return useQuery({
+    queryKey: queryKeys.users.detail(id),
+    queryFn: () => apiClient.get(`/api/v1/users/${id}`).then((r) => r.data.data),
+    staleTime: 60_000,  // 1 dk
+  });
+}
+
+export function useCreateUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input) => apiClient.post('/api/v1/users', input).then((r) => r.data.data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() }),
+  });
+}
+```
+
+**Server state'i Zustand'a koyma.** "Sync" çalışmaz — stale data.
+
+### 2. Client Session State → Zustand
+
+User session, UI preferences, cross-component memory (server-independent).
+
+```typescript
+// stores/auth-store.ts
+import { create } from 'zustand';
+
+interface AuthStore {
+  accessToken: string | null;
+  csrfToken: string | null;
+  currentUser: AuthenticatedUser | null;
+  setAuth: (token: string, csrf: string, user: AuthenticatedUser) => void;
+  clearAuth: () => void;
+}
+
+export const useAuthStore = create<AuthStore>((set) => ({
+  accessToken: null,
+  csrfToken: null,
+  currentUser: null,
+  setAuth: (accessToken, csrfToken, currentUser) => 
+    set({ accessToken, csrfToken, currentUser }),
+  clearAuth: () => set({ accessToken: null, csrfToken: null, currentUser: null }),
+}));
+```
+
+**Persist YASAK.** Auth tokens memory only (refresh ile yeniden alınır).
+
+### 3. URL State → Search Params
+
+Filter, sort, pagination, tab state. Shareable + bookmarkable + back button works.
+
+```typescript
+'use client';
+import { useSearchParams, useRouter } from 'next/navigation';
+
+export function UserListFilters() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const status = searchParams.get('status') ?? 'active';
+  
+  const setStatus = (newStatus: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('status', newStatus);
+    router.push(`?${params.toString()}`);
+  };
+
+  return <Select value={status} onValueChange={setStatus}>...</Select>;
+}
+```
+
+TanStack Query key'i URL param'a bağlanır:
+
+```typescript
+const status = searchParams.get('status') ?? 'active';
+const { data } = useQuery({
+  queryKey: queryKeys.users.list({ status }),
+  queryFn: () => apiClient.get(`/users?status=${status}`).then(...),
+});
+```
+
+URL değişince query otomatik refetch — cache key değişti.
+
+### 4. Form State → react-hook-form
+
+Form input değerleri, validation, submit state. Forms rule'u (22-frontend-forms) detay.
+
+## Route Group Layouts
+
+Her route group kendi layout'u:
+
+```typescript
+// app/(app)/layout.tsx
+export default function AppLayout({ children }) {
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1">
+        <Header />
+        {children}
+      </main>
+    </div>
+  );
+}
+```
+
+```typescript
+// app/(auth)/layout.tsx
+export default function AuthLayout({ children }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full">
+        {children}
+      </div>
+    </div>
+  );
+}
+```
+
+Layout'lar sub-tree'de persist — navigate sırasında re-render yok.
+
+## Middleware — Auth Redirect
+
+```typescript
+// app/middleware.ts
+import { NextResponse } from 'next/server';
+
+export function middleware(request) {
+  const isAuthenticated = request.cookies.has('refresh_token');
+  const { pathname } = request.nextUrl;
+
+  // Auth routes — authenticated user → redirect dashboard
+  if (isAuthenticated && (pathname === '/login' || pathname === '/reset-password')) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // App routes — unauthenticated → redirect login
+  const isPublic = ['/login', '/reset-password', '/forgot-password'].includes(pathname);
+  if (!isAuthenticated && !isPublic && !pathname.startsWith('/api')) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
+```
+
+Middleware hızlı — sadece cookie varlığı kontrol. Full auth validation `useAuthStore` / `GET /auth/me` ile client-side.
+
+## API Client — Axios Singleton
+
+```typescript
+// lib/api-client.ts
+import axios from 'axios';
+import { useAuthStore } from '@/stores/auth-store';
+
+export const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  withCredentials: true,  // send cookies
+});
+
+apiClient.interceptors.request.use((config) => {
+  const { accessToken, csrfToken } = useAuthStore.getState();
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  if (csrfToken && ['post', 'put', 'patch', 'delete'].includes(config.method ?? '')) {
+    config.headers['X-CSRF-Token'] = csrfToken;
+  }
+  return config;
+});
+
+// 401 → refresh + retry
+apiClient.interceptors.response.use(
+  (r) => r,
+  async (err) => {
+    if (err.response?.status === 401 && err.response?.data?.error?.code === 'AUTH_TOKEN_EXPIRED') {
+      await refreshAccessToken();
+      return apiClient(err.config);
+    }
+    throw err;
+  },
+);
+```
+
+## File Naming
+
+- Components: PascalCase `.tsx` — `UserForm.tsx`, `ProcessDetailCard.tsx`
+- Hooks: camelCase with `use` prefix — `useAuthStore.ts`, `useUnsavedChangesWarning.ts`
+- Pages: `page.tsx` (App Router conv.)
+- Layouts: `layout.tsx`
+- Queries/mutations: camelCase — `users.ts`, `processes.ts`
+- Stores: `<name>-store.ts` — `auth-store.ts`, `ui-preferences-store.ts`
+
+## Providers Setup
+
+Root layout'ta `<Providers>`:
+
+```typescript
+// app/layout.tsx
+import { Providers } from '@/components/Providers';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="tr">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+
+// components/Providers.tsx
+'use client';
+export function Providers({ children }) {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+  }));
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster />
+    </QueryClientProvider>
+  );
+}
+```
+
+## Banned Patterns
+
+- `'use client'` herhangi bir dosyada default (gereksiz client overhead)
+- localStorage/sessionStorage access (XSS + tokens risk)
+- Server state Zustand'a koyma (TanStack Query kullan)
+- Page component içinde business logic (feature component'e çıkar)
+- Manuel fetch/XHR (apiClient axios singleton)
+- `useEffect` for data fetching (TanStack Query kullan)
+- Global CSS eklemek (Tailwind + component-scoped)
+- Full-page re-render (route-level `revalidate` yeter)
+
+---
+
+Detay: `docs/05_FRONTEND_SPEC.md` Bölüm 2-4 (arşitektür, state management, data layer)

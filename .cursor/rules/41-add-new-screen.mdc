@@ -1,0 +1,346 @@
+---
+description: Step-by-step procedure for implementing a new screen from specification — covers Next.js route setup, layout selection, feature component, TanStack Query wiring, permission gating, state screens (loading/empty/error), and testing. Use when task mentions a specific screen ID (like S-USER-NEW, S-TASK-DETAIL) or when creating a new page route in apps/web/src/app.
+---
+
+# Yeni Ekran Ekleme Prosedürü
+
+Screen Catalog'dan (`docs/06_SCREEN_CATALOG.md`) bir ekranı implement etme. Critical ve Secondary screen farklı detay seviyesinde ama aynı adımlar.
+
+## Step 1: Screen Specification'ı Bul
+
+`docs/06_SCREEN_CATALOG.md`'de screen ID (`S-USER-NEW`, `S-TASK-DETAIL`, vs.) ile bulup aşağıdakileri not al:
+
+**Critical screens** için:
+- Route, Access, Layout
+- Visual Structure (numbered sections)
+- Data Source (API endpoints, query keys, stale time, invalidation)
+- State Management (server / local / URL / form)
+- State Screens (loading, empty, error, success)
+- Interactions
+- Edge Cases
+- Form Fields (form-bearing ise)
+
+**Secondary screens** için: temel route + visual + data + interactions.
+
+Hafızadan çalışma. Spec detayları matters.
+
+**Tasarım / görsel dil:** `docs/lean-design-system/README.md` ve gerekirse `tokens.css` + `components.css` — renk, spacing, hazır `ls-*` sınıfları; magic değer yok. Otomatik kural: `26-lean-design-system.mdc`.
+
+## Step 2: Route Group Seç
+
+Layout'a göre:
+
+| Layout | Route group | Örnek path |
+|---|---|---|
+| AuthLayout | `apps/web/src/app/(auth)/` | `(auth)/login/page.tsx` |
+| AppLayout | `apps/web/src/app/(app)/` | `(app)/users/new/page.tsx` |
+| AdminLayout | `apps/web/src/app/(admin)/` | `(admin)/admin/users/page.tsx` |
+| PublicLayout | `apps/web/src/app/` | Root |
+
+Dinamik route bracketed segment: `[id]`, `[displayId]`.
+
+## Step 3: Page Component Oluştur
+
+Page thin — sadece routing shell, composition:
+
+```typescript
+// apps/web/src/app/(app)/users/new/page.tsx
+import type { Metadata } from 'next';
+import { UserForm } from '@/components/users/UserForm';
+import { FormLayout } from '@/components/shared/FormLayout';
+
+export const metadata: Metadata = {
+  title: 'Yeni Kullanıcı',
+};
+
+export default function NewUserPage() {
+  return (
+    <FormLayout
+      title="Yeni Kullanıcı"
+      breadcrumbs={[
+        { label: 'Kullanıcılar', href: '/users' },
+        { label: 'Yeni' },
+      ]}
+    >
+      <UserForm />
+    </FormLayout>
+  );
+}
+```
+
+Detail page için dynamic param:
+
+```typescript
+// apps/web/src/app/(app)/processes/[displayId]/page.tsx
+interface PageProps {
+  params: Promise<{ displayId: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { displayId } = await params;
+  return { title: `Süreç ${displayId}` };
+}
+
+export default async function ProcessDetailPage({ params }: PageProps) {
+  const { displayId } = await params;
+  return <ProcessDetail displayId={displayId} />;
+}
+```
+
+Business logic page'te olmaz — feature component'e çıkar.
+
+## Step 4: Feature Component Oluştur
+
+`apps/web/src/components/<module>/`:
+
+```typescript
+// apps/web/src/components/users/UserForm.tsx
+'use client';
+
+import { useForm } from 'react-hook-form';
+// ... see form patterns rule for full canonical
+```
+
+Pattern için auto-attached rule'ları (form, query, component) kullanır.
+
+## Step 5: TanStack Query Hook'ları
+
+Screen'in data layer ihtiyaçlarını `lib/queries/<module>.ts`'te hazırla:
+
+```typescript
+// lib/queries/users.ts
+export function useUserQuery(id: string) {
+  return useQuery({
+    queryKey: queryKeys.users.detail(id),
+    queryFn: () => apiClient.get(`/api/v1/users/${id}`).then((r) => r.data.data),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateUserInput) => 
+      apiClient.post('/api/v1/users', input).then((r) => r.data.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
+    },
+  });
+}
+```
+
+Query key factory kullan (`lib/query-keys.ts`). Inline key literal yasak.
+
+## Step 6: State Screens Implementation
+
+Spec'te tanımlanan her state'i implement et:
+
+### Loading
+
+Shape-matching skeleton:
+
+```typescript
+if (isLoading) return <UserDetailSkeleton />;
+```
+
+### Empty
+
+First-empty vs filter-empty ayırt:
+
+```typescript
+if (!data?.items?.length) {
+  if (hasActiveFilters) {
+    return (
+      <EmptyState
+        icon={Search}
+        title="Filtreye uyan kullanıcı bulunamadı"
+        action={{ label: 'Filtreleri temizle', onClick: clearFilters }}
+      />
+    );
+  }
+  return (
+    <EmptyState
+      icon={UserPlus}
+      title="Henüz kullanıcı eklenmedi"
+      description="İlk kullanıcıyı oluşturarak başlayın."
+      action={{ label: 'Yeni Kullanıcı', onClick: () => router.push('/users/new') }}
+    />
+  );
+}
+```
+
+### Error
+
+```typescript
+if (error) {
+  return <InlineError message="Kullanıcılar yüklenemedi" onRetry={refetch} />;
+}
+```
+
+Axios global interceptor 401/403 zaten handle — component-level error sadece fetch failures.
+
+## Step 7: Interactions Wire Et
+
+Spec'in Interactions bölümündeki her şey:
+
+```typescript
+// Row click → detail
+<DataTable
+  data={data.items}
+  columns={columns}
+  onRowClick={(user) => router.push(`/users/${user.id}`)}
+/>
+
+// Action menu
+<DropdownMenu>
+  <DropdownMenuItem onClick={() => handleEdit(user)}>
+    Düzenle
+  </DropdownMenuItem>
+  <PermissionGate requires={Permission.USER_DEACTIVATE}>
+    <DropdownMenuItem 
+      onClick={() => setConfirmOpen(true)}
+      className="text-destructive"
+    >
+      Pasifleştir
+    </DropdownMenuItem>
+  </PermissionGate>
+</DropdownMenu>
+
+<ConfirmDialog
+  open={confirmOpen}
+  onOpenChange={setConfirmOpen}
+  onConfirm={() => deactivateMutation.mutate({ id: user.id, reason })}
+  title="Kullanıcıyı Pasifleştir"
+  description="Bu kullanıcı pasifleştirilecek. İstediğiniz zaman tekrar aktifleştirebilirsiniz."
+  variant="destructive"
+/>
+```
+
+## Step 8: Permission Gate Uygula
+
+Role-gated action'lar için `<PermissionGate>`:
+
+```typescript
+<PermissionGate requires={Permission.USER_CREATE}>
+  <Button onClick={() => router.push('/users/new')}>Yeni Kullanıcı</Button>
+</PermissionGate>
+
+<PermissionGate 
+  requires={[Permission.USER_DEACTIVATE, Permission.USER_UPDATE_ATTRIBUTE]} 
+  mode="any"
+>
+  <UserActionMenu user={user} />
+</PermissionGate>
+```
+
+Backend zaten reject eder — bu sadece UX temizliği.
+
+## Step 9: Edge Case'leri Handle Et
+
+Spec'in Edge Cases bölümü:
+
+Örnek (S-USER-LIST'ten):
+> - Kullanıcı kendi hesabını pasifleştiremez
+> - Anonimleştirilmiş kullanıcılarda PII "***" ve action yok
+
+```typescript
+const { data: me } = useMeQuery();
+const isSelf = user.id === me?.id;
+const isAnonymized = !!user.anonymizedAt;
+
+// Display
+<span>{isAnonymized ? '***' : `${user.firstName} ${user.lastName}`}</span>
+
+// Actions
+{!isSelf && !isAnonymized && (
+  <PermissionGate requires={Permission.USER_DEACTIVATE}>
+    <Button onClick={handleDeactivate}>Pasifleştir</Button>
+  </PermissionGate>
+)}
+```
+
+Her edge case test'te covered olmalı.
+
+## Step 10: Unit Test Yaz
+
+```typescript
+describe('<UserForm>', () => {
+  it('geçerli verilerle submit edip redirect eder', async () => {
+    // ...
+  });
+
+  it('server USER_SICIL_DUPLICATE hatasında field-level error gösterir', async () => {
+    // ...
+  });
+
+  it('unsaved changes warning çalışır', async () => {
+    // ...
+  });
+});
+```
+
+Minimum test'ler:
+- Happy path
+- Ana error yolu (field-specific)
+- Permission enforcement (PermissionGate hide)
+- Edge case'ler (spec'teki)
+
+## Step 11: E2E Test (Critical Journey İse)
+
+MVP'de 6 critical journey. Ekran bunlardan birindeyse E2E:
+
+```typescript
+test('kullanıcı oluştur → detay sayfasına iner', async ({ page }) => {
+  await page.goto('/users/new');
+  await page.fill('input[name="sicil"]', '99999999');
+  await page.fill('input[name="firstName"]', 'Test');
+  await page.fill('input[name="lastName"]', 'User');
+  await page.fill('input[name="email"]', 'test99@example.com');
+  await page.click('button:has-text("Oluştur")');
+
+  await expect(page).toHaveURL(/\/users\/[a-f0-9-]+$/);
+  await expect(page.locator('h1')).toContainText('Test User');
+});
+```
+
+Diğer screen'ler için E2E gerekmez — unit + integration yeterli.
+
+## Step 12: Dokümantasyon Güncelle
+
+Spec değişti mi (edge case yeni keşfedildi, UX refined)?
+- `docs/06_SCREEN_CATALOG.md` — güncelle
+- Spec ile reality arasında drift yavaş zehir
+
+Screen implementation complete ise:
+- `docs/10_IMPLEMENTATION_ROADMAP.md` — ilgili phase/session'a check işareti
+
+## Self-Review Checklist
+
+- [ ] Page component thin (sadece composition)
+- [ ] Feature component pattern'lere uygun (form/query/component rule'ları)
+- [ ] Spec'teki tüm state'ler implement (loading, empty, error, success)
+- [ ] Tüm interaction wire edilmiş
+- [ ] Edge case'ler handle edilmiş
+- [ ] PermissionGate action'larda
+- [ ] shared components reuse edilmiş (DataTable, EmptyState, FormLayout)
+- [ ] Unit test yazıldı
+- [ ] E2E test (critical journey ise)
+- [ ] Accessibility: keyboard nav, ARIA, focus management (a11y rule)
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` green
+- [ ] Bundle size delta <10 KB (50 KB üstü justify)
+
+## Sık Yapılan Hatalar
+
+1. **PermissionGate atlama** — auth user gereksiz button görür, backend reddeder, UX kötü
+2. **shared component yerine inline implementasyon** — `<DataTable>` var, tekrar yazma
+3. **Inline Zod schema** — shared-schemas'tan import
+4. **Page'de business logic** — feature component'e çıkar
+5. **Spec'ten sapma** — spec çelişiyor, değiştir spec'i, sonra implement et
+6. **Skeleton shape match değil** — layout shift, UX kötü
+7. **Error toast + no field mapping** — field-specific code varsa setError zorunlu
+
+---
+
+Referans: `docs/06_SCREEN_CATALOG.md` — tüm screen'lerin full spec'i (43 ekran)  
+Pattern detay: `docs/05_FRONTEND_SPEC.md` — frontend architecture rehberi

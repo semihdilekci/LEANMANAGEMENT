@@ -1,0 +1,340 @@
+---
+description: Controller patterns — routes, required decorators (permission + validation + rate limit + audit), error response mapping
+globs:
+  - "apps/api/**/*.controller.ts"
+---
+
+# Controller Patterns
+
+Controller'lar thin. Route tanımı, decorator'lar, service delegation — başka hiçbir şey.
+
+## Canonical Controller
+
+```typescript
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { CreateUserSchema, UpdateUserSchema, UserListQuerySchema,
+         type CreateUserInput, type UpdateUserInput, type UserListQuery } from '@leanmgmt/shared-schemas';
+import { Permission } from '@leanmgmt/shared-types';
+import { UsersService } from './users.service';
+import { RequirePermission } from '@/common/decorators/require-permission.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { Audit } from '@/common/decorators/audit.decorator';
+import { ZodValidationPipe } from '@/common/pipes/zod-validation.pipe';
+import type { AuthenticatedUser } from '@/common/types';
+
+@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  @RequirePermission(Permission.USER_LIST_VIEW)
+  async list(
+    @Query(new ZodValidationPipe(UserListQuerySchema)) query: UserListQuery,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.findMany(query, actor);
+  }
+
+  @Get(':id')
+  @RequirePermission(Permission.USER_LIST_VIEW)
+  async findById(
+    @Param('id') id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.findById(id, actor);
+  }
+
+  @Post()
+  @RequirePermission(Permission.USER_CREATE)
+  @Audit('USER_CREATED', 'USER')
+  async create(
+    @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserInput,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.create(dto, actor);
+  }
+
+  @Patch(':id')
+  @RequirePermission(Permission.USER_UPDATE_ATTRIBUTE)
+  @Audit('USER_UPDATED', 'USER')
+  async update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateUserSchema)) dto: UpdateUserInput,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.update(id, dto, actor);
+  }
+
+  @Post(':id/deactivate')
+  @RequirePermission(Permission.USER_DEACTIVATE)
+  @Audit('USER_DEACTIVATED', 'USER')
+  @HttpCode(200)  // default 201 yerine
+  async deactivate(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(DeactivateReasonSchema)) dto: DeactivateReasonInput,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.deactivate(id, dto.reason, actor);
+  }
+}
+```
+
+## Required Decorators
+
+Her controller method'unda bir kontrol:
+
+```
+Controller method
+├── @Get/@Post/@Patch/@Delete (+ route)
+├── @RequirePermission(Permission.X) — always required (exception: @Public())
+├── @Body/@Query (new ZodValidationPipe(Schema)) — input validation
+├── @Audit('ACTION', 'ENTITY_TYPE') — state-changing only
+├── @Throttle(...) — sensitive/expensive only
+├── @HttpCode(code) — default (200/201) yerine
+└── @CurrentUser() actor — almost always need actor identity
+```
+
+## Route Conventions
+
+### URL Structure
+
+- `/api/v1/<resource>` — resource root (plural)
+- `/api/v1/<resource>/:id` — single resource
+- `/api/v1/<resource>/:id/<sub>` — sub-resource
+- `/api/v1/<resource>/:id/<action>` — action endpoint
+
+Örnekler:
+- `GET /users` — list
+- `GET /users/:id` — detail
+- `POST /users` — create
+- `PATCH /users/:id` — update
+- `POST /users/:id/deactivate` — action (değişken durum)
+- `GET /users/:id/sessions` — sub-resource
+- `POST /users/:id/sessions/:sessionId/revoke` — sub-resource action
+
+### HTTP Methods
+
+- `GET` — read, idempotent, cacheable
+- `POST` — create OR non-idempotent action
+- `PATCH` — partial update (zorunlu field'lar yok)
+- `PUT` — full replacement (nadir kullanılır)
+- `DELETE` — soft delete değilse yasak. Genellikle `POST /:id/deactivate` daha açık
+
+### Display ID vs UUID
+
+URL'de UUID kullan. Process için `displayId` daha user-friendly ama internal route'larda UUID:
+
+```typescript
+// Internal
+@Get('processes/:id')
+async findById(@Param('id') id: string) { ... }  // UUID
+
+// User-facing (alternative route)
+@Get('processes/by-display-id/:displayId')
+async findByDisplayId(@Param('displayId') displayId: string) { ... }
+```
+
+Veya tek endpoint + smart parse:
+
+```typescript
+@Get('processes/:identifier')
+async find(@Param('identifier') identifier: string) {
+  if (/^[A-Z]+-\d{6}$/.test(identifier)) {
+    return this.service.findByDisplayId(identifier);
+  }
+  return this.service.findById(identifier);
+}
+```
+
+## Pagination (Cursor-Based)
+
+Liste endpoint'leri cursor-based pagination:
+
+```typescript
+@Get()
+@RequirePermission(Permission.USER_LIST_VIEW)
+async list(@Query(new ZodValidationPipe(ListQuerySchema)) query: ListQuery) {
+  return this.service.findMany(query);
+}
+```
+
+Query schema:
+
+```typescript
+export const ListQuerySchema = z.object({
+  limit: z.coerce.number().min(1).max(100).default(20),
+  cursor: z.string().optional(),
+  companyId: z.string().uuid().optional(),
+  isActive: z.coerce.boolean().optional(),
+  search: z.string().max(100).optional(),
+  sortBy: z.enum(['createdAt', 'lastName', 'sicil']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+```
+
+Response:
+
+```typescript
+{
+  success: true,
+  data: {
+    items: [...],
+    pagination: {
+      nextCursor: "eyJpZCI6Ii4uLiIsInZhbCI6Ii4uLiJ9",
+      hasMore: true,
+      limit: 20
+    }
+  }
+}
+```
+
+Offset-based pagination MVP'de kullanılmaz — büyük offset'te yavaş, unstable when data changes.
+
+## Response Envelope (Automatic)
+
+`ResponseEnvelopeInterceptor` otomatik sarar. Controller sadece `data` kısmını return eder:
+
+```typescript
+// Controller return:
+return this.service.create(dto, actor);  // UserResponse
+
+// Client receives:
+{
+  success: true,
+  data: { id: "...", sicil: "...", ... }  // UserResponse
+}
+```
+
+## Error Mapping (Automatic)
+
+`GlobalExceptionFilter` typed exception'ları error envelope'a map eder. Controller `throw` yeter:
+
+```typescript
+// Service throws UserSicilDuplicateException
+// Filter catches, maps to:
+{
+  success: false,
+  error: {
+    code: 'USER_SICIL_DUPLICATE',
+    message: 'Bu sicil zaten kayıtlı',
+    details: { sicil: '12345678' }
+  }
+}
+// HTTP 409
+```
+
+Controller'da manual try/catch YOK (filter handles).
+
+## Validation Errors
+
+Zod validation fail → `ValidationFailedException`:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Doğrulama hatası",
+    "details": {
+      "fields": {
+        "sicil": "8 haneli numerik olmalı",
+        "email": "Geçerli bir e-posta adresi olmalı"
+      }
+    }
+  }
+}
+```
+
+Frontend field-specific error mapping bunu kullanır.
+
+## Rate Limit Application
+
+Default global (600/dk/user). Sensitive endpoint override:
+
+```typescript
+// Login — composite limit (IP + email)
+@Post('/auth/login')
+@Public()
+@Throttle({ 
+  ip: { limit: 10, ttl: 60_000 },
+  email: { limit: 5, ttl: 15 * 60 * 1000 },
+})
+async login(...) { ... }
+
+// Password reset
+@Post('/auth/password-reset-request')
+@Public()
+@Throttle({ 
+  ip: { limit: 5, ttl: 60 * 60 * 1000 },
+  email: { limit: 3, ttl: 60 * 60 * 1000 },
+})
+async requestReset(...) { ... }
+
+// Document upload initiate
+@Post('/documents/upload-initiate')
+@RequirePermission(Permission.DOCUMENT_UPLOAD)
+@Throttle({ default: { limit: 20, ttl: 60_000 } })
+async uploadInitiate(...) { ... }
+```
+
+## HTTP Status Code Mapping
+
+`AppException.httpStatus` field response status'u belirler:
+
+- 200 — OK (GET, action'lar)
+- 201 — Created (POST yeni resource — default)
+- 204 — No Content (DELETE, logout)
+- 400 — Bad Request (validation)
+- 401 — Unauthorized (auth error)
+- 403 — Forbidden (permission error)
+- 404 — Not Found
+- 409 — Conflict (duplicate, state machine violation)
+- 410 — Gone (revoked consent version, invalid token)
+- 422 — Unprocessable Entity (business rule violation, örn. manager cycle)
+- 425 — Too Early (document scan pending)
+- 429 — Too Many Requests (rate limit)
+- 500 — Internal Server Error (unexpected — Sentry captures)
+- 503 — Service Unavailable (maintenance mode)
+
+Bare 500 asla — her error tip typed exception ile mapped.
+
+## Sub-Resource Controllers
+
+Deep nested resource için ayrı controller dosyası:
+
+```typescript
+// apps/api/src/users/users-roles.controller.ts
+@Controller('users/:userId/roles')
+export class UsersRolesController {
+  constructor(private readonly service: UserRolesService) {}
+
+  @Get()
+  async list(@Param('userId') userId: string, ...) { ... }
+
+  @Post(':roleId')
+  @RequirePermission(Permission.ROLE_ASSIGN)
+  async assign(@Param('userId') userId: string, @Param('roleId') roleId: string, ...) { ... }
+
+  @Delete(':roleId')
+  @RequirePermission(Permission.ROLE_ASSIGN)
+  async unassign(...) { ... }
+}
+```
+
+Her nested resource kendi controller'ı. Tek büyük controller'a zorlamayın.
+
+## Banned Patterns
+
+- `@RequirePermission` atlama (security breach)
+- `@Body(...)` olmadan DTO alma (validation bypass)
+- Controller'da Prisma kullanmak (service layer bypass)
+- `try/catch` inline yazmak — filter'a bırak
+- String HTTP status code (`"200"` yerine `HttpStatus.OK` enum)
+- Inline Zod schema (shared-schemas'tan import)
+- Response manipulation (interceptor'ın işi)
+- `console.log` (Pino logger inject et)
+
+---
+
+Detay: `docs/03_API_CONTRACTS.md` — tam endpoint katalogu + error taxonomy
