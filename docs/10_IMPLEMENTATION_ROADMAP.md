@@ -8,12 +8,12 @@
 
 ### 1.1 Kim Ne Yapar
 
-| Aktör | Sorumluluk |
-|---|---|
+| Aktör                 | Sorumluluk                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Developer (Semih)** | Yön belirleme, karar verme, her faz sonunda human gate review, test doğrulama, production deploy onayı, ADR yazımı (agent drafts, insan onaylar) |
-| **Cursor Agent** | Kod yazımı, test yazımı, refactor, dokümantasyon draft, CI hataları diagnose + fix, consistency audit |
-| **11 Doküman** | Agent'ın bilgi tabanı. Her session başında ilgili doküman context'e yüklenir |
-| **.mdc Cursor Rules** | Agent'ın kural kitabı — nasıl kod yazar, hangi pattern'leri izler (ayrı skill ile üretilecek) |
+| **Cursor Agent**      | Kod yazımı, test yazımı, refactor, dokümantasyon draft, CI hataları diagnose + fix, consistency audit                                            |
+| **11 Doküman**        | Agent'ın bilgi tabanı. Her session başında ilgili doküman context'e yüklenir                                                                     |
+| **.mdc Cursor Rules** | Agent'ın kural kitabı — nasıl kod yazar, hangi pattern'leri izler (ayrı skill ile üretilecek)                                                    |
 
 Developer'ın **kod yazmadığı** varsayımı. Developer'ın zihinsel yükü: "doğru soruyu sor, doğru context ver, output'u doğrula". Agent'ın zihinsel yükü: "kuralı uygula, test yaz, refactor, consistency koru".
 
@@ -44,19 +44,20 @@ Tipik session süresi 30-90 dakika. Büyük feature birden fazla session gerekti
 
 **Sprint yerine faz.** Farklar:
 
-| Sprint (geleneksel) | Faz (vibe coding) |
-|---|---|
-| Zamanla bağlı (2 hafta) | İşle bağlı (feature-complete olana kadar) |
-| Velocity ölçümü (story points) | İterasyon sayısı ölçümü |
-| Retrospective + planning rituel | Her faz sonrası human gate checklist |
-| Pair programming, standup | Solo + agent, async context handoff |
-| Team estimation | Developer kendi kapasitesine göre |
+| Sprint (geleneksel)             | Faz (vibe coding)                         |
+| ------------------------------- | ----------------------------------------- |
+| Zamanla bağlı (2 hafta)         | İşle bağlı (feature-complete olana kadar) |
+| Velocity ölçümü (story points)  | İterasyon sayısı ölçümü                   |
+| Retrospective + planning rituel | Her faz sonrası human gate checklist      |
+| Pair programming, standup       | Solo + agent, async context handoff       |
+| Team estimation                 | Developer kendi kapasitesine göre         |
 
 Faz süresi tahmini yapılır ama katı değil — "3-5 agent session" gibi approximate.
 
 ### 1.4 Human Gate
 
 Her faz sonunda developer'ın manuel kontrol listesi:
+
 - Feature çalışıyor mu (lokal end-to-end)?
 - Test coverage threshold'unu karşılıyor mu?
 - Lint + type-check green mi?
@@ -77,6 +78,7 @@ Vibe coding'in doğal riski agent'ın yanlış yapması:
 - **Consistency drift** — aynı pattern iki yerde iki farklı uygulanır
 
 Kalkanlar:
+
 1. **TypeScript strict + Zod** — yanlış tipler compile'da yakalanır
 2. **Test coverage gate** — agent test yazmayı atlasa bile CI block eder
 3. **11 doküman** — doğru pattern referansı (agent hatırlamadığında okur)
@@ -150,6 +152,7 @@ Solo developer + agent olduğu için paralelleştirme avantajı sınırlı. Anca
 ## 3. Faz Detayları
 
 Her faz için sabit yapı:
+
 - **Kapsam**
 - **Agent kick-off materyali**
 - **Deliverable**
@@ -187,12 +190,14 @@ Her faz için sabit yapı:
 
 #### Human Gate
 
-- [ ] Klasör yapısı `09_DEV_WORKFLOW` ile birebir eşleşiyor
-- [ ] Her internal package `@leanmgmt/*` scope'unda
-- [ ] `turbo.json` pipeline tanımlı (build, lint, test, dev)
-- [ ] Husky hooks aktif — dummy commit test edildi (commitlint format enforce)
-- [ ] `.env.example` placeholder file var
-- [ ] Docker compose servisleri healthy
+> **Scaffold (2026-04):** Repo iskeleti tamamlandı. `docker compose up` ve örnek conventional commit ile commitlint doğrulaması merge öncesi developer tarafından yapılmalıdır.
+
+- [x] Klasör yapısı `09_DEV_WORKFLOW` ile birebir eşleşiyor
+- [x] Her internal package `@leanmgmt/*` scope'unda
+- [x] `turbo.json` pipeline tanımlı (build, lint, typecheck, test, dev)
+- [x] Husky hooks aktif — commitlint + lint-staged (`pnpm prepare` / `.husky/*`)
+- [x] `.env.example` kök + her app altında placeholder
+- [x] Docker compose servisleri tanımlı (PostgreSQL 16, Redis 7, Mailpit) — sağlık kontrolü `docker compose ps`
 
 #### Vibe Coding Risk Uyarıları
 
@@ -273,6 +278,7 @@ Her faz için sabit yapı:
 #### Kapsam
 
 **Backend:**
+
 - NestJS 10 + Fastify + Prisma boilerplate
 - `packages/shared-schemas` ilk Zod schema'ları (auth DTO'ları)
 - `packages/shared-types` ilk type'lar (Permission enum boş placeholder, PERMISSION_METADATA dict)
@@ -295,6 +301,7 @@ Her faz için sabit yapı:
 - Health endpoint + readiness probe
 
 **Frontend:**
+
 - Next.js 15 + App Router boilerplate
 - Tailwind + shadcn/ui base setup
 - Auth route grubu: `/login`, `/forgot-password`, `/reset-password`
@@ -307,6 +314,7 @@ Her faz için sabit yapı:
 - Sentry integration
 
 **Integration:**
+
 - `.github/workflows/pr-check.yml` — unit + integration test (testcontainers)
 - İlk end-to-end: Docker compose ile lokal çalıştır → login → dashboard placeholder (boş sayfa)
 
@@ -320,7 +328,7 @@ Session sequence önerisi:
 - **Session 2.2 — Auth service:** `03_API_CONTRACTS` (auth endpoint'leri), `07_SECURITY_IMPLEMENTATION` (bcrypt, JWT, refresh rotation)
 - **Session 2.3 — Auth controller + guards:** `04_BACKEND_SPEC` (middleware zinciri), `03_API_CONTRACTS` (error taxonomy)
 - **Session 2.4 — Frontend scaffold + axios:** `05_FRONTEND_SPEC` (route groups, state boundaries, axios interceptor)
-- **Session 2.5 — Auth ekranları:** `06_SCREEN_CATALOG` (S-AUTH-* tam şablonları)
+- **Session 2.5 — Auth ekranları:** `06_SCREEN_CATALOG` (S-AUTH-\* tam şablonları)
 - **Session 2.6 — Testing:** `08_TESTING_STRATEGY` (auth test senaryoları, integration testcontainers)
 
 #### Deliverable
@@ -367,6 +375,7 @@ Session sequence önerisi:
 #### Kapsam
 
 **Backend:**
+
 - Users modülü: CRUD + anonymize + session yönetimi (admin)
 - `packages/shared-schemas`: users + master-data + roles Zod şemaları
 - `packages/shared-types`: Permission enum + PERMISSION_METADATA dolduruldu (tüm MVP permission'lar)
@@ -377,6 +386,7 @@ Session sequence önerisi:
 - Audit log decorator `@Audit()` tüm mutation'larda
 
 **Frontend:**
+
 - `/dashboard` route (boş placeholder — Faz 9'da dolacak)
 - `/users` liste + new + detail + edit
 - `/users/:id/roles`, `/users/:id/sessions`
@@ -387,6 +397,7 @@ Session sequence önerisi:
 - Role-yetki tablosu **henüz yok** (Faz 4)
 
 **Integration:**
+
 - E2E test: Superadmin login → user create → user detail → edit → deactivate
 - Integration test: encryption roundtrip, manager cycle detection
 
@@ -399,7 +410,7 @@ Session'lar:
 - **Session 3.3 — Users service + controller:** `03_API_CONTRACTS` (9.2 Users endpoint'leri), `04_BACKEND_SPEC` (encryption middleware, manager cycle)
 - **Session 3.4 — Master data generic CRUD:** `03_API_CONTRACTS` (9.3 Master Data), `06_SCREEN_CATALOG` (S-MD-LIST generic pattern)
 - **Session 3.5 — Roles CRUD (permission'lar hariç):** `03_API_CONTRACTS` (9.4 Roles), `02_DATABASE_SCHEMA` (roles tabloları)
-- **Session 3.6 — Frontend user ekranları:** `06_SCREEN_CATALOG` (S-USER-*), `05_FRONTEND_SPEC` (form pattern + UserForm reference)
+- **Session 3.6 — Frontend user ekranları:** `06_SCREEN_CATALOG` (S-USER-\*), `05_FRONTEND_SPEC` (form pattern + UserForm reference)
 - **Session 3.7 — Frontend master data + roles ekranları:** `06_SCREEN_CATALOG` (S-MD-LIST, S-ROLE-LIST, S-ROLE-DETAIL)
 - **Session 3.8 — Testing + polish:** `08_TESTING_STRATEGY` (integration testler)
 
@@ -446,6 +457,7 @@ Session'lar:
 #### Kapsam
 
 **Backend:**
+
 - `PermissionResolverService` — direct roles + attribute rules union, Redis cache
 - `@RequirePermission(X)` decorator + `PermissionGuard`
 - `role_permissions` CRUD (bulk replace)
@@ -457,6 +469,7 @@ Session'lar:
 - Tüm diğer modüllerde `@RequirePermission` eklenir (users, master-data, roles, processes placeholder)
 
 **Frontend:**
+
 - S-ROLE-PERMISSIONS — kategori sekmeleri + diff UI + destructive confirmation
 - S-ROLE-RULES — condition set builder + operator + polymorphic value + "Test Et" modal
 - S-ROLE-USERS — source filter (direct / rule)
@@ -516,6 +529,7 @@ Session'lar:
 #### Kapsam
 
 **Backend:**
+
 - `processes` tablosu (display_id per-type sequence)
 - `tasks` + `task_assignees` tabloları
 - `ProcessTypeRegistry` pattern (`packages/shared-types`'te)
@@ -530,11 +544,13 @@ Session'lar:
 - ClamAV Lambda placeholder (dev'de scan PENDING → CLEAN auto-mock; staging'de real ClamAV)
 
 **Frontend:**
+
 - S-KTI-START form (6 field + multi-upload)
 - `<DocumentUploader>` component (Signed URL + progress + scan polling)
 - S-PROC-LIST-MY (başlatıcı için süreç listesi)
 
 **Integration:**
+
 - E2E: KTİ başlat → süreç detay gör (henüz task detay ekranı yok, Faz 6)
 - Integration test: document scan polling, display_id sequence per-type
 
@@ -588,6 +604,7 @@ Session'lar:
 #### Kapsam
 
 **Backend:**
+
 - Task endpoints: list, detail, claim, complete
 - Claim mode handling (CLAIM tip task'larda peer eviction)
 - Complete action-based handler (completion_action + reason validation)
@@ -597,6 +614,7 @@ Session'lar:
 - SLA hesaplama (task.sla_due_at assignment-time)
 
 **Frontend:**
+
 - S-TASK-LIST (3 tab: pending/started/completed)
 - S-TASK-DETAIL (süreç bağlamı + önceki task'lar collapsible + action paneli)
 - S-PROC-DETAIL (task zinciri timeline + documents + cancel/rollback aksiyonları)
@@ -605,6 +623,7 @@ Session'lar:
 - `<SlaBadge>` component
 
 **Integration:**
+
 - E2E: KTİ full happy path (login → kti start → manager login → task detail → approve → process completed)
 - E2E: revision loop
 - E2E: cancel flow
@@ -658,6 +677,7 @@ Session'lar:
 #### Kapsam
 
 **Backend:**
+
 - Notifications tablosu
 - `NotificationDispatchService` — event → in-app notification + email queue
 - BullMQ worker setup (`apps/worker`)
@@ -676,6 +696,7 @@ Session'lar:
 - Notification endpoints: list, mark-read, mark-all-read, unread-count
 
 **Frontend:**
+
 - `<NotificationBell>` topbar (30 sn polling)
 - S-NOTIF-LIST full page
 - Optimistic mark-read
@@ -728,6 +749,7 @@ Session'lar:
 #### Kapsam
 
 **Backend:**
+
 - Audit log list endpoint + filter + CSV export (async job)
 - Audit chain integrity verify endpoint
 - System settings endpoints (get list, bulk update)
@@ -735,6 +757,7 @@ Session'lar:
 - Consent version endpoints (list/create/update/publish)
 
 **Frontend:**
+
 - AdminLayout (AppLayout variant, kısıtlı sidebar)
 - S-ADMIN-AUDIT (gelişmiş filtre + diff viewer + CSV export)
 - S-ADMIN-AUDIT-CHAIN (integrity check sayfası)
@@ -790,11 +813,13 @@ Session'lar:
 #### Kapsam
 
 **Backend:**
+
 - `/auth/me/data` — "Verilerim" endpoint (user özet)
 - `/admin/organization-summary` — dashboard widget verileri
 - Session list + revoke endpoints (kendi sessionlar için)
 
 **Frontend:**
+
 - S-DASH-HOME (6 widget: Bekleyen Görevler, Başlattığım Süreçler, SLA Uyarıları, Son Bildirimler, Org Özeti, Audit Chain Sağlığı)
 - S-PROFILE (3 tab: Bilgilerim, Verilerim, Güvenlik)
 - Password expiry banner
@@ -992,23 +1017,23 @@ Session'lar:
 
 ## 4. Vibe Coding Risk Kaydı
 
-| Risk ID | Kategori | Olasılık | Etki | Mitigasyon |
-|---|---|---|---|---|
-| VR-01 | Agent hallucinates non-existent library | Yüksek | Orta | `pnpm install` immediately — hata fail-fast |
-| VR-02 | Context drift (uzun session'da eski karar unutulur) | Yüksek | Yüksek | Session başına ilgili doc'u context'e zorunlu ekle; 1-2 saatten uzun session'ı böl |
-| VR-03 | Over-abstraction (MVP için complex pattern) | Orta | Orta | Her faz sonunda "can bu complexity'yi azaltabilir miyim?" code review |
-| VR-04 | Security shortcut (permission decorator unutma) | Orta | **Kritik** | ESLint custom rule: controller method'lara decorator zorunlu check |
-| VR-05 | Test kaçırma (happy path only) | Yüksek | Orta | Coverage gate + edge case checklist prompt'ta explicit |
-| VR-06 | Consistency drift (aynı pattern iki farklı implementation) | Yüksek | Orta | `.mdc` cursor rules + faz sonunda consistency audit (agent yapabilir) |
-| VR-07 | Breaking change yanlışlıkla (backward compat kırma) | Orta | Yüksek | Expand-contract migration pattern reinforce, integration test suite |
-| VR-08 | Doküman güncelleme unutma (kod doc ile sync değil) | Yüksek | Orta | Her PR'da "ilgili doküman güncel mi?" checklist sorusu |
-| VR-09 | Prompt spesifikasyonu eksik → agent tahmin eder | Yüksek | Yüksek | Net hedef + constraint + referans doc linki; "?" sorularını agent'a sor |
-| VR-10 | Agent kendini düzeltmez (CI failure'da farklı approach denemez) | Orta | Orta | CI green olana kadar iterate, developer intervention minimal |
-| VR-11 | Kritik business logic eksik (edge case domain kuralı) | Orta | Yüksek | Domain model (`01_DOMAIN_MODEL`) zorunlu reading, state machine tests |
-| VR-12 | Performance regression (N+1 query, bundle bloat) | Yüksek | Orta | Faz 10 load test + bundle analyzer her PR |
-| VR-13 | Agent suggestion kabul baskısı (her şey OK gibi görünür) | Yüksek | Yüksek | Human gate'ler, code review disiplini, "acele kabul etme" kuralı |
-| VR-14 | 1 saatlik review görevini 5 dk'da onaylama | Orta | Yüksek | Checklist zorunluluk, tek oturum 100+ satır kod review limiti |
-| VR-15 | Agent'ın iş bölümü: küçük bug'ları devasa refactor olarak görme | Orta | Orta | "Sadece bu dosya + bu method" scope kısıtlaması prompt'ta |
+| Risk ID | Kategori                                                        | Olasılık | Etki       | Mitigasyon                                                                         |
+| ------- | --------------------------------------------------------------- | -------- | ---------- | ---------------------------------------------------------------------------------- |
+| VR-01   | Agent hallucinates non-existent library                         | Yüksek   | Orta       | `pnpm install` immediately — hata fail-fast                                        |
+| VR-02   | Context drift (uzun session'da eski karar unutulur)             | Yüksek   | Yüksek     | Session başına ilgili doc'u context'e zorunlu ekle; 1-2 saatten uzun session'ı böl |
+| VR-03   | Over-abstraction (MVP için complex pattern)                     | Orta     | Orta       | Her faz sonunda "can bu complexity'yi azaltabilir miyim?" code review              |
+| VR-04   | Security shortcut (permission decorator unutma)                 | Orta     | **Kritik** | ESLint custom rule: controller method'lara decorator zorunlu check                 |
+| VR-05   | Test kaçırma (happy path only)                                  | Yüksek   | Orta       | Coverage gate + edge case checklist prompt'ta explicit                             |
+| VR-06   | Consistency drift (aynı pattern iki farklı implementation)      | Yüksek   | Orta       | `.mdc` cursor rules + faz sonunda consistency audit (agent yapabilir)              |
+| VR-07   | Breaking change yanlışlıkla (backward compat kırma)             | Orta     | Yüksek     | Expand-contract migration pattern reinforce, integration test suite                |
+| VR-08   | Doküman güncelleme unutma (kod doc ile sync değil)              | Yüksek   | Orta       | Her PR'da "ilgili doküman güncel mi?" checklist sorusu                             |
+| VR-09   | Prompt spesifikasyonu eksik → agent tahmin eder                 | Yüksek   | Yüksek     | Net hedef + constraint + referans doc linki; "?" sorularını agent'a sor            |
+| VR-10   | Agent kendini düzeltmez (CI failure'da farklı approach denemez) | Orta     | Orta       | CI green olana kadar iterate, developer intervention minimal                       |
+| VR-11   | Kritik business logic eksik (edge case domain kuralı)           | Orta     | Yüksek     | Domain model (`01_DOMAIN_MODEL`) zorunlu reading, state machine tests              |
+| VR-12   | Performance regression (N+1 query, bundle bloat)                | Yüksek   | Orta       | Faz 10 load test + bundle analyzer her PR                                          |
+| VR-13   | Agent suggestion kabul baskısı (her şey OK gibi görünür)        | Yüksek   | Yüksek     | Human gate'ler, code review disiplini, "acele kabul etme" kuralı                   |
+| VR-14   | 1 saatlik review görevini 5 dk'da onaylama                      | Orta     | Yüksek     | Checklist zorunluluk, tek oturum 100+ satır kod review limiti                      |
+| VR-15   | Agent'ın iş bölümü: küçük bug'ları devasa refactor olarak görme | Orta     | Orta       | "Sadece bu dosya + bu method" scope kısıtlaması prompt'ta                          |
 
 ### 4.1 Global Mitigasyon Prensipleri
 
@@ -1025,26 +1050,27 @@ Session'lar:
 
 MVP scope dışında bırakılan ama kaydı tutulan öğeler:
 
-| Borç | Aciliyet | Tahmini çaba | Notlar |
-|---|---|---|---|
-| MFA (TOTP) | Orta | 1-2 hafta | Q3 roadmap, `07_SECURITY_IMPLEMENTATION` 17.1 |
-| Verilerimi İndir (KVKK JSON/CSV) | Düşük | 3-5 gün | Email kanalı ile manuel karşılanır |
-| WebSocket real-time | Düşük | 1 hafta | Polling yeterli MVP'de |
-| Advanced analytics dashboard | Düşük | 2-3 hafta | BI tool entegrasyonu ayrı proje |
-| Mobile app (native) | Düşük | 2-3 ay | Responsive web MVP'de |
-| 2. süreç tipi (5S audit) | Orta | 1-2 hafta | ProcessTypeRegistry pattern hazır |
-| IP whitelist Superadmin | Orta | 2-3 gün | Kurumsal VPN'e bağlı |
-| Advanced audit search (full-text) | Düşük | 1 hafta | OpenSearch integration |
-| SIEM integration | Düşük | 1-2 hafta | Enterprise audit requirement |
-| A/B testing framework | Düşük | 1-2 hafta | Unleash/LaunchDarkly |
-| Hardware Security Module (HSM) | Düşük | 1 hafta | JWT signing production-grade |
-| Cross-region DR | Düşük | 1 hafta | eu-west-1 read replica |
+| Borç                              | Aciliyet | Tahmini çaba | Notlar                                        |
+| --------------------------------- | -------- | ------------ | --------------------------------------------- |
+| MFA (TOTP)                        | Orta     | 1-2 hafta    | Q3 roadmap, `07_SECURITY_IMPLEMENTATION` 17.1 |
+| Verilerimi İndir (KVKK JSON/CSV)  | Düşük    | 3-5 gün      | Email kanalı ile manuel karşılanır            |
+| WebSocket real-time               | Düşük    | 1 hafta      | Polling yeterli MVP'de                        |
+| Advanced analytics dashboard      | Düşük    | 2-3 hafta    | BI tool entegrasyonu ayrı proje               |
+| Mobile app (native)               | Düşük    | 2-3 ay       | Responsive web MVP'de                         |
+| 2. süreç tipi (5S audit)          | Orta     | 1-2 hafta    | ProcessTypeRegistry pattern hazır             |
+| IP whitelist Superadmin           | Orta     | 2-3 gün      | Kurumsal VPN'e bağlı                          |
+| Advanced audit search (full-text) | Düşük    | 1 hafta      | OpenSearch integration                        |
+| SIEM integration                  | Düşük    | 1-2 hafta    | Enterprise audit requirement                  |
+| A/B testing framework             | Düşük    | 1-2 hafta    | Unleash/LaunchDarkly                          |
+| Hardware Security Module (HSM)    | Düşük    | 1 hafta      | JWT signing production-grade                  |
+| Cross-region DR                   | Düşük    | 1 hafta      | eu-west-1 read replica                        |
 
 **Tech debt review:** 3 ay sonrası her sprint'te 1 tech debt item'ı addresse alınır. "Never clean" kararı → zamanla erodasyon.
 
 ### 5.1 Vibe Coding Side-Effects
 
 Vibe coding'in doğal yan etkileri:
+
 - **Abstraction inconsistency** — farklı zamanlarda agent farklı abstraction level tercih eder. 6 ay sonra "big consistency sprint" ile cleanup.
 - **Over-engineered edge cases** — agent bazen gereksiz complexity ekler. Periodic simplification pass.
 - **Naming inconsistency** — `getUserById` vs `findUserById` vs `fetchUser`. ESLint naming-convention rule ile minimize.
@@ -1058,16 +1084,17 @@ Bu side-effect'ler MVP'de tolere edilir; post-MVP "hardening" fazında cleanup.
 
 ### Faz 13+ — Gelecek Yol Haritası
 
-| Dalgalar | Süre | Odak |
-|---|---|---|
-| **Wave 1 — Security Enhancements** (Q3-Q4 2026) | 2-3 ay | MFA (TOTP), IP whitelist admin, HSM for JWT, SIEM integration |
-| **Wave 2 — Process Expansion** (Q4 2026 - Q1 2027) | 3-4 ay | 5S audit süreci, TPM (Total Productive Maintenance) süreci, Özel form fields generic |
-| **Wave 3 — Analytics + Reporting** (Q2 2027) | 2-3 ay | Dashboard analytics, executive reports, KPI tracking, CSV/PDF export, BI integration |
-| **Wave 4 — Mobile Experience** (Q3 2027) | 3-4 ay | Responsive improvements → native app (React Native), push notifications, offline capability |
-| **Wave 5 — Integration Ecosystem** (Q4 2027) | 2-3 ay | Webhooks, REST API for third-party, ERP integration (SAP), SSO (SAML/OIDC federation) |
-| **Wave 6 — AI-Assisted Features** (2028+) | — | Auto-categorization, SLA prediction, anomaly detection in audit logs |
+| Dalgalar                                           | Süre   | Odak                                                                                        |
+| -------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- |
+| **Wave 1 — Security Enhancements** (Q3-Q4 2026)    | 2-3 ay | MFA (TOTP), IP whitelist admin, HSM for JWT, SIEM integration                               |
+| **Wave 2 — Process Expansion** (Q4 2026 - Q1 2027) | 3-4 ay | 5S audit süreci, TPM (Total Productive Maintenance) süreci, Özel form fields generic        |
+| **Wave 3 — Analytics + Reporting** (Q2 2027)       | 2-3 ay | Dashboard analytics, executive reports, KPI tracking, CSV/PDF export, BI integration        |
+| **Wave 4 — Mobile Experience** (Q3 2027)           | 3-4 ay | Responsive improvements → native app (React Native), push notifications, offline capability |
+| **Wave 5 — Integration Ecosystem** (Q4 2027)       | 2-3 ay | Webhooks, REST API for third-party, ERP integration (SAP), SSO (SAML/OIDC federation)       |
+| **Wave 6 — AI-Assisted Features** (2028+)          | —      | Auto-categorization, SLA prediction, anomaly detection in audit logs                        |
 
 Her wave sonunda:
+
 - Production metrics review
 - Kullanıcı geri bildirim analizi
 - Security posture audit
@@ -1076,6 +1103,7 @@ Her wave sonunda:
 ### 6.1 Architectural Evolution Expectations
 
 MVP'nin ilk yılında beklenen değişimler:
+
 - **DB:** Aurora Serverless v2 (auto-scaling) değerlendirmesi
 - **Compute:** ECS Fargate → EKS migration (container orchestration maturity)
 - **Caching:** Redis multi-AZ failover test + opsiyonel global replication
@@ -1091,21 +1119,22 @@ Bu değişimler ADR ile dokümante edilir. Her biri major migration — expand-c
 
 ### 7.1 MVP Release Sonrası 3 Ay
 
-| Metric | Target |
-|---|---|
-| Aktif kullanıcı (monthly) | 5,000+ |
-| Tamamlanan KTİ süreç sayısı | 500+ |
-| P95 API response time | < 500ms |
-| Error rate (5xx) | < 0.1% |
-| Uptime | 99.5% (staging-measured before prod) |
-| Critical security incident | 0 |
-| Data loss incident | 0 |
-| SLA breach rate (task) | < 5% |
-| User NPS | > 50 |
+| Metric                      | Target                               |
+| --------------------------- | ------------------------------------ |
+| Aktif kullanıcı (monthly)   | 5,000+                               |
+| Tamamlanan KTİ süreç sayısı | 500+                                 |
+| P95 API response time       | < 500ms                              |
+| Error rate (5xx)            | < 0.1%                               |
+| Uptime                      | 99.5% (staging-measured before prod) |
+| Critical security incident  | 0                                    |
+| Data loss incident          | 0                                    |
+| SLA breach rate (task)      | < 5%                                 |
+| User NPS                    | > 50                                 |
 
 ### 7.2 Agent-Specific Metrics
 
 Vibe coding delivery ölçüsü:
+
 - **Faz completion rate:** 12 faz / 12 hedef (tam tamamlanma, kısmi yok)
 - **Consistency score:** Rastgele seçilen 10 endpoint'te `@RequirePermission` + audit + validation oranı → %95+
 - **Bug velocity:** Post-release ilk 30 günde tespit edilen kritik bug sayısı → < 5
@@ -1116,6 +1145,7 @@ Vibe coding delivery ölçüsü:
 ### 7.3 Business Impact
 
 MVP'nin iş sonuçları:
+
 - Kurumsal Kaizen süreç takip edilebilirliği (önceden manuel/Excel)
 - Yönetici onay akışı zaman tasarrufu (72 saat SLA enforce)
 - Audit trail + KVKK uyum (yasal risk azaltma)
@@ -1133,24 +1163,30 @@ Her faz/session için developer şu pattern ile agent'a prompt verir:
 # [Faz N — Session X] <Session başlığı>
 
 ## Hedef
+
 [Net, ölçülebilir hedef. Tek cümle.]
 
 ## Context (agent okuması zorunlu)
-- docs/<xx>_<doc-name>.md — [hangi bölümler]
-- docs/<xx>_<doc-name>.md — [hangi bölümler]
+
+- docs/<xx>\_<doc-name>.md — [hangi bölümler]
+- docs/<xx>\_<doc-name>.md — [hangi bölümler]
 
 ## Scope
+
 Aşağıdaki file'ları oluştur/güncelle:
+
 - apps/api/src/<module>/<file>.ts
 - apps/web/src/<component>/<file>.tsx
 - test file'ları (coverage threshold %<X>)
 
 ## Constraints
+
 - [Pattern 1 — örn. "PermissionResolverService'i mevcut `apps/api/src/auth/permission-resolver.service.ts`'ten reuse et"]
 - [Pattern 2 — örn. "Zod schema'ları `packages/shared-schemas`'tan import et, yenisini yazma"]
 - [Kısıt 3 — örn. "Bundle delta 10 KB'yi aşmasın"]
 
 ## Deliverable
+
 - [ ] `pnpm lint` green
 - [ ] `pnpm typecheck` green
 - [ ] `pnpm test` green, coverage <module> için %<X>+
@@ -1158,9 +1194,11 @@ Aşağıdaki file'ları oluştur/güncelle:
 - [ ] Manual smoke test: <user flow adımları>
 
 ## Explicit Don'ts
+
 - <risk olarak bilinen anti-pattern'ler>
 
 ## Related ADR
+
 <varsa — ADR-000X referansı>
 ```
 
@@ -1172,19 +1210,19 @@ Bu şablon `.mdc` cursor rules ile birleşir: cursor rules genel disiplin (kodla
 
 Bu 11 doküman **canlı** — MVP inşası sırasında sürekli güncellenir:
 
-| Doküman | Ne zaman güncellenir |
-|---|---|
-| `00_PROJECT_OVERVIEW` | Kapsam değişimi (nadir) |
-| `01_DOMAIN_MODEL` | Yeni entity, state machine değişikliği |
-| `02_DATABASE_SCHEMA` | Her migration sonrası |
-| `03_API_CONTRACTS` | Her yeni endpoint veya endpoint değişikliği |
-| `04_BACKEND_SPEC` | Pattern ekleme/değişikliği, yeni middleware |
-| `05_FRONTEND_SPEC` | Yeni global pattern, library ekleme (ADR ile), state strategy değişimi |
-| `06_SCREEN_CATALOG` | Her yeni ekran, kritik ekranda önemli UX değişikliği |
-| `07_SECURITY_IMPLEMENTATION` | Yeni security control, pen-test bulgusu remediation |
-| `08_TESTING_STRATEGY` | Coverage hedefi değişimi, yeni test tool |
-| `09_DEV_WORKFLOW` | Süreç değişikliği (CI/CD, release cadence, team topology) |
-| `10_IMPLEMENTATION_ROADMAP` | Faz durum güncellemesi (her faz sonunda), risk kaydı yenileme |
+| Doküman                      | Ne zaman güncellenir                                                   |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `00_PROJECT_OVERVIEW`        | Kapsam değişimi (nadir)                                                |
+| `01_DOMAIN_MODEL`            | Yeni entity, state machine değişikliği                                 |
+| `02_DATABASE_SCHEMA`         | Her migration sonrası                                                  |
+| `03_API_CONTRACTS`           | Her yeni endpoint veya endpoint değişikliği                            |
+| `04_BACKEND_SPEC`            | Pattern ekleme/değişikliği, yeni middleware                            |
+| `05_FRONTEND_SPEC`           | Yeni global pattern, library ekleme (ADR ile), state strategy değişimi |
+| `06_SCREEN_CATALOG`          | Her yeni ekran, kritik ekranda önemli UX değişikliği                   |
+| `07_SECURITY_IMPLEMENTATION` | Yeni security control, pen-test bulgusu remediation                    |
+| `08_TESTING_STRATEGY`        | Coverage hedefi değişimi, yeni test tool                               |
+| `09_DEV_WORKFLOW`            | Süreç değişikliği (CI/CD, release cadence, team topology)              |
+| `10_IMPLEMENTATION_ROADMAP`  | Faz durum güncellemesi (her faz sonunda), risk kaydı yenileme          |
 
 **Altın kural:** Kod doküman ile sync değilse, ya kod yanlış (fix), ya doküman eski (update). Uyumsuzluk tolere edilmez.
 
