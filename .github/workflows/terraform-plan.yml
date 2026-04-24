@@ -1,0 +1,91 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    paths:
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/terraform-plan.yml'
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: terraform-plan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fmt-validate:
+    name: fmt + validate (dev)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
+    env:
+      TF_VAR_acm_certificate_arn: arn:aws:acm:eu-central-1:000000000000:certificate/00000000-0000-0000-0000-000000000000
+      TF_VAR_github_repository: leanmgmt/placeholder
+      TF_VAR_terraform_remote_state_bucket_arn: arn:aws:s3:::leanmgmt-terraform-state-placeholder
+      TF_VAR_terraform_remote_state_lock_table_arn: arn:aws:dynamodb:eu-central-1:000000000000:table/leanmgmt-terraform-locks-placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.8.5'
+
+      - name: Terraform Format (check)
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init (no remote backend)
+        working-directory: infrastructure/terraform/environments/dev
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform Validate
+        working-directory: infrastructure/terraform/environments/dev
+        run: terraform validate -no-color
+
+  plan-dev:
+    name: plan (dev, OIDC)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.AWS_TERRAFORM_ROLE_ARN_DEV != '' && secrets.TF_BACKEND_BUCKET_DEV != '' }}
+    defaults:
+      run:
+        working-directory: infrastructure/terraform/environments/dev
+    env:
+      AWS_REGION: eu-central-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.8.5'
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN_DEV }}
+          aws-region: eu-central-1
+
+      - name: Terraform Init (remote backend)
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET_DEV }}" \
+            -backend-config="key=dev/terraform.tfstate" \
+            -backend-config="region=eu-central-1" \
+            -backend-config="encrypt=true" \
+            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_LOCK_TABLE_DEV }}"
+
+      - name: Terraform Plan
+        run: terraform plan -no-color -input=false -out=tfplan
+        env:
+          TF_VAR_acm_certificate_arn: ${{ secrets.TF_VAR_ACM_CERTIFICATE_ARN_DEV }}
+          TF_VAR_github_repository: ${{ secrets.TF_VAR_GITHUB_REPOSITORY }}
+          TF_VAR_terraform_remote_state_bucket_arn: ${{ secrets.TF_VAR_TERRAFORM_REMOTE_STATE_BUCKET_ARN_DEV }}
+          TF_VAR_terraform_remote_state_lock_table_arn: ${{ secrets.TF_VAR_TERRAFORM_REMOTE_STATE_LOCK_TABLE_ARN_DEV }}
+          TF_VAR_terraform_state_kms_key_arn: ${{ secrets.TF_VAR_TERRAFORM_STATE_KMS_KEY_ARN_DEV }}
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-dev
+          path: infrastructure/terraform/environments/dev/tfplan

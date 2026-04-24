@@ -250,14 +250,16 @@ Her faz için sabit yapı:
 
 #### Human Gate
 
-- [ ] 3 hesap SSO'dan erişilebilir
-- [ ] Terraform state remote'da (S3) — lock çalışıyor (DynamoDB)
-- [ ] IAM role permission'ları minimal (dev için wide, staging/prod için restricted)
-- [ ] RDS encryption-at-rest aktif (AWS KMS)
-- [ ] S3 bucket'lar public access blocked
-- [ ] CloudFront HTTPS only
-- [ ] Security Group'lar principle of least privilege (DB port sadece ECS SG'den)
-- [ ] Staging ve prod hesaplar için Terraform module reuse hazır (copy-paste değil)
+> **IaC (2026-04):** `infrastructure/terraform` modül + `environments/{dev,staging,prod}` + GitHub workflow’lar eklendi. Gerçek `terraform apply`, SSO ve secret değerleri developer onayıyla.
+
+- [ ] 3 hesap SSO'dan erişilebilir (Organizations / IAM Identity Center kurulumu)
+- [x] Terraform remote state deseni (S3 partial backend + DynamoDB lock) ve ortam kökleri hazır
+- [ ] IAM: GitHub Terraform rolü ilk bootstrap’ta geniş; prod/staging için policy sıkılaştırma review
+- [x] RDS encryption-at-rest (KMS CMK) Terraform’da
+- [x] S3 documents bucket — public access block + SSE-KMS
+- [x] CloudFront varsayılan sertifika ile viewer HTTPS; origin ALB’ye HTTPS-only
+- [x] Security group katmanları (Aurora/Redis yalnız ECS görev SG’sinden; internet yalnız ALB 80/443)
+- [x] Staging/prod için aynı modül seti, ayrı environment dizinleri (reuse)
 
 #### Vibe Coding Risk Uyarıları
 

@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored).
+
+aws_region = "eu-central-1"
+
+acm_certificate_arn = "arn:aws:acm:eu-central-1:ACCOUNT_ID:certificate/UUID"
+github_repository   = "your-org/LeanManagement"
+
+terraform_remote_state_bucket_arn     = "arn:aws:s3:::leanmgmt-terraform-state-staging"
+terraform_remote_state_lock_table_arn = "arn:aws:dynamodb:eu-central-1:ACCOUNT_ID:table/leanmgmt-terraform-locks-staging"

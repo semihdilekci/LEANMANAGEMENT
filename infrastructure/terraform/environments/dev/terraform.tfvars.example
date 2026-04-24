@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars (gitignored) and fill real values before plan/apply.
+
+aws_region = "eu-central-1"
+
+# ACM for ALB HTTPS (eu-central-1). Leave empty ("") until you have a public DNS name — ALB + CloudFront use HTTP to the ALB in that mode (dev bootstrap only).
+# acm_certificate_arn = "arn:aws:acm:eu-central-1:ACCOUNT_ID:certificate/UUID"
+acm_certificate_arn = ""
+
+# GitHub OIDC trust — must match this repository.
+github_repository = "your-org/LeanManagement"
+
+# Optional: restrict additional refs (default is main only in variables.tf).
+# github_ref_subjects = ["ref:refs/heads/main", "environment:production"]
+
+# Remote state (bootstrap once per AWS account). backend.hcl `region` must match the S3 bucket region (e.g. us-east-1 if you created the bucket there).
+terraform_remote_state_bucket_arn     = "arn:aws:s3:::leanmgmt-terraform-state-dev"
+terraform_remote_state_lock_table_arn = "arn:aws:dynamodb:eu-central-1:ACCOUNT_ID:table/leanmgmt-terraform-locks-dev"
+
+# Optional if state bucket uses CMK encryption.
+# terraform_state_kms_key_arn = "arn:aws:kms:eu-central-1:ACCOUNT_ID:key/UUID"
+
+# alarm_sns_topic_arn = "arn:aws:sns:eu-central-1:ACCOUNT_ID:leanmgmt-alarms"

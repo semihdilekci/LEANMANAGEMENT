@@ -1,0 +1,7 @@
+bucket         = "leanmgmt-terraform-state-dev"
+key            = "dev/terraform.tfstate"
+# Must match the S3 bucket region (e.g. us-east-1 if the bucket lives there).
+region         = "eu-central-1"
+encrypt        = true
+dynamodb_table = "leanmgmt-terraform-locks-dev"
+# kms_key_id     = "arn:aws:kms:eu-central-1:ACCOUNT_ID:key/KEY_ID"
