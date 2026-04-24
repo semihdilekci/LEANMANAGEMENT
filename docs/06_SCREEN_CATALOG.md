@@ -8,60 +8,60 @@
 
 Platformda toplam **43 ekran** vardır — 29 kritik, 14 ikincil.
 
-| Ekran ID | Route | Layout | Erişim | Seviye |
-|---|---|---|---|---|
-| **Grup 1 — Auth** | | | | |
-| S-AUTH-LOGIN | `/login` | AuthLayout | Public | Kritik |
-| S-AUTH-FORGOT | `/forgot-password` | AuthLayout | Public | Kritik |
-| S-AUTH-RESET | `/reset-password?token=...` | AuthLayout | Public | Kritik |
-| S-AUTH-CONSENT | (blocking modal — route yok) | AppLayout overlay | Auth (consent onaysız) | Kritik |
-| S-AUTH-CHANGE-PWD | `/profile/change-password` | AppLayout | Auth | Kritik |
-| **Grup 2 — Dashboard ve Error Sayfaları** | | | | |
-| S-DASH-HOME | `/dashboard` | AppLayout | Auth | Kritik |
-| S-ERROR-403 | `/403` | PublicLayout | Any | İkincil |
-| S-ERROR-404 | `/404` (catch-all) | PublicLayout | Any | İkincil |
-| S-ERROR-500 | `error.tsx` render-time | PublicLayout | Any | İkincil |
-| S-ERROR-MAINT | `/maintenance` | PublicLayout | Any | İkincil |
-| **Grup 3 — Kullanıcı Yönetimi** | | | | |
-| S-USER-LIST | `/users` | AppLayout | USER_LIST_VIEW | Kritik |
-| S-USER-NEW | `/users/new` | AppLayout | USER_CREATE | Kritik |
-| S-USER-DETAIL | `/users/:id` | AppLayout | USER_LIST_VIEW veya kendisi | Kritik |
-| S-USER-EDIT | `/users/:id/edit` | AppLayout | USER_UPDATE_ATTRIBUTE | Kritik |
-| S-USER-ROLES | `/users/:id/roles` | AppLayout | USER_LIST_VIEW | Kritik |
-| S-USER-SESSIONS | `/users/:id/sessions` | AppLayout | USER_SESSION_VIEW | İkincil |
-| **Grup 4 — Rol ve Yetki Yönetimi** | | | | |
-| S-ROLE-LIST | `/roles` | AppLayout | ROLE_VIEW | Kritik |
-| S-ROLE-NEW | `/roles/new` | AppLayout | ROLE_CREATE | İkincil |
-| S-ROLE-DETAIL | `/roles/:id` | AppLayout | ROLE_VIEW | Kritik |
-| S-ROLE-PERMISSIONS | `/roles/:id/permissions` | AppLayout | ROLE_PERMISSION_MANAGE | Kritik |
-| S-ROLE-RULES | `/roles/:id/rules` | AppLayout | ROLE_RULE_MANAGE | Kritik |
-| S-ROLE-USERS | `/roles/:id/users` | AppLayout | ROLE_VIEW | Kritik |
-| **Grup 5 — Master Data Yönetimi** | | | | |
-| S-MD-LIST | `/master-data/:type` | AppLayout | MASTER_DATA_MANAGE | Kritik |
-| S-MD-DETAIL | `/master-data/:type/:id` | AppLayout | MASTER_DATA_MANAGE | İkincil |
-| S-MD-USERS | `/master-data/:type/:id/users` | AppLayout | MASTER_DATA_MANAGE | İkincil |
-| **Grup 6 — Süreçler ve KTİ** | | | | |
-| S-PROC-LIST-MY | `/processes?scope=my-started` | AppLayout | Auth | Kritik |
-| S-PROC-LIST-ADMIN | `/processes?scope=admin` | AppLayout | PROCESS_VIEW_ALL | Kritik |
-| S-PROC-DETAIL | `/processes/:displayId` | AppLayout | Owner / Assignee / PROCESS_VIEW_ALL | Kritik |
-| S-PROC-HISTORY | `/processes/:displayId/history` | AppLayout | PROCESS_VIEW_ALL | İkincil |
-| S-KTI-START | `/processes/kti/start` | AppLayout | PROCESS_KTI_START | Kritik |
-| S-PROC-CANCEL | (modal on detail) | Modal | PROCESS_CANCEL | İkincil |
-| S-PROC-ROLLBACK | (modal on detail) | Modal | PROCESS_ROLLBACK | İkincil |
-| **Grup 7 — Görevler** | | | | |
-| S-TASK-LIST | `/tasks` (tabs: pending/started/completed) | AppLayout | Auth | Kritik |
-| S-TASK-DETAIL | `/tasks/:id` | AppLayout | Assignee / Owner / PROCESS_VIEW_ALL | Kritik |
-| **Grup 8 — Bildirimler ve Profil** | | | | |
-| S-NOTIF-LIST | `/notifications` | AppLayout | Auth | Kritik |
-| S-PROFILE | `/profile` | AppLayout | Auth | Kritik |
-| **Grup 9 — Admin** | | | | |
-| S-ADMIN-AUDIT | `/admin/audit-logs` | AdminLayout | AUDIT_LOG_VIEW | Kritik |
-| S-ADMIN-AUDIT-CHAIN | `/admin/audit-logs/chain-integrity` | AdminLayout | AUDIT_LOG_VIEW | İkincil |
-| S-ADMIN-SETTINGS | `/admin/system-settings` | AdminLayout | SYSTEM_SETTINGS_EDIT | Kritik |
-| S-ADMIN-EMAIL-LIST | `/admin/email-templates` | AdminLayout | EMAIL_TEMPLATE_VIEW | İkincil |
-| S-ADMIN-EMAIL-EDIT | `/admin/email-templates/:eventType` | AdminLayout | EMAIL_TEMPLATE_EDIT | Kritik |
-| S-ADMIN-CONSENT-LIST | `/admin/consent-versions` | AdminLayout | CONSENT_VERSION_VIEW | İkincil |
-| S-ADMIN-CONSENT-EDIT | `/admin/consent-versions/:id/edit` (ve `/new`) | AdminLayout | CONSENT_VERSION_EDIT | Kritik |
+| Ekran ID                                  | Route                                          | Layout            | Erişim                              | Seviye  |
+| ----------------------------------------- | ---------------------------------------------- | ----------------- | ----------------------------------- | ------- |
+| **Grup 1 — Auth**                         |                                                |                   |                                     |         |
+| S-AUTH-LOGIN                              | `/login`                                       | AuthLayout        | Public                              | Kritik  |
+| S-AUTH-FORGOT                             | `/forgot-password`                             | AuthLayout        | Public                              | Kritik  |
+| S-AUTH-RESET                              | `/reset-password?token=...`                    | AuthLayout        | Public                              | Kritik  |
+| S-AUTH-CONSENT                            | (blocking modal — route yok)                   | AppLayout overlay | Auth (consent onaysız)              | Kritik  |
+| S-AUTH-CHANGE-PWD                         | `/profile/change-password`                     | AppLayout         | Auth                                | Kritik  |
+| **Grup 2 — Dashboard ve Error Sayfaları** |                                                |                   |                                     |         |
+| S-DASH-HOME                               | `/dashboard`                                   | AppLayout         | Auth                                | Kritik  |
+| S-ERROR-403                               | `/403`                                         | PublicLayout      | Any                                 | İkincil |
+| S-ERROR-404                               | `/404` (catch-all)                             | PublicLayout      | Any                                 | İkincil |
+| S-ERROR-500                               | `error.tsx` render-time                        | PublicLayout      | Any                                 | İkincil |
+| S-ERROR-MAINT                             | `/maintenance`                                 | PublicLayout      | Any                                 | İkincil |
+| **Grup 3 — Kullanıcı Yönetimi**           |                                                |                   |                                     |         |
+| S-USER-LIST                               | `/users`                                       | AppLayout         | USER_LIST_VIEW                      | Kritik  |
+| S-USER-NEW                                | `/users/new`                                   | AppLayout         | USER_CREATE                         | Kritik  |
+| S-USER-DETAIL                             | `/users/:id`                                   | AppLayout         | USER_LIST_VIEW veya kendisi         | Kritik  |
+| S-USER-EDIT                               | `/users/:id/edit`                              | AppLayout         | USER_UPDATE_ATTRIBUTE               | Kritik  |
+| S-USER-ROLES                              | `/users/:id/roles`                             | AppLayout         | USER_LIST_VIEW                      | Kritik  |
+| S-USER-SESSIONS                           | `/users/:id/sessions`                          | AppLayout         | USER_SESSION_VIEW                   | İkincil |
+| **Grup 4 — Rol ve Yetki Yönetimi**        |                                                |                   |                                     |         |
+| S-ROLE-LIST                               | `/roles`                                       | AppLayout         | ROLE_VIEW                           | Kritik  |
+| S-ROLE-NEW                                | `/roles/new`                                   | AppLayout         | ROLE_CREATE                         | İkincil |
+| S-ROLE-DETAIL                             | `/roles/:id`                                   | AppLayout         | ROLE_VIEW                           | Kritik  |
+| S-ROLE-PERMISSIONS                        | `/roles/:id/permissions`                       | AppLayout         | ROLE_PERMISSION_MANAGE              | Kritik  |
+| S-ROLE-RULES                              | `/roles/:id/rules`                             | AppLayout         | ROLE_RULE_MANAGE                    | Kritik  |
+| S-ROLE-USERS                              | `/roles/:id/users`                             | AppLayout         | ROLE_VIEW                           | Kritik  |
+| **Grup 5 — Master Data Yönetimi**         |                                                |                   |                                     |         |
+| S-MD-LIST                                 | `/master-data/:type`                           | AppLayout         | MASTER_DATA_MANAGE                  | Kritik  |
+| S-MD-DETAIL                               | `/master-data/:type/:id`                       | AppLayout         | MASTER_DATA_MANAGE                  | İkincil |
+| S-MD-USERS                                | `/master-data/:type/:id/users`                 | AppLayout         | MASTER_DATA_MANAGE                  | İkincil |
+| **Grup 6 — Süreçler ve KTİ**              |                                                |                   |                                     |         |
+| S-PROC-LIST-MY                            | `/processes?scope=my-started`                  | AppLayout         | Auth                                | Kritik  |
+| S-PROC-LIST-ADMIN                         | `/processes?scope=admin`                       | AppLayout         | PROCESS_VIEW_ALL                    | Kritik  |
+| S-PROC-DETAIL                             | `/processes/:displayId`                        | AppLayout         | Owner / Assignee / PROCESS_VIEW_ALL | Kritik  |
+| S-PROC-HISTORY                            | `/processes/:displayId/history`                | AppLayout         | PROCESS_VIEW_ALL                    | İkincil |
+| S-KTI-START                               | `/processes/kti/start`                         | AppLayout         | PROCESS_KTI_START                   | Kritik  |
+| S-PROC-CANCEL                             | (modal on detail)                              | Modal             | PROCESS_CANCEL                      | İkincil |
+| S-PROC-ROLLBACK                           | (modal on detail)                              | Modal             | PROCESS_ROLLBACK                    | İkincil |
+| **Grup 7 — Görevler**                     |                                                |                   |                                     |         |
+| S-TASK-LIST                               | `/tasks` (tabs: pending/started/completed)     | AppLayout         | Auth                                | Kritik  |
+| S-TASK-DETAIL                             | `/tasks/:id`                                   | AppLayout         | Assignee / Owner / PROCESS_VIEW_ALL | Kritik  |
+| **Grup 8 — Bildirimler ve Profil**        |                                                |                   |                                     |         |
+| S-NOTIF-LIST                              | `/notifications`                               | AppLayout         | Auth                                | Kritik  |
+| S-PROFILE                                 | `/profile`                                     | AppLayout         | Auth                                | Kritik  |
+| **Grup 9 — Admin**                        |                                                |                   |                                     |         |
+| S-ADMIN-AUDIT                             | `/admin/audit-logs`                            | AdminLayout       | AUDIT_LOG_VIEW                      | Kritik  |
+| S-ADMIN-AUDIT-CHAIN                       | `/admin/audit-logs/chain-integrity`            | AdminLayout       | AUDIT_LOG_VIEW                      | İkincil |
+| S-ADMIN-SETTINGS                          | `/admin/system-settings`                       | AdminLayout       | SYSTEM_SETTINGS_EDIT                | Kritik  |
+| S-ADMIN-EMAIL-LIST                        | `/admin/email-templates`                       | AdminLayout       | EMAIL_TEMPLATE_VIEW                 | İkincil |
+| S-ADMIN-EMAIL-EDIT                        | `/admin/email-templates/:eventType`            | AdminLayout       | EMAIL_TEMPLATE_EDIT                 | Kritik  |
+| S-ADMIN-CONSENT-LIST                      | `/admin/consent-versions`                      | AdminLayout       | CONSENT_VERSION_VIEW                | İkincil |
+| S-ADMIN-CONSENT-EDIT                      | `/admin/consent-versions/:id/edit` (ve `/new`) | AdminLayout       | CONSENT_VERSION_EDIT                | Kritik  |
 
 ---
 
@@ -209,6 +209,7 @@ Solda sabit sidebar — AppLayout ve AdminLayout'ta kullanılır. Menü öğeler
 ```
 
 Davranış:
+
 - Sidebar collapsed/expanded state Zustand `useUIStore`'da; kullanıcı tercihi localStorage'da değil, session başına reset
 - Collapsed görünümde yalnız ikonlar; hover'da tooltip ile isim
 - Aktif route highlight (Tailwind `bg-accent text-accent-foreground`)
@@ -220,6 +221,7 @@ Davranış:
 Sabit üst çubuk — AppLayout ve AdminLayout'ta kullanılır. Sol-sağ yerleşim:
 
 **Sol:**
+
 - Hamburger (mobile) veya sidebar collapse toggle
 - Logo + platform adı — tıklanınca `/dashboard`
 - Breadcrumb (sayfa başlığı + parent route)
@@ -227,6 +229,7 @@ Sabit üst çubuk — AppLayout ve AdminLayout'ta kullanılır. Sol-sağ yerleş
 **Orta:** (boş — arama MVP'de yok, ileride eklenebilir)
 
 **Sağ:**
+
 - **Password expiry banner** — yalnız 14 günden az kaldıysa görünür (tam genişlikte üst banner; bölüm 1.3 not)
 - **NotificationBell** — çan ikonu + badge + dropdown
 - **UserMenu** — avatar + ad kısaltması; dropdown: "Profilim", "Çıkış Yap"
@@ -253,6 +256,7 @@ Kullanıcılar › Ali Yılmaz › Düzenle
 **Kullanılan ekranlar:** S-AUTH-LOGIN, S-AUTH-FORGOT, S-AUTH-RESET
 
 **Yapı:**
+
 ```
 [Full-screen centered container]
   ├─ Logo (üstte, ortalanmış)
@@ -269,6 +273,7 @@ Kullanıcılar › Ali Yılmaz › Düzenle
 **Kullanılan ekranlar:** Grup 2-8 tüm authenticated ekranlar
 
 **Yapı:**
+
 ```
 [Full-screen flex container]
   ├─ Sidebar (left, 240px expanded / 64px collapsed)
@@ -294,6 +299,7 @@ Kullanıcılar › Ali Yılmaz › Düzenle
 **Kullanılan ekranlar:** S-ERROR-403, S-ERROR-404, S-ERROR-500, S-ERROR-MAINT
 
 **Yapı:**
+
 ```
 [Full-screen centered container]
   ├─ Logo (küçük, üstte)
@@ -324,6 +330,7 @@ Bu bölüm 29 kritik ekranın tam şablonunu içerir. Her ekran için sabit yap�
 ##### Görsel Yapı
 
 Yukarıdan aşağıya:
+
 1. **Logo** — AuthLayout'un üstünde ortalı
 2. **Card** (max-w-md) — içinde:
    - **Başlık:** "Giriş Yap"
@@ -379,10 +386,10 @@ Yukarıdan aşağıya:
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| email | email input | Evet | RFC 5322, max 254, lowercase'e transform | '' | autocomplete="username" |
-| password | password input | Evet | min 1 karakter (backend min 12 zorlar) | '' | autocomplete="current-password"; göster/gizle toggle |
+| Alan     | Tip            | Zorunlu | Validation                               | Default | Not                                                  |
+| -------- | -------------- | ------- | ---------------------------------------- | ------- | ---------------------------------------------------- |
+| email    | email input    | Evet    | RFC 5322, max 254, lowercase'e transform | ''      | autocomplete="username"                              |
+| password | password input | Evet    | min 1 karakter (backend min 12 zorlar)   | ''      | autocomplete="current-password"; göster/gizle toggle |
 
 ---
 
@@ -444,9 +451,9 @@ Yukarıdan aşağıya:
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| email | email input | Evet | RFC 5322, max 254, lowercase | '' | autocomplete="email" |
+| Alan  | Tip         | Zorunlu | Validation                   | Default | Not                  |
+| ----- | ----------- | ------- | ---------------------------- | ------- | -------------------- |
+| email | email input | Evet    | RFC 5322, max 254, lowercase | ''      | autocomplete="email" |
 
 ---
 
@@ -514,10 +521,10 @@ Yukarıdan aşağıya:
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| newPassword | password input | Evet | min 12, uppercase/lowercase/digit/special, HIBP check | '' | autocomplete="new-password" |
-| confirmPassword | password input | Evet | === newPassword | '' | Client-side match check |
+| Alan            | Tip            | Zorunlu | Validation                                            | Default | Not                         |
+| --------------- | -------------- | ------- | ----------------------------------------------------- | ------- | --------------------------- |
+| newPassword     | password input | Evet    | min 12, uppercase/lowercase/digit/special, HIBP check | ''      | autocomplete="new-password" |
+| confirmPassword | password input | Evet    | === newPassword                                       | ''      | Client-side match check     |
 
 ---
 
@@ -640,11 +647,11 @@ Background blur + opaque overlay; arkadaki layout gizlenir. Modal dışına tık
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| currentPassword | password input | Evet | min 1 | '' | autocomplete="current-password" |
-| newPassword | password input | Evet | Aynı policy (S-AUTH-RESET ile aynı) | '' | autocomplete="new-password" |
-| confirmPassword | password input | Evet | === newPassword | '' | Client-side match |
+| Alan            | Tip            | Zorunlu | Validation                          | Default | Not                             |
+| --------------- | -------------- | ------- | ----------------------------------- | ------- | ------------------------------- |
+| currentPassword | password input | Evet    | min 1                               | ''      | autocomplete="current-password" |
+| newPassword     | password input | Evet    | Aynı policy (S-AUTH-RESET ile aynı) | ''      | autocomplete="new-password"     |
+| confirmPassword | password input | Evet    | === newPassword                     | ''      | Client-side match               |
 
 ---
 
@@ -911,24 +918,24 @@ Yok — filtreler sayfa içi URL state, form değil.
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| sicil | text input | Evet | `^\d{8}$`, unique | '' | maxLength=8, numeric keyboard on mobile |
-| firstName | text input | Evet | 1-100 char | '' | |
-| lastName | text input | Evet | 1-100 char | '' | |
-| email | email input | Evet | RFC 5322, max 254, lowercase, unique | '' | |
-| phone | tel input | Hayır | TR mobil regex | '' | |
-| employeeType | select | Evet | enum | 'WHITE_COLLAR' | |
-| companyId | MasterDataSelect | Evet | Aktif ID | null | |
-| locationId | MasterDataSelect | Evet | Aktif ID | null | |
-| departmentId | MasterDataSelect | Evet | Aktif ID | null | |
-| positionId | MasterDataSelect | Evet | Aktif ID | null | |
-| levelId | MasterDataSelect | Evet | Aktif ID | null | |
-| teamId | MasterDataSelect | Hayır | Aktif ID veya null | null | |
-| workAreaId | MasterDataSelect | Evet | Aktif ID | null | |
-| workSubAreaId | MasterDataSelect | Hayır | Parent-filtered | null | workAreaId bağımlı |
-| managerUserId | UserSelect | Hayır | Aktif user | null | |
-| hireDate | date input | Hayır | ISO date | null | max=today |
+| Alan          | Tip              | Zorunlu | Validation                           | Default        | Not                                     |
+| ------------- | ---------------- | ------- | ------------------------------------ | -------------- | --------------------------------------- |
+| sicil         | text input       | Evet    | `^\d{8}$`, unique                    | ''             | maxLength=8, numeric keyboard on mobile |
+| firstName     | text input       | Evet    | 1-100 char                           | ''             |                                         |
+| lastName      | text input       | Evet    | 1-100 char                           | ''             |                                         |
+| email         | email input      | Evet    | RFC 5322, max 254, lowercase, unique | ''             |                                         |
+| phone         | tel input        | Hayır   | TR mobil regex                       | ''             |                                         |
+| employeeType  | select           | Evet    | enum                                 | 'WHITE_COLLAR' |                                         |
+| companyId     | MasterDataSelect | Evet    | Aktif ID                             | null           |                                         |
+| locationId    | MasterDataSelect | Evet    | Aktif ID                             | null           |                                         |
+| departmentId  | MasterDataSelect | Evet    | Aktif ID                             | null           |                                         |
+| positionId    | MasterDataSelect | Evet    | Aktif ID                             | null           |                                         |
+| levelId       | MasterDataSelect | Evet    | Aktif ID                             | null           |                                         |
+| teamId        | MasterDataSelect | Hayır   | Aktif ID veya null                   | null           |                                         |
+| workAreaId    | MasterDataSelect | Evet    | Aktif ID                             | null           |                                         |
+| workSubAreaId | MasterDataSelect | Hayır   | Parent-filtered                      | null           | workAreaId bağımlı                      |
+| managerUserId | UserSelect       | Hayır   | Aktif user                           | null           |                                         |
+| hireDate      | date input       | Hayır   | ISO date                             | null           | max=today                               |
 
 ---
 
@@ -1083,6 +1090,7 @@ Yok — read-only detail sayfası.
 ##### Form Alanları
 
 S-USER-NEW ile aynı liste, şu farklarla:
+
 - `sicil`: disabled, edit yok
 - Tüm field'lar `defaultValues`'dan gelen mevcut değerle başlar
 
@@ -1157,9 +1165,9 @@ S-USER-NEW ile aynı liste, şu farklarla:
 
 Yalnız modal içi:
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| roleId | Combobox (rol seçimi) | Evet | Aktif rol, henüz atanmamış | null | Arama destekli dropdown |
+| Alan   | Tip                   | Zorunlu | Validation                 | Default | Not                     |
+| ------ | --------------------- | ------- | -------------------------- | ------- | ----------------------- |
+| roleId | Combobox (rol seçimi) | Evet    | Aktif rol, henüz atanmamış | null    | Arama destekli dropdown |
 
 ---
 
@@ -1462,15 +1470,15 @@ Yok — checkbox state local.
 
 Kural başına RHF:
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| order | number | Evet | int ≥ 0 | max+1 | Otomatik, manuel override |
-| isActive | toggle | Evet | bool | true | |
-| conditionSets | array | Evet | min 1 | [boş set] | Nested |
-| conditionSets[].conditions | array | Evet | min 1 | [boş condition] | Nested |
-| conditions[].attributeKey | select | Evet | enum | null | |
-| conditions[].operator | select | Evet | enum | 'EQUALS' | |
-| conditions[].value | polymorphic | Evet | type match | null | attributeKey+operator'a göre |
+| Alan                       | Tip         | Zorunlu | Validation | Default         | Not                          |
+| -------------------------- | ----------- | ------- | ---------- | --------------- | ---------------------------- |
+| order                      | number      | Evet    | int ≥ 0    | max+1           | Otomatik, manuel override    |
+| isActive                   | toggle      | Evet    | bool       | true            |                              |
+| conditionSets              | array       | Evet    | min 1      | [boş set]       | Nested                       |
+| conditionSets[].conditions | array       | Evet    | min 1      | [boş condition] | Nested                       |
+| conditions[].attributeKey  | select      | Evet    | enum       | null            |                              |
+| conditions[].operator      | select      | Evet    | enum       | 'EQUALS'        |                              |
+| conditions[].value         | polymorphic | Evet    | type match | null            | attributeKey+operator'a göre |
 
 ---
 
@@ -1532,9 +1540,9 @@ Kural başına RHF:
 
 Modal içi:
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| userId | UserSelect | Evet | Aktif kullanıcı, henüz doğrudan atanmamış | null | search ile bulma |
+| Alan   | Tip        | Zorunlu | Validation                                | Default | Not              |
+| ------ | ---------- | ------- | ----------------------------------------- | ------- | ---------------- |
+| userId | UserSelect | Evet    | Aktif kullanıcı, henüz doğrudan atanmamış | null    | search ile bulma |
 
 ---
 
@@ -1551,15 +1559,15 @@ Bu ekran tek bir generic pattern'dir — 8 master data tipi için aynı yapı ç
 
 ##### Desteklenen Type Değerleri
 
-| URL value | Tablo | Türkçe ad | Ek field |
-|---|---|---|---|
-| `companies` | companies | Şirketler | — |
-| `locations` | locations | Lokasyonlar | — |
-| `departments` | departments | Departmanlar | — |
-| `levels` | levels | Kademeler | — |
-| `positions` | positions | Pozisyonlar | — |
-| `teams` | teams | Ekipler | — |
-| `work-areas` | work_areas | Çalışma Alanları | — |
+| URL value        | Tablo          | Türkçe ad            | Ek field           |
+| ---------------- | -------------- | -------------------- | ------------------ |
+| `companies`      | companies      | Şirketler            | —                  |
+| `locations`      | locations      | Lokasyonlar          | —                  |
+| `departments`    | departments    | Departmanlar         | —                  |
+| `levels`         | levels         | Kademeler            | —                  |
+| `positions`      | positions      | Pozisyonlar          | —                  |
+| `teams`          | teams          | Ekipler              | —                  |
+| `work-areas`     | work_areas     | Çalışma Alanları     | —                  |
 | `work-sub-areas` | work_sub_areas | Çalışma Alt Alanları | parentWorkAreaCode |
 
 Bilinmeyen `type` → `/404` redirect.
@@ -1645,19 +1653,19 @@ Bilinmeyen `type` → `/404` redirect.
 
 **Create:**
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| code | text input | Evet | 2-32 char, `^[A-Z0-9_]+$` önerilir (uyarı — zorlama yok) | '' | UPPER_SNAKE_CASE önerisi |
-| name | text input | Evet | 1-200 char | '' | |
-| parentWorkAreaCode | MasterDataSelect (work-areas) | Evet (yalnız work-sub-areas) | Aktif work-area code | null | |
+| Alan               | Tip                           | Zorunlu                      | Validation                                               | Default | Not                      |
+| ------------------ | ----------------------------- | ---------------------------- | -------------------------------------------------------- | ------- | ------------------------ |
+| code               | text input                    | Evet                         | 2-32 char, `^[A-Z0-9_]+$` önerilir (uyarı — zorlama yok) | ''      | UPPER_SNAKE_CASE önerisi |
+| name               | text input                    | Evet                         | 1-200 char                                               | ''      |                          |
+| parentWorkAreaCode | MasterDataSelect (work-areas) | Evet (yalnız work-sub-areas) | Aktif work-area code                                     | null    |                          |
 
 **Edit:**
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| code | text input | — | — | mevcut | **disabled** |
-| name | text input | Evet | 1-200 char | mevcut | |
-| parentWorkAreaCode | text (readonly) | — | — | mevcut | **disabled** (work-sub-areas) |
+| Alan               | Tip             | Zorunlu | Validation | Default | Not                           |
+| ------------------ | --------------- | ------- | ---------- | ------- | ----------------------------- |
+| code               | text input      | —       | —          | mevcut  | **disabled**                  |
+| name               | text input      | Evet    | 1-200 char | mevcut  |                               |
+| parentWorkAreaCode | text (readonly) | —       | —          | mevcut  | **disabled** (work-sub-areas) |
 
 ---
 
@@ -1927,12 +1935,12 @@ KTİ (Before & After Kaizen) sürecini başlatan zengin form. Doküman upload + 
    - **Şirket seçimi:**
      - MasterDataSelect (companies) — kullanıcının kendi şirketi default (yine de seçilebilir, bazı kullanıcılar çapraz şirket başlatma hakkı olabilir)
    - **Öncesi Fotoğraflar (multi-file upload):**
-     - Başlık: "Öncesi Fotoğraflar *"
+     - Başlık: "Öncesi Fotoğraflar \*"
      - Açıklama: "En az 1 adet; en fazla 10 adet; sadece JPEG/PNG/WebP; dosya başına 10 MB"
      - `<DocumentUploader contextType="PROCESS_START" contextData={{ processType: 'BEFORE_AFTER_KAIZEN' }} multiple maxFileSizeMB={10}>`
      - Upload edilen dosyalar grid'de: thumbnail + filename + scan durumu
    - **Sonrası Fotoğraflar (multi-file upload):**
-     - Aynı şablon, "Sonrası Fotoğraflar *" başlığıyla
+     - Aynı şablon, "Sonrası Fotoğraflar \*" başlığıyla
    - **Kazanç Tutarı:**
      - Number input (TL, integer); suffix "TL"
      - Validation: ≥ 0
@@ -2001,13 +2009,13 @@ KTİ (Before & After Kaizen) sürecini başlatan zengin form. Doküman upload + 
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| companyId | MasterDataSelect | Evet | Aktif company | currentUser.companyId | Çoğunlukla pre-filled |
-| beforePhotoDocumentIds | Document array | Evet | 1-10 adet, CLEAN | [] | DocumentUploader |
-| afterPhotoDocumentIds | Document array | Evet | 1-10 adet, CLEAN | [] | DocumentUploader |
-| savingAmount | number input | Evet | integer ≥ 0 | 0 | TL, suffix göster |
-| description | textarea | Evet | 10-5000 char | '' | char counter |
+| Alan                   | Tip              | Zorunlu | Validation       | Default               | Not                   |
+| ---------------------- | ---------------- | ------- | ---------------- | --------------------- | --------------------- |
+| companyId              | MasterDataSelect | Evet    | Aktif company    | currentUser.companyId | Çoğunlukla pre-filled |
+| beforePhotoDocumentIds | Document array   | Evet    | 1-10 adet, CLEAN | []                    | DocumentUploader      |
+| afterPhotoDocumentIds  | Document array   | Evet    | 1-10 adet, CLEAN | []                    | DocumentUploader      |
+| savingAmount           | number input     | Evet    | integer ≥ 0      | 0                     | TL, suffix göster     |
+| description            | textarea         | Evet    | 10-5000 char     | ''                    | char counter          |
 
 ---
 
@@ -2216,21 +2224,21 @@ Platformun en yoğun iş ekranı. Süreç bağlamı, önceki task verileri, akti
 
 **KTİ_MANAGER_APPROVAL:**
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| action | radio group | Evet | enum APPROVE / REJECT / REQUEST_REVISION | null | |
-| reason | textarea | Koşullu (REJECT, REQUEST_REVISION için zorunlu) | min 10 char, max 1000 | '' | |
-| comment | textarea | Hayır | max 1000 | '' | Opsiyonel not |
+| Alan    | Tip         | Zorunlu                                         | Validation                               | Default | Not           |
+| ------- | ----------- | ----------------------------------------------- | ---------------------------------------- | ------- | ------------- |
+| action  | radio group | Evet                                            | enum APPROVE / REJECT / REQUEST_REVISION | null    |               |
+| reason  | textarea    | Koşullu (REJECT, REQUEST_REVISION için zorunlu) | min 10 char, max 1000                    | ''      |               |
+| comment | textarea    | Hayır                                           | max 1000                                 | ''      | Opsiyonel not |
 
 **KTİ_REVISION (başlatıcıya döndüğünde):**
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| beforePhotoDocumentIds | Document array | Evet | 1-10 adet CLEAN | önceki task'tan | Önceki docları yeniden kullanabilir veya değiştirebilir |
-| afterPhotoDocumentIds | Document array | Evet | 1-10 adet CLEAN | önceki task'tan | |
-| savingAmount | number | Evet | ≥ 0 | önceki değer | |
-| description | textarea | Evet | 10-5000 | önceki değer | |
-| revisionNote | textarea | Hayır | max 1000 | '' | Revize notu |
+| Alan                   | Tip            | Zorunlu | Validation      | Default         | Not                                                     |
+| ---------------------- | -------------- | ------- | --------------- | --------------- | ------------------------------------------------------- |
+| beforePhotoDocumentIds | Document array | Evet    | 1-10 adet CLEAN | önceki task'tan | Önceki docları yeniden kullanabilir veya değiştirebilir |
+| afterPhotoDocumentIds  | Document array | Evet    | 1-10 adet CLEAN | önceki task'tan |                                                         |
+| savingAmount           | number         | Evet    | ≥ 0             | önceki değer    |                                                         |
+| description            | textarea       | Evet    | 10-5000         | önceki değer    |                                                         |
+| revisionNote           | textarea       | Hayır   | max 1000        | ''              | Revize notu                                             |
 
 ---
 
@@ -2354,6 +2362,7 @@ Kullanıcının kendi bilgilerine, verilerine ve güvenlik ayarlarına erişim s
 Read-only attribute görünümü; kullanıcı **kendi bilgilerini değiştiremez** (S-USER-EDIT `USER_SELF_EDIT_FORBIDDEN`). Değişiklik için yöneticisine başvurmalı.
 
 Kart düzeni:
+
 - **Kimlik kartı:** Sicil, Ad, Soyad, Email, Telefon, Çalışan Tipi, İşe Başlama Tarihi
 - **Organizasyon kartı:** Şirket, Lokasyon, Departman, Pozisyon, Kademe, Ekip, Çalışma Alanı, Çalışma Alt Alanı
 - **Yönetim kartı:** Yönetici (tıklanabilir — bilgi amaçlı)
@@ -2365,10 +2374,12 @@ Alt not: "Bilgilerinizde değişiklik gerekiyorsa sistem yöneticinize başvurun
 Kullanıcının sistemdeki kendine ait veri özetini görüntüler. Görüntüleme hakkı ama indirme hakkı **yok** (MVP kapsamı).
 
 **Kart 1 — Rollerim:**
+
 - Liste: Rol adı + kaynak rozeti (Doğrudan / Kural #N) + atanma tarihi
 - Attribute kuralı ile gelen roller için "Bu rol otomatik atanmıştır" tooltip
 
 **Kart 2 — Süreçlerim özeti:**
+
 - Başlattığım toplam süreç: {N}
 - Aktif süreçlerim: {N}
 - Tamamlanan süreçlerim: {N}
@@ -2376,15 +2387,18 @@ Kullanıcının sistemdeki kendine ait veri özetini görüntüler. Görüntüle
 - "Tümünü Gör" linki → `/processes?scope=my-started`
 
 **Kart 3 — Görev geçmişim özeti:**
+
 - Tamamladığım toplam görev: {N}
 - Ortalama tamamlama süresi: {X saat}
 - "Tümünü Gör" linki → `/tasks?tab=completed`
 
 **Kart 4 — Oturum geçmişim (son 10 oturum):**
+
 - Tablo: İlk oturum açma tarihi, IP, User agent (kısaltılmış), Durum (aktif / sonlanmış)
 - Gizli bilgiler: IP tam adres Superadmin dışında maskelenir (örn. `193.140.xxx.xxx`)
 
 **Kart 5 — Rıza geçmişim:**
+
 - Tablo: Rıza versiyonu (code), Onay tarihi, İçerik linki ("Metni Göster" → modal)
 - En güncel onay bold
 
@@ -2393,11 +2407,13 @@ Kullanıcının sistemdeki kendine ait veri özetini görüntüler. Görüntüle
 ##### Sekme 3 — Güvenlik
 
 **Kart 1 — Şifre:**
+
 - Son değişim tarihi
 - Şifre expiry durumu (X gün kaldı) — 14 gün altındaysa sarı uyarı, 3 gün altındaysa kırmızı
 - **"Şifre Değiştir"** butonu → `/profile/change-password`
 
 **Kart 2 — Aktif Oturumlarım:**
+
 - Liste: Her oturum bir satır
   - Cihaz özeti (user agent parse — örn. "Chrome on macOS")
   - IP (maskelenmiş — son iki segment xxx)
@@ -2407,6 +2423,7 @@ Kullanıcının sistemdeki kendine ait veri özetini görüntüler. Görüntüle
 - Alt bar: **"Tüm Diğer Oturumları Kapat"** butonu (destructive) — mevcut oturum korunur
 
 **Kart 3 — Denetim Kayıtları (yalnız Superadmin):**
+
 - "Benim için oluşturulan denetim kayıtları" linki → `/admin/audit-logs?userId={currentUser.id}`
 - (Normal kullanıcı bu kartı görmez — kendi hakkında audit log göremez)
 
@@ -2611,20 +2628,20 @@ Sistemin runtime-configurable parametrelerinin yönetildiği ekran. Settings `sy
 
 ##### Örnek setting'ler (MVP)
 
-| Category | Key | Tip | Default | Açıklama |
-|---|---|---|---|---|
-| AUTH | `LOGIN_MAX_ATTEMPTS` | number | 5 | Kilitlenmeden önce max başarısız deneme |
-| AUTH | `LOGIN_LOCKOUT_DURATION_MINUTES` | number | 15 | Kilit süresi |
-| SESSION | `SESSION_INACTIVITY_TIMEOUT_MINUTES` | number | 30 | Inaktivite timeout |
-| PASSWORD | `PASSWORD_EXPIRY_DAYS` | number | 90 | Şifre süresi |
-| PASSWORD | `PASSWORD_HISTORY_COUNT` | number | 5 | Son kaç şifre reddedilir |
-| SLA | `KTI_MANAGER_APPROVAL_SLA_HOURS` | number | 72 | KTİ yönetici onay SLA |
-| SLA | `SLA_WARNING_THRESHOLD_PERCENT` | number | 80 | SLA uyarı eşiği |
-| EMAIL | `EMAIL_FROM_ADDRESS` | string | noreply@holding.com | From adresi |
-| EMAIL | `EMAIL_FROM_NAME` | string | Lean Management | From görünen ad |
-| NOTIFICATION | `NOTIFICATION_DIGEST_ENABLED` | bool | false | Günlük digest email (MVP'de kullanılmıyor) |
-| MAINTENANCE | `MAINTENANCE_MODE_ENABLED` | bool | false | Bakım modu |
-| MAINTENANCE | `MAINTENANCE_MESSAGE` | string | "" | Bakım sayfasında görünecek metin |
+| Category     | Key                                  | Tip    | Default             | Açıklama                                   |
+| ------------ | ------------------------------------ | ------ | ------------------- | ------------------------------------------ |
+| AUTH         | `LOGIN_MAX_ATTEMPTS`                 | number | 5                   | Kilitlenmeden önce max başarısız deneme    |
+| AUTH         | `LOGIN_LOCKOUT_DURATION_MINUTES`     | number | 15                  | Kilit süresi                               |
+| SESSION      | `SESSION_INACTIVITY_TIMEOUT_MINUTES` | number | 30                  | Inaktivite timeout                         |
+| PASSWORD     | `PASSWORD_EXPIRY_DAYS`               | number | 90                  | Şifre süresi                               |
+| PASSWORD     | `PASSWORD_HISTORY_COUNT`             | number | 5                   | Son kaç şifre reddedilir                   |
+| SLA          | `KTI_MANAGER_APPROVAL_SLA_HOURS`     | number | 72                  | KTİ yönetici onay SLA                      |
+| SLA          | `SLA_WARNING_THRESHOLD_PERCENT`      | number | 80                  | SLA uyarı eşiği                            |
+| EMAIL        | `EMAIL_FROM_ADDRESS`                 | string | noreply@holding.com | From adresi                                |
+| EMAIL        | `EMAIL_FROM_NAME`                    | string | Lean Management     | From görünen ad                            |
+| NOTIFICATION | `NOTIFICATION_DIGEST_ENABLED`        | bool   | false               | Günlük digest email (MVP'de kullanılmıyor) |
+| MAINTENANCE  | `MAINTENANCE_MODE_ENABLED`           | bool   | false               | Bakım modu                                 |
+| MAINTENANCE  | `MAINTENANCE_MESSAGE`                | string | ""                  | Bakım sayfasında görünecek metin           |
 
 ##### Veri Kaynağı
 
@@ -2766,10 +2783,10 @@ Her event tipi için email template'inin (subject + body) düzenlendiği editor.
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| subjectTemplate | text input | Evet | 1-200 char, Handlebars valid | mevcut | |
-| bodyTemplate | textarea | Evet | 10-50000 char, Handlebars valid | mevcut | monospace |
+| Alan            | Tip        | Zorunlu | Validation                      | Default | Not       |
+| --------------- | ---------- | ------- | ------------------------------- | ------- | --------- |
+| subjectTemplate | text input | Evet    | 1-200 char, Handlebars valid    | mevcut  |           |
+| bodyTemplate    | textarea   | Evet    | 10-50000 char, Handlebars valid | mevcut  | monospace |
 
 ---
 
@@ -2870,12 +2887,12 @@ KVKK rıza metninin versiyonlu editörü. Draft durumunda düzenlenir, publish e
 
 ##### Form Alanları
 
-| Alan | Tip | Zorunlu | Validation | Default | Not |
-|---|---|---|---|---|---|
-| code | text input | Evet (yeni) | 3-64, `^[a-z0-9_-]+$`, unique | '' | lowercase auto-transform; disabled on edit |
-| title | text input | Evet | 1-200 char | '' | |
-| content | textarea (markdown) | Evet | 100-50000 char | '' | markdown |
-| effectiveFrom | datetime picker | Evet | future date, >= now + 1h | now + 24h | |
+| Alan          | Tip                 | Zorunlu     | Validation                    | Default   | Not                                        |
+| ------------- | ------------------- | ----------- | ----------------------------- | --------- | ------------------------------------------ |
+| code          | text input          | Evet (yeni) | 3-64, `^[a-z0-9_-]+$`, unique | ''        | lowercase auto-transform; disabled on edit |
+| title         | text input          | Evet        | 1-200 char                    | ''        |                                            |
+| content       | textarea (markdown) | Evet        | 100-50000 char                | ''        | markdown                                   |
+| effectiveFrom | datetime picker     | Evet        | future date, >= now + 1h      | now + 24h |                                            |
 
 ---
 
@@ -2929,7 +2946,7 @@ Beklenmeyen React error boundary yakalayışlarında gösterilir. `05_FRONTEND_S
 
 **Route:** `/users/:id/sessions` | **Erişim:** `USER_SESSION_VIEW` (Superadmin) | **Layout:** AppLayout
 
-Bir kullanıcının aktif ve son sonlanmış oturumlarını gösterir. `S-USER-DETAIL` sayfasının "Oturumlar" sekmesinden erişilir. DataTable: cihaz/user agent + IP (tam adres) + ilk aktivite + son aktivite + durum (aktif/sonlanmış) + revoked reason. Aktif oturumlar için "Oturumu Sonlandır" aksiyonu (ConfirmDialog → `POST /api/v1/admin/users/:id/sessions/:sessionId/revoke`). Kullanıcının kendi oturumunu yönetmek için S-PROFILE "Güvenlik" sekmesi kullanılır — bu sayfa yalnız başka kullanıcıların oturumlarını izlemek + kapatmak içindir (şüpheli etkinlik inceleme).
+Bir kullanıcının aktif ve son sonlanmış oturumlarını gösterir. `S-USER-DETAIL` sayfasının "Oturumlar" sekmesinden erişilir. DataTable: cihaz/user agent + IP (tam adres) + ilk aktivite + son aktivite + durum (aktif/sonlanmış) + revoked reason. Aktif oturumlar için "Oturumu Sonlandır" aksiyonu (ConfirmDialog → `DELETE /api/v1/users/:id/sessions/:sessionId`, `USER_SESSION_REVOKE`). Kullanıcının kendi oturumunu yönetmek için S-PROFILE "Güvenlik" sekmesi kullanılır — bu sayfa yalnız başka kullanıcıların oturumlarını izlemek + kapatmak içindir (şüpheli etkinlik inceleme).
 
 **Ana etkileşim:** Oturumları görüntüle → şüpheli olanı sonlandır.
 
@@ -3038,21 +3055,33 @@ Ekran şablonlarında tekrar tekrar referans verilen shared bileşenler için mi
 **Stack:** TanStack Table v8 + shadcn `<Table>` primitives.
 
 **Props:**
+
 ```typescript
 interface DataTableProps<T> {
   columns: ColumnDef<T>[];
   data: T[];
   isLoading?: boolean;
-  emptyState?: { title: string; description?: string; action?: { label: string; onClick: () => void } };
-  pagination?: { hasMore: boolean; nextCursor: string | null; total?: number; onLoadMore: () => void; onPageChange?: (cursor: string | null) => void };
+  emptyState?: {
+    title: string;
+    description?: string;
+    action?: { label: string; onClick: () => void };
+  };
+  pagination?: {
+    hasMore: boolean;
+    nextCursor: string | null;
+    total?: number;
+    onLoadMore: () => void;
+    onPageChange?: (cursor: string | null) => void;
+  };
   onRowClick?: (row: T) => void;
-  rowActions?: (row: T) => React.ReactNode;  // Sağ kolonda aksiyon menüsü
-  sortable?: string[];  // Sıralanabilir kolon key'leri
+  rowActions?: (row: T) => React.ReactNode; // Sağ kolonda aksiyon menüsü
+  sortable?: string[]; // Sıralanabilir kolon key'leri
   className?: string;
 }
 ```
 
 **Default davranış:**
+
 - Loading: 5 satırlık skeleton (kolon sayısına göre)
 - Empty: `<EmptyState>` bileşenini render eder
 - Row hover: `bg-muted/50`
@@ -3060,31 +3089,33 @@ interface DataTableProps<T> {
 - Sort: kolon başlığında ok ikonu; tıklanınca asc → desc → none döngü
 - Mobile: kolon gizleme yerine horizontal scroll (kompleks table'larda) veya kart görünümü (az alanlı table'larda)
 
-**Kullanıldığı ekranlar:** S-USER-LIST, S-ROLE-LIST, S-MD-LIST, S-PROC-LIST-*, S-TASK-LIST, S-NOTIF-LIST, S-ADMIN-AUDIT, S-ROLE-USERS.
+**Kullanıldığı ekranlar:** S-USER-LIST, S-ROLE-LIST, S-MD-LIST, S-PROC-LIST-\*, S-TASK-LIST, S-NOTIF-LIST, S-ADMIN-AUDIT, S-ROLE-USERS.
 
 ### 7.2 `<FormLayout>`
 
 **Amaç:** Form ekranlarında tutarlı yerleşim — başlık, açıklama, form alanları, submit/cancel butonları.
 
 **Props:**
+
 ```typescript
 interface FormLayoutProps {
   title: string;
   description?: string;
-  children: React.ReactNode;   // Form field'lar
+  children: React.ReactNode; // Form field'lar
   onSubmit: () => void;
   onCancel?: () => void;
-  submitLabel?: string;        // default "Kaydet"
-  cancelLabel?: string;        // default "İptal"
+  submitLabel?: string; // default "Kaydet"
+  cancelLabel?: string; // default "İptal"
   isSubmitting?: boolean;
   submitDisabled?: boolean;
   variant?: 'default' | 'destructive';
-  footer?: React.ReactNode;    // Custom footer yerine standart footer'ı override
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';  // default 'lg'
+  footer?: React.ReactNode; // Custom footer yerine standart footer'ı override
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'; // default 'lg'
 }
 ```
 
 **Default yapı:**
+
 ```
 <Card>
   <CardHeader>
@@ -3115,6 +3146,7 @@ interface FormLayoutProps {
 **Props:** `05_FRONTEND_SPEC` Bölüm 8.2'deki tam tanım.
 
 **Varsayılan buton renkleri:**
+
 - `variant="default"` — mavi primary buton (neutral onay, örn. "Durumu değiştir")
 - `variant="destructive"` — kırmızı buton (geri alınamayan yıkıcı aksiyon)
 
@@ -3127,6 +3159,7 @@ interface FormLayoutProps {
 **Props:** `05_FRONTEND_SPEC` Bölüm 7.4.
 
 **İki varyant:**
+
 - İlk yüklemede boş — "Henüz X eklenmedi" + create CTA
 - Filtre sonrası boş — "Filtreye uyan sonuç bulunamadı" + "Filtreleri Temizle" linki
 
@@ -3135,19 +3168,29 @@ interface FormLayoutProps {
 **Amaç:** Master data (companies, locations, departments, positions, levels, teams, work-areas, work-sub-areas) için standart select bileşeni.
 
 **Props:**
+
 ```typescript
 interface MasterDataSelectProps {
-  type: 'companies' | 'locations' | 'departments' | 'positions' | 'levels' | 'teams' | 'work-areas' | 'work-sub-areas';
+  type:
+    | 'companies'
+    | 'locations'
+    | 'departments'
+    | 'positions'
+    | 'levels'
+    | 'teams'
+    | 'work-areas'
+    | 'work-sub-areas';
   value: string | null;
   onChange: (value: string | null) => void;
-  parentId?: string;  // work-sub-areas için parent work-area kısıtı
+  parentId?: string; // work-sub-areas için parent work-area kısıtı
   disabled?: boolean;
   placeholder?: string;
-  includeInactive?: boolean;  // default false — yalnız aktif kayıtlar
+  includeInactive?: boolean; // default false — yalnız aktif kayıtlar
 }
 ```
 
 **Davranış:**
+
 - Arama destekli dropdown (shadcn `<Command>` + `<Popover>`)
 - Pagination yok — master data kayıtları az (<500), tek seferde yüklenir
 - TanStack Query ile 5 dakika stale time
@@ -3160,18 +3203,20 @@ interface MasterDataSelectProps {
 **Amaç:** Yönetici seçimi, atama gibi yerlerde kullanıcı arama + seçme.
 
 **Props:**
+
 ```typescript
 interface UserSelectProps {
   value: string | null;
   onChange: (value: string | null) => void;
-  filterByCompanyId?: string;    // Opsiyonel — aynı şirket içi yönetici seçimi için
-  excludeUserIds?: string[];     // Ör. self-reference önlemek için
+  filterByCompanyId?: string; // Opsiyonel — aynı şirket içi yönetici seçimi için
+  excludeUserIds?: string[]; // Ör. self-reference önlemek için
   placeholder?: string;
   disabled?: boolean;
 }
 ```
 
 **Davranış:**
+
 - Combobox — sicil / ad / soyad / email ile arama (debounced, 300ms)
 - Search query → `GET /api/v1/users?search=...` — server-side arama
 - Min 2 karakter girene kadar boş
@@ -3189,19 +3234,21 @@ interface UserSelectProps {
 **Amaç:** CloudFront Signed URL ile upload akışı — yükleme başlatma, progress, scan polling.
 
 **Props:**
+
 ```typescript
 interface DocumentUploaderProps {
   contextType: 'PROCESS_START' | 'TASK_ATTACHMENT';
-  contextData: Record<string, unknown>;    // processType veya taskId
+  contextData: Record<string, unknown>; // processType veya taskId
   onUploadComplete: (documentId: string) => void;
   onUploadFailed?: (error: Error) => void;
-  maxFileSizeMB?: number;                  // default 10
-  acceptedTypes?: string[];                // default tüm whitelist
+  maxFileSizeMB?: number; // default 10
+  acceptedTypes?: string[]; // default tüm whitelist
   multiple?: boolean;
 }
 ```
 
 **Akış:**
+
 1. Kullanıcı dosya seçer (drag-drop veya input)
 2. Client-side validation: boyut + MIME type
 3. `POST /api/v1/documents/upload-initiate` → Signed URL al
@@ -3221,14 +3268,22 @@ interface DocumentUploaderProps {
 **Amaç:** Task SLA durumu için küçük rozet.
 
 **Props:**
+
 ```typescript
 interface SlaBadgeProps {
   slaDueAt: string | null;
-  taskStatus: 'PENDING' | 'CLAIMED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED_BY_PEER' | 'SKIPPED_BY_ROLLBACK';
+  taskStatus:
+    | 'PENDING'
+    | 'CLAIMED'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'SKIPPED_BY_PEER'
+    | 'SKIPPED_BY_ROLLBACK';
 }
 ```
 
 **Davranış:**
+
 - Terminal durumlarda rozet gösterilmez
 - `sla_due_at` yok → rozet gösterilmez
 - Kalan süre:
@@ -3243,24 +3298,24 @@ interface SlaBadgeProps {
 
 ### 8.1 Boyutlar
 
-| Boyut | Kullanım |
-|---|---|
-| `sm` (max-w-sm = 384px) | Basit confirmation, tek soru |
-| `md` (max-w-md = 448px) | Orta karmaşıklık — form-less dialog, kısa metin |
-| `lg` (max-w-lg = 512px) | Standart confirmation with reason, bilgi modalı |
-| `xl` (max-w-xl = 576px) | Consent modal, uzun içerikli dialog |
-| `2xl` (max-w-2xl = 672px) | Admin detay modalları (audit log detay) |
+| Boyut                     | Kullanım                                        |
+| ------------------------- | ----------------------------------------------- |
+| `sm` (max-w-sm = 384px)   | Basit confirmation, tek soru                    |
+| `md` (max-w-md = 448px)   | Orta karmaşıklık — form-less dialog, kısa metin |
+| `lg` (max-w-lg = 512px)   | Standart confirmation with reason, bilgi modalı |
+| `xl` (max-w-xl = 576px)   | Consent modal, uzun içerikli dialog             |
+| `2xl` (max-w-2xl = 672px) | Admin detay modalları (audit log detay)         |
 
 Daha büyük içerik ayrı route'a çıkarılır — modal yerine sayfa.
 
 ### 8.2 Close Davranışı
 
-| Modal tipi | ESC | Backdrop tıklama | X butonu |
-|---|---|---|---|
-| Information / confirmation | Kapatır | Kapatır | Var |
-| Form modal (inline edit) | Kapatır (unsaved changes onayı ile) | Kapatır (unsaved onay) | Var |
-| Consent modal (blocking) | **Kapatmaz** | **Kapatmaz** | **Yok** |
-| Destructive confirmation | Kapatır | Kapatır | Var |
+| Modal tipi                 | ESC                                 | Backdrop tıklama       | X butonu |
+| -------------------------- | ----------------------------------- | ---------------------- | -------- |
+| Information / confirmation | Kapatır                             | Kapatır                | Var      |
+| Form modal (inline edit)   | Kapatır (unsaved changes onayı ile) | Kapatır (unsaved onay) | Var      |
+| Consent modal (blocking)   | **Kapatmaz**                        | **Kapatmaz**           | **Yok**  |
+| Destructive confirmation   | Kapatır                             | Kapatır                | Var      |
 
 ### 8.3 Stacked Modal Yasağı
 

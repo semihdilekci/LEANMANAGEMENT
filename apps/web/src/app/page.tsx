@@ -1,11 +1,13 @@
-import { EmptyObjectSchema } from '@leanmgmt/shared-schemas';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
-export default function HomePage() {
-  EmptyObjectSchema.parse({});
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <h1 className="text-2xl font-semibold text-slate-800">Lean Management</h1>
-      <p className="mt-2 text-slate-600">Monorepo iskeleti hazır.</p>
-    </main>
-  );
+import { SESSION_HINT_COOKIE } from '@/lib/auth-session-hint';
+
+export default async function HomePage(): Promise<never> {
+  const c = await cookies();
+  const hint = c.get(SESSION_HINT_COOKIE)?.value === '1';
+  if (hint) {
+    redirect('/dashboard');
+  }
+  redirect('/login');
 }

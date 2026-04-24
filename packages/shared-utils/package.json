@@ -8,7 +8,9 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
@@ -19,6 +21,7 @@
   },
   "devDependencies": {
     "@leanmgmt/config": "workspace:*",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "^8.21.0",

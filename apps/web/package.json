@@ -8,27 +8,43 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "pnpm exec turbo run build --filter=@leanmgmt/shared-utils --filter=@leanmgmt/shared-types --filter=@leanmgmt/shared-schemas && playwright test"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
     "@leanmgmt/shared-schemas": "workspace:*",
     "@leanmgmt/shared-types": "workspace:*",
     "@leanmgmt/shared-utils": "workspace:*",
+    "@sentry/react": "^8.55.0",
+    "@tanstack/react-query": "^5.64.2",
+    "axios": "^1.7.9",
     "next": "^15.1.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.2",
+    "sonner": "^2.0.7",
+    "zod": "^3.24.1",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@leanmgmt/config": "workspace:*",
+    "@playwright/test": "^1.49.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "catalog:",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.20",
     "eslint": "catalog:",
+    "jsdom": "^29.0.2",
+    "msw": "^2.13.5",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "catalog:",
     "typescript-eslint": "^8.21.0",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wait-on": "^8.0.1"
   }
 }

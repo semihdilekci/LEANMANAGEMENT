@@ -1,0 +1,571 @@
+// Kaynak: docs/02_DATABASE_SCHEMA.md (Identity, Master Data, Authorization, System & Audit)
+// Faz 2 İter 1 — Prisma v1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums (PostgreSQL native) ---
+
+enum EmployeeType {
+  WHITE_COLLAR
+  BLUE_COLLAR
+  INTERN
+
+  @@map("employee_type")
+}
+
+enum SessionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ROTATED
+
+  @@map("session_status")
+}
+
+enum SessionRevocationReason {
+  PASSWORD_CHANGED
+  USER_INITIATED
+  CONCURRENT_LIMIT
+  SUSPICIOUS_IP
+  TOKEN_REPLAY
+  ADMIN_REVOKED
+
+  @@map("session_revocation_reason")
+}
+
+enum LoginAttemptOutcome {
+  SUCCESS
+  FAILURE
+  BLOCKED
+
+  @@map("login_attempt_outcome")
+}
+
+enum LoginFailureReason {
+  INVALID_PASSWORD
+  USER_NOT_FOUND
+  USER_PASSIVE
+  USER_ANONYMIZED
+
+  @@map("login_failure_reason")
+}
+
+enum LoginBlockedBy {
+  ACCOUNT_LOCKED
+  IP_RATE_LIMIT
+  USER_RATE_LIMIT
+  GEO_BLOCKED
+  WAF_BOT_CONTROL
+  SUPERADMIN_IP_WHITELIST_VIOLATION
+
+  @@map("login_blocked_by")
+}
+
+enum ConsentVersionStatus {
+  DRAFT
+  PUBLISHED
+
+  @@map("consent_version_status")
+}
+
+enum RoleRuleAttributeKey {
+  COMPANY_ID
+  LOCATION_ID
+  DEPARTMENT_ID
+  POSITION_ID
+  LEVEL_ID
+  TEAM_ID
+  WORK_AREA_ID
+  WORK_SUB_AREA_ID
+  EMPLOYEE_TYPE
+
+  @@map("role_rule_attribute_key")
+}
+
+enum RoleRuleConditionOperator {
+  EQUALS
+  NOT_EQUALS
+  CONTAINS
+  IN
+  NOT_IN
+  STARTS_WITH
+  ENDS_WITH
+
+  @@map("role_rule_condition_operator")
+}
+
+// --- Master data (ortak şablon) ---
+
+model Company {
+  id               String   @id @default(cuid())
+  code             String   @unique @db.VarChar(32)
+  name             String   @db.VarChar(200)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?  @map("created_by_user_id")
+  createdByUser    User?    @relation("CompanyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  users     User[]     @relation("UserCompany")
+  locations Location[]
+
+  @@index([isActive], map: "companies_is_active_idx")
+  @@map("companies")
+}
+
+model Location {
+  id               String   @id @default(cuid())
+  code             String   @unique @db.VarChar(32)
+  name             String   @db.VarChar(200)
+  isActive         Boolean  @default(true) @map("is_active")
+  companyId        String   @map("company_id")
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?  @map("created_by_user_id")
+  createdByUser    User?    @relation("LocationCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  users User[] @relation("UserLocation")
+
+  @@index([isActive], map: "locations_is_active_idx")
+  @@map("locations")
+}
+
+model Department {
+  id               String   @id @default(cuid())
+  code             String   @unique @db.VarChar(32)
+  name             String   @db.VarChar(200)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?  @map("created_by_user_id")
+  createdByUser    User?    @relation("DepartmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  users User[] @relation("UserDepartment")
+
+  @@index([isActive], map: "departments_is_active_idx")
+  @@map("departments")
+}
+
+model Level {
+  id               String   @id @default(cuid())
+  code             String   @unique @db.VarChar(32)
+  name             String   @db.VarChar(200)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?  @map("created_by_user_id")
+  createdByUser    User?    @relation("LevelCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  users User[] @relation("UserLevel")
+
+  @@index([isActive], map: "levels_is_active_idx")
+  @@map("levels")
+}
+
+model Position {
+  id               String   @id @default(cuid())
+  code             String   @unique @db.VarChar(32)
+  name             String   @db.VarChar(200)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?  @map("created_by_user_id")
+  createdByUser    User?    @relation("PositionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  users User[] @relation("UserPosition")
+
+  @@index([isActive], map: "positions_is_active_idx")
+  @@map("positions")
+}
+
+model Team {
+  id               String   @id @default(cuid())
+  code             String   @unique @db.VarChar(32)
+  name             String   @db.VarChar(200)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?  @map("created_by_user_id")
+  createdByUser    User?    @relation("TeamCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  users User[] @relation("UserTeam")
+
+  @@index([isActive], map: "teams_is_active_idx")
+  @@map("teams")
+}
+
+model WorkArea {
+  id               String        @id @default(cuid())
+  code             String        @unique @db.VarChar(32)
+  name             String        @db.VarChar(200)
+  isActive         Boolean       @default(true) @map("is_active")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId  String?       @map("created_by_user_id")
+  createdByUser    User?         @relation("WorkAreaCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  workSubAreas     WorkSubArea[]
+  users            User[]        @relation("UserWorkArea")
+
+  @@index([isActive], map: "work_areas_is_active_idx")
+  @@map("work_areas")
+}
+
+model WorkSubArea {
+  id                   String    @id @default(cuid())
+  code                 String    @unique @db.VarChar(32)
+  name                 String    @db.VarChar(200)
+  isActive             Boolean   @default(true) @map("is_active")
+  parentWorkAreaCode   String    @map("parent_work_area_code") @db.VarChar(32)
+  parentWorkArea       WorkArea  @relation(fields: [parentWorkAreaCode], references: [code], onDelete: Restrict)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId      String?   @map("created_by_user_id")
+  createdByUser        User?     @relation("WorkSubAreaCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  users                User[]    @relation("UserWorkSubArea")
+
+  @@index([parentWorkAreaCode, isActive], map: "work_sub_areas_parent_idx")
+  @@index([isActive], map: "work_sub_areas_is_active_idx")
+  @@map("work_sub_areas")
+}
+
+// --- Users ---
+
+model User {
+  id     String @id @default(cuid())
+  sicilEncrypted   Bytes  @map("sicil_encrypted")
+  sicilBlindIndex  String @unique @map("sicil_blind_index") @db.VarChar(64)
+  firstName        String @map("first_name") @db.VarChar(100)
+  lastName         String @map("last_name") @db.VarChar(100)
+  emailEncrypted   Bytes  @map("email_encrypted")
+  emailBlindIndex  String @unique @map("email_blind_index") @db.VarChar(64)
+  /// Telefon: güvenlik baseline’a göre probabilistic (encrypted + DEK); doküman §5 matrisinden sapma — uygulama kaynağı faz kuralı
+  phoneEncrypted   Bytes? @map("phone_encrypted")
+  phoneDek         Bytes? @map("phone_dek")
+  passwordHash     String? @map("password_hash") @db.VarChar(60)
+  employeeType     EmployeeType @map("employee_type")
+
+  companyId    String @map("company_id")
+  company      Company @relation("UserCompany", fields: [companyId], references: [id], onDelete: Restrict)
+  locationId   String @map("location_id")
+  location     Location @relation("UserLocation", fields: [locationId], references: [id], onDelete: Restrict)
+  departmentId String @map("department_id")
+  department   Department @relation("UserDepartment", fields: [departmentId], references: [id], onDelete: Restrict)
+  positionId   String @map("position_id")
+  position     Position @relation("UserPosition", fields: [positionId], references: [id], onDelete: Restrict)
+  levelId      String @map("level_id")
+  level        Level @relation("UserLevel", fields: [levelId], references: [id], onDelete: Restrict)
+  teamId       String? @map("team_id")
+  team         Team? @relation("UserTeam", fields: [teamId], references: [id], onDelete: SetNull)
+  workAreaId   String @map("work_area_id")
+  workArea     WorkArea @relation("UserWorkArea", fields: [workAreaId], references: [id], onDelete: Restrict)
+  workSubAreaId String? @map("work_sub_area_id")
+  workSubArea  WorkSubArea? @relation("UserWorkSubArea", fields: [workSubAreaId], references: [id], onDelete: SetNull)
+
+  managerUserId String? @map("manager_user_id")
+  manager       User?   @relation("UserManager", fields: [managerUserId], references: [id], onDelete: SetNull)
+  directReports User[]  @relation("UserManager")
+
+  managerEmailEncrypted   Bytes? @map("manager_email_encrypted")
+  managerEmailBlindIndex  String? @map("manager_email_blind_index") @db.VarChar(64)
+
+  hireDate            DateTime? @map("hire_date") @db.Date
+  isActive            Boolean   @default(true) @map("is_active")
+  anonymizedAt        DateTime? @map("anonymized_at") @db.Timestamptz(6)
+  anonymizationReason String?   @map("anonymization_reason") @db.Text
+  passwordChangedAt   DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  failedLoginCount    Int       @default(0) @map("failed_login_count")
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String?  @map("created_by_user_id")
+  createdByUser   User?    @relation("UserCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdUsers    User[]   @relation("UserCreatedBy")
+
+  sessions            Session[]
+  passwordHistories   PasswordHistory[]
+  passwordResetTokens PasswordResetToken[]
+  loginAttempts       LoginAttempt[]
+  userRoles           UserRole[]
+  userConsents        UserConsent[]
+  auditLogs           AuditLog[] @relation("AuditLogUser")
+  consentVersionsCreated ConsentVersion[] @relation("ConsentVersionCreatedBy")
+
+  companiesCreated    Company[]    @relation("CompanyCreatedBy")
+  locationsCreated    Location[]   @relation("LocationCreatedBy")
+  departmentsCreated  Department[] @relation("DepartmentCreatedBy")
+  levelsCreated       Level[]      @relation("LevelCreatedBy")
+  positionsCreated    Position[]   @relation("PositionCreatedBy")
+  teamsCreated        Team[]       @relation("TeamCreatedBy")
+  workAreasCreated    WorkArea[]   @relation("WorkAreaCreatedBy")
+  workSubAreasCreated WorkSubArea[] @relation("WorkSubAreaCreatedBy")
+  rolesGranted        RolePermission[] @relation("RolePermissionGrantedBy")
+  userRolesAssigned     UserRole[]       @relation("UserRoleAssignedBy")
+  rolesCreated          Role[]           @relation("RoleCreatedBy")
+  roleRulesCreated      RoleRule[]       @relation("RoleRuleCreatedBy")
+  systemSettingsUpdated SystemSetting[]  @relation("SystemSettingUpdatedBy")
+
+  @@index([companyId, isActive], map: "users_company_active_idx")
+  @@index([locationId, isActive], map: "users_location_active_idx")
+  @@index([departmentId, isActive], map: "users_department_active_idx")
+  @@index([positionId, isActive], map: "users_position_active_idx")
+  @@index([managerUserId], map: "users_manager_user_id_idx")
+  @@index([isActive], map: "users_is_active_idx")
+  @@map("users")
+}
+
+model Session {
+  id                   String                   @id @default(cuid())
+  userId               String                   @map("user_id")
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash     String                   @unique @map("refresh_token_hash") @db.VarChar(64)
+  ipHash               String                   @map("ip_hash") @db.VarChar(64)
+  userAgent            String                   @map("user_agent") @db.VarChar(512)
+  status               SessionStatus            @default(ACTIVE)
+  revocationReason     SessionRevocationReason? @map("revocation_reason")
+  rotatedToSessionId String?  @unique @map("rotated_to_session_id")
+  rotatedTo          Session? @relation("SessionRotation", fields: [rotatedToSessionId], references: [id], onDelete: SetNull)
+  rotatedFrom        Session? @relation("SessionRotation")
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastActiveAt         DateTime                 @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  expiresAt            DateTime                 @map("expires_at") @db.Timestamptz(6)
+  revokedAt            DateTime?                @map("revoked_at") @db.Timestamptz(6)
+  updatedAt            DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  loginAttempts LoginAttempt[] @relation("LoginAttemptSession")
+  auditLogs     AuditLog[]     @relation("AuditLogSession")
+
+  @@index([userId, status], map: "sessions_user_status_idx")
+  @@index([expiresAt], map: "sessions_expires_at_idx")
+  @@map("sessions")
+}
+
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordHash String   @map("password_hash") @db.VarChar(60)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt(sort: Desc)], map: "password_history_user_created_idx")
+  @@map("password_history")
+}
+
+model PasswordResetToken {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt       DateTime? @map("used_at") @db.Timestamptz(6)
+  requestIpHash String   @map("request_ip_hash") @db.VarChar(64)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([expiresAt], map: "password_reset_tokens_expires_idx")
+  @@map("password_reset_tokens")
+}
+
+model LoginAttempt {
+  id               String                 @id @default(cuid())
+  attemptedAt      DateTime               @default(now()) @map("attempted_at") @db.Timestamptz(6)
+  emailBlindIndex  String                 @map("email_blind_index") @db.VarChar(64)
+  userId           String?                @map("user_id")
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipHash           String                 @map("ip_hash") @db.VarChar(64)
+  userAgent        String                 @map("user_agent") @db.VarChar(512)
+  outcome          LoginAttemptOutcome
+  failureReason    LoginFailureReason?    @map("failure_reason")
+  blockedBy        LoginBlockedBy?        @map("blocked_by")
+  lockoutTriggered Boolean                @default(false) @map("lockout_triggered")
+  sessionId        String?                @map("session_id")
+  session          Session?               @relation("LoginAttemptSession", fields: [sessionId], references: [id], onDelete: SetNull)
+  countryCode      String?                @map("country_code") @db.VarChar(2)
+  latencyMs        Int?                   @map("latency_ms")
+
+  @@index([emailBlindIndex, attemptedAt(sort: Desc)], map: "login_attempts_email_attempted_idx")
+  @@index([ipHash, attemptedAt(sort: Desc)], map: "login_attempts_ip_attempted_idx")
+  @@index([outcome, attemptedAt(sort: Desc)], map: "login_attempts_outcome_attempted_idx")
+  @@index([userId, attemptedAt(sort: Desc)], map: "login_attempts_user_attempted_idx")
+  @@index([attemptedAt(sort: Desc)], map: "login_attempts_lockout_idx")
+  @@map("login_attempts")
+}
+
+// --- Authorization ---
+
+model Role {
+  id              String   @id @default(cuid())
+  code            String   @unique @db.VarChar(64)
+  name            String   @db.VarChar(200)
+  description     String?  @db.Text
+  isSystem        Boolean  @default(false) @map("is_system")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String?  @map("created_by_user_id")
+  createdByUser   User?    @relation("RoleCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+  roleRules       RoleRule[]
+
+  @@index([isActive], map: "roles_is_active_idx")
+  @@map("roles")
+}
+
+model RoleRule {
+  id              String   @id @default(cuid())
+  roleId          String   @map("role_id")
+  role            Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  ruleOrder       Int      @default(0) @map("order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdByUserId String   @map("created_by_user_id")
+  createdByUser   User     @relation("RoleRuleCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  conditionSets RoleRuleConditionSet[]
+
+  @@index([roleId, ruleOrder], map: "role_rules_role_order_idx")
+  @@map("role_rules")
+}
+
+model RoleRuleConditionSet {
+  id         String   @id @default(cuid())
+  roleRuleId String   @map("role_rule_id")
+  roleRule   RoleRule @relation(fields: [roleRuleId], references: [id], onDelete: Cascade)
+  setOrder   Int      @default(0) @map("order")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conditions RoleRuleCondition[]
+
+  @@index([roleRuleId, setOrder], map: "role_rule_condition_sets_rule_order_idx")
+  @@map("role_rule_condition_sets")
+}
+
+model RoleRuleCondition {
+  id             String                   @id @default(cuid())
+  conditionSetId String                   @map("condition_set_id")
+  conditionSet   RoleRuleConditionSet     @relation(fields: [conditionSetId], references: [id], onDelete: Cascade)
+  attributeKey   RoleRuleAttributeKey     @map("attribute_key")
+  operator         RoleRuleConditionOperator
+  value            Json
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([conditionSetId], map: "role_rule_conditions_set_idx")
+  @@map("role_rule_conditions")
+}
+
+model UserRole {
+  id                 String   @id @default(cuid())
+  userId             String   @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId             String   @map("role_id")
+  role               Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedByUserId   String   @map("assigned_by_user_id")
+  assignedByUser     User     @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id], onDelete: Restrict)
+  assignedAt         DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([userId, roleId], map: "user_roles_user_role_key")
+  @@index([roleId], map: "user_roles_role_idx")
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId           String   @map("role_id")
+  role             Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionKey    String   @map("permission_key") @db.VarChar(64)
+  grantedAt        DateTime @default(now()) @map("granted_at") @db.Timestamptz(6)
+  grantedByUserId  String   @map("granted_by_user_id")
+  grantedByUser    User     @relation("RolePermissionGrantedBy", fields: [grantedByUserId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionKey])
+  @@index([permissionKey], map: "role_permissions_permission_idx")
+  @@map("role_permissions")
+}
+
+// --- Consent ---
+
+model ConsentVersion {
+  id                String                @id @default(cuid())
+  version           Int                   @unique
+  contentEncrypted  Bytes                 @map("content_encrypted")
+  contentDek        Bytes                 @map("content_dek")
+  status            ConsentVersionStatus  @default(DRAFT)
+  effectiveFrom     DateTime?             @map("effective_from") @db.Timestamptz(6)
+  publishedAt       DateTime?             @map("published_at") @db.Timestamptz(6)
+  createdByUserId   String                @map("created_by_user_id")
+  createdByUser     User                  @relation("ConsentVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userConsents UserConsent[]
+
+  @@index([status], map: "consent_versions_status_idx")
+  @@map("consent_versions")
+}
+
+model UserConsent {
+  id               String         @id @default(cuid())
+  userId           String         @map("user_id")
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consentVersionId String         @map("consent_version_id")
+  consentVersion   ConsentVersion @relation(fields: [consentVersionId], references: [id], onDelete: Restrict)
+  acceptedAt       DateTime       @default(now()) @map("accepted_at") @db.Timestamptz(6)
+  ipHash           String         @map("ip_hash") @db.VarChar(64)
+  userAgent        String         @map("user_agent") @db.VarChar(512)
+  signature        String         @db.VarChar(64)
+
+  @@unique([userId, consentVersionId], map: "user_consents_user_version_key")
+  @@index([userId, acceptedAt(sort: Desc)], map: "user_consents_user_accepted_idx")
+  @@map("user_consents")
+}
+
+// --- Audit ---
+
+model AuditLog {
+  id                 String    @id @default(cuid())
+  timestamp          DateTime  @default(now()) @db.Timestamptz(6)
+  userId             String?   @map("user_id")
+  user               User?     @relation("AuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  action             String    @db.VarChar(64)
+  entity             String    @db.VarChar(64)
+  entityId           String?   @map("entity_id") @db.VarChar(64)
+  oldValueEncrypted  Bytes?    @map("old_value_encrypted")
+  oldValueDek        Bytes?    @map("old_value_dek")
+  newValueEncrypted  Bytes?    @map("new_value_encrypted")
+  newValueDek        Bytes?    @map("new_value_dek")
+  metadata           Json?
+  ipHash             String    @map("ip_hash") @db.VarChar(64)
+  userAgent          String?   @map("user_agent") @db.VarChar(512)
+  sessionId          String?   @map("session_id")
+  session            Session?  @relation("AuditLogSession", fields: [sessionId], references: [id], onDelete: SetNull)
+  chainHash          String    @unique @map("chain_hash") @db.VarChar(64)
+
+  @@index([userId, timestamp(sort: Desc)], map: "audit_logs_user_timestamp_idx")
+  @@index([entity, entityId, timestamp(sort: Desc)], map: "audit_logs_entity_timestamp_idx")
+  @@index([action, timestamp(sort: Desc)], map: "audit_logs_action_timestamp_idx")
+  @@index([timestamp(sort: Desc)], map: "audit_logs_timestamp_idx")
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key               String   @id @db.VarChar(64)
+  value             Json
+  description       String?  @db.Text
+  updatedByUserId   String?  @map("updated_by_user_id")
+  updatedByUser     User?    @relation("SystemSettingUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("system_settings")
+}

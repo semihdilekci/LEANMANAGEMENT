@@ -6,17 +6,18 @@
 
 ## 1. Framework ve Runtime
 
-| Bileşen | Versiyon | Not |
-|---|---|---|
-| Node.js | 20 LTS | Pinned minor version CI'da zorlanır (`.nvmrc` + `engines` alanı) |
-| pnpm | 9.x | npm/yarn yerine — monorepo workspaces için hız ve disk verimi |
-| TypeScript | 5.4+ | `strict: true` zorunlu; `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` açık |
-| NestJS | 10.x | Fastify adapter ile — Express değil |
-| Fastify | 4.x | NestJS'in HTTP transport'u; Express'e göre ~2x throughput |
+| Bileşen    | Versiyon | Not                                                                                   |
+| ---------- | -------- | ------------------------------------------------------------------------------------- |
+| Node.js    | 20 LTS   | Pinned minor version CI'da zorlanır (`.nvmrc` + `engines` alanı)                      |
+| pnpm       | 9.x      | npm/yarn yerine — monorepo workspaces için hız ve disk verimi                         |
+| TypeScript | 5.4+     | `strict: true` zorunlu; `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` açık |
+| NestJS     | 10.x     | Fastify adapter ile — Express değil                                                   |
+| Fastify    | 4.x      | NestJS'in HTTP transport'u; Express'e göre ~2x throughput                             |
 
 **Framework seçim gerekçesi:** NestJS'in dependency injection container'ı, decorator-driven yapısı ve olgun ekosistemi (Passport, Prisma, BullMQ entegrasyonları, OpenAPI auto-generation) agent-üretimi kod için predictable bir kalıp sunar. Fastify adapter ile Express'in overhead'inden kaçılır — API p95 hedefleri (< 300 ms) için bu tercih kritik.
 
 **TypeScript strict moda kritik kurallar:**
+
 - Her public method'un parametre ve return tipi **explicit**. `any` ve `unknown` yalnız generic helper'larda; business kodda `any` kullanımı CI'da fail olur.
 - `null` ve `undefined` ayrımı korunur; optional alanlar `?` ile işaretlenir, nullable alanlar `| null` ile.
 - `as` cast kullanımı yalnız Zod parse sonuçlarında ve third-party tip boşluklarında; kontrol mekanizması yorum ile açıklanır.
@@ -290,25 +291,47 @@ apps/api/
 
 Her feature modülü aynı iç yapıyı takip eder. Aşağıdaki tablo zorunlu ve opsiyonel elemanları gösterir:
 
-| Dosya | Zorunlu mu | Amaç |
-|---|---|---|
-| `<feature>.module.ts` | **Zorunlu** | NestJS DI config — controller, provider, imports |
-| `<feature>.controller.ts` | **Zorunlu** | HTTP endpoint tanımları — decorator'lar + DTO parsing |
-| `<feature>.service.ts` | **Zorunlu** | Business logic — transaction, validation, orchestration |
-| `<feature>.repository.ts` | **Zorunlu** | Prisma erişim — encryption middleware otomatik devrede |
-| `events/` | Opsiyonel | Domain event tanımları ve handler'lar |
-| `events/handlers/` | Opsiyonel | Event handler class'ları (subscriber'lar) |
-| `strategies/` | Opsiyonel | Passport strategy wrapper'ları (yalnız auth modülünde) |
-| `__tests__/` | **Zorunlu** | Unit testler — her public service method'u için |
+| Dosya                     | Zorunlu mu  | Amaç                                                    |
+| ------------------------- | ----------- | ------------------------------------------------------- |
+| `<feature>.module.ts`     | **Zorunlu** | NestJS DI config — controller, provider, imports        |
+| `<feature>.controller.ts` | **Zorunlu** | HTTP endpoint tanımları — decorator'lar + DTO parsing   |
+| `<feature>.service.ts`    | **Zorunlu** | Business logic — transaction, validation, orchestration |
+| `<feature>.repository.ts` | **Zorunlu** | Prisma erişim — encryption middleware otomatik devrede  |
+| `events/`                 | Opsiyonel   | Domain event tanımları ve handler'lar                   |
+| `events/handlers/`        | Opsiyonel   | Event handler class'ları (subscriber'lar)               |
+| `strategies/`             | Opsiyonel   | Passport strategy wrapper'ları (yalnız auth modülünde)  |
+| `__tests__/`              | **Zorunlu** | Unit testler — her public service method'u için         |
 
 **DTO dosyası yok** — Zod şemaları `packages/shared-schemas/` altında tutulur; backend ve frontend aynı şemayı paylaşır. Controller import eder, validation pipe parse eder, service tip-safe değeri alır.
 
 **Service servisi doğrudan çağırmaz.** İki servis aynı modülde ise aynı module'de dependency injection ile; farklı modüldeyse **event üzerinden** (EventEmitter2). Bu circular import'u önler ve test izolasyonunu sağlar. Örnek:
+
 - `UsersService` kullanıcı oluşturduğunda `user.created` event'i emit eder.
 - `NotificationsService` bu event'i dinler ve welcome email'i tetikler.
 - `UsersService` `NotificationsService`'i import etmez.
 
 **Controller yalnız HTTP taşıma katmanı.** Business logic yok; validation sonucu servise geçirilir, servis yanıtı kontroller üzerinden dönülür. Status code'lar decorator'lar veya exception fırlatma ile belirlenir (`@HttpCode(204)`, `throw new NotFoundException(...)`).
+
+### 4.1 NestJS DI, ESM ve `@Inject` (apps/api)
+
+**Durum:** `apps/api` TypeScript `verbatimModuleSyntax` + NodeNext ESM çözümlemesi ve kaynak import’larında `.js` uzantısı (`./foo.js`) kullanımı ile birlikte, `emitDecoratorMetadata` ürettiği `design:paramtypes` bazı constructor bağımlılıklarında Nest tarafından **tanınmayabiliyor**. Sonuç: runtime’da `undefined` enjekte edilmesi (`Cannot read properties of undefined (reading 'get'|'login'|...)`).
+
+**Proje standardı (MVP):** Aşağıdaki tür bağımlılıklarda **açık `@Inject(Token)`** kullan:
+
+| Bağımlılık         | Örnek token                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| Ortam / config     | `@Inject(ConfigService) private readonly config: ConfigService<Env, true>`           |
+| Prisma             | `@Inject(PrismaService) private readonly prisma: PrismaService`                      |
+| Redis              | `@Inject(RedisService) private readonly redis: RedisService`                         |
+| JWT                | `@Inject(JwtService) private readonly jwt: JwtService`                               |
+| Metadata           | `@Inject(Reflector) private readonly reflector: Reflector`                           |
+| Diğer provider’lar | `@Inject(AuthService)`, `@Inject(EncryptionService)`, `@Inject(AuditLogService)` vb. |
+
+**`CommonModule`:** `EncryptionService` ve audit gibi global provider’ların `ConfigService`’e güvenli erişimi için `CommonModule` içinde `imports: [ConfigModule]` bulunur (`ConfigModule.forRoot` yalnızca `AppModule`’de bir kez çağrılır).
+
+**Entegrasyon testi:** `AppModule` yüklenmeden önce `process.env` içine `DATABASE_URL`, `REDIS_URL`, PII anahtarları ve `JWT_ACCESS_SECRET_CURRENT` yazılır; ardından `AppModule` **dinamik `import()`** ile yüklenir (statik import, env set edilmeden `ConfigModule` validate’ını tetikleyebilir). Uygulama örneği `NestFactory.create` ile ayağa kaldırılır (`apps/api/test/auth.integration.test.ts`).
+
+**Gelecek (opsiyonel):** Kök nedeni tsconfig/emit stratejisiyle hizalamak için ADR veya `experimentalDecorators` / import stili gözden geçirilebilir; o zamana kadar yeni controller/service/guard yazarken aynı `@Inject` disiplinini koru.
 
 ---
 
@@ -318,28 +341,28 @@ Request bir endpoint'e ulaşana kadar ve response döndükten sonra aşağıdaki
 
 ### Request path (istemci → handler)
 
-| # | Katman | Amacı |
-|---|---|---|
-| 1 | **Helmet middleware** | Güvenlik header'ları: CSP, HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin |
-| 2 | **CORS middleware** | `origin: [CORS_ALLOWED_ORIGINS]` (env) allowlist, `credentials: true`, `methods: [GET, POST, PATCH, DELETE, OPTIONS]`, `allowedHeaders: [Content-Type, Authorization, X-CSRF-Token, X-Request-Id, Idempotency-Key]` |
-| 3 | **Body parser** | JSON max 1 MB; dosya upload'ları direkt S3'e gittiği için API body'si daima küçük |
-| 4 | **Cookie parser** | `refresh_token`, `csrf_token` cookie'lerini parse eder |
-| 5 | **Request ID middleware** | İstemci `X-Request-Id` gönderdiyse onu kullanır, yoksa UUID üretir; response header'ına ekler; Pino context'ine yerleştirir |
-| 6 | **Pino HTTP logger** | Her request için structured log: `requestId`, `method`, `path`, `userAgent`, `ipHash` |
-| 7 | **Rate limiter** | Redis token bucket — kapsam (anonim IP / authenticated user / login / password-reset) request meta'dan belirlenir; limit aşımı → 429 `RATE_LIMIT_*` |
-| 8 | **JWT auth guard** | `@Public()` decorator yoksa access token doğrulanır; kullanıcı request context'ine enjekte edilir. Hata: 401 `AUTH_TOKEN_*` |
-| 9 | **CSRF guard** | `POST`, `PATCH`, `DELETE` için zorunlu; `X-CSRF-Token` header ile `csrf_token` cookie karşılaştırması. Hata: 403 `CSRF_TOKEN_INVALID` |
-| 10 | **Permission guard** | `@RequirePermission(Permission.X)` decorator'ı okur; kullanıcının permission setinde kontrol eder. Hata: 403 `PERMISSION_DENIED` |
-| 11 | **Zod validation pipe** | Controller parametrelerindeki `@Body()`, `@Query()`, `@Param()` schema'larını doğrular. Hata: 400 `VALIDATION_FAILED` (field-level details) |
-| | **→ Controller handler** | |
+| #   | Katman                    | Amacı                                                                                                                                                                                                               |
+| --- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Helmet middleware**     | Güvenlik header'ları: CSP, HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin                                                                              |
+| 2   | **CORS middleware**       | `origin: [CORS_ALLOWED_ORIGINS]` (env) allowlist, `credentials: true`, `methods: [GET, POST, PATCH, DELETE, OPTIONS]`, `allowedHeaders: [Content-Type, Authorization, X-CSRF-Token, X-Request-Id, Idempotency-Key]` |
+| 3   | **Body parser**           | JSON max 1 MB; dosya upload'ları direkt S3'e gittiği için API body'si daima küçük                                                                                                                                   |
+| 4   | **Cookie parser**         | `refresh_token`, `csrf_token` cookie'lerini parse eder                                                                                                                                                              |
+| 5   | **Request ID middleware** | İstemci `X-Request-Id` gönderdiyse onu kullanır, yoksa UUID üretir; response header'ına ekler; Pino context'ine yerleştirir                                                                                         |
+| 6   | **Pino HTTP logger**      | Her request için structured log: `requestId`, `method`, `path`, `userAgent`, `ipHash`                                                                                                                               |
+| 7   | **Rate limiter**          | Redis token bucket — kapsam (anonim IP / authenticated user / login / password-reset) request meta'dan belirlenir; limit aşımı → 429 `RATE_LIMIT_*`                                                                 |
+| 8   | **JWT auth guard**        | `@Public()` decorator yoksa access token doğrulanır; kullanıcı request context'ine enjekte edilir. Hata: 401 `AUTH_TOKEN_*`                                                                                         |
+| 9   | **CSRF guard**            | `POST`, `PATCH`, `DELETE` için zorunlu; `X-CSRF-Token` header ile `csrf_token` cookie karşılaştırması. Hata: 403 `CSRF_TOKEN_INVALID`                                                                               |
+| 10  | **Permission guard**      | `@RequirePermission(Permission.X)` decorator'ı okur; kullanıcının permission setinde kontrol eder. Hata: 403 `PERMISSION_DENIED`                                                                                    |
+| 11  | **Zod validation pipe**   | Controller parametrelerindeki `@Body()`, `@Query()`, `@Param()` schema'larını doğrular. Hata: 400 `VALIDATION_FAILED` (field-level details)                                                                         |
+|     | **→ Controller handler**  |                                                                                                                                                                                                                     |
 
 ### Response path (handler → istemci)
 
-| # | Katman | Amacı |
-|---|---|---|
-| 12 | **Audit interceptor** | Mutating endpoint'lerde (`@AuditAction(...)` decorator'lı) — response başarılıysa `audit_logs` insert; chain hash hesapla |
-| 13 | **Response envelope interceptor** | Raw response → `{ data: ... }` veya `{ data, pagination }` sarmalama |
-| 14 | **Global exception filter** | Her exception → `{ error: { code, message, requestId, timestamp, details? } }` + HTTP status. Son savunma. |
+| #   | Katman                            | Amacı                                                                                                                     |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 12  | **Audit interceptor**             | Mutating endpoint'lerde (`@AuditAction(...)` decorator'lı) — response başarılıysa `audit_logs` insert; chain hash hesapla |
+| 13  | **Response envelope interceptor** | Raw response → `{ data: ... }` veya `{ data, pagination }` sarmalama                                                      |
+| 14  | **Global exception filter**       | Her exception → `{ error: { code, message, requestId, timestamp, details? } }` + HTTP status. Son savunma.                |
 
 **Boot'ta güvenlik:** Tüm guard'lar **global** olarak register edilir (`APP_GUARD` token ile). `@Public()` dekoratörü olmayan her endpoint JWT auth'a tabidir (fail-closed). Yeni endpoint yazan agent guard eklemeyi unutsa bile default güvenlidir.
 
@@ -350,6 +373,7 @@ Request bir endpoint'e ulaşana kadar ve response döndükten sonra aşağıdaki
 **Kural 1 — Servis HTTP concern'i bilmez.** Servis method'u status code, cookie, header döndürmez; hata durumunda typed exception fırlatır, veri döndürürken düz obje döner.
 
 **Kural 2 — Servis başka modülün servisini doğrudan çağırmaz.** İki durumda izin vardır:
+
 - **Aynı modül:** Doğrudan DI (örn. `AuthService` kendi modülündeki `SessionService`'i çağırabilir)
 - **Farklı modül:** Event üzerinden. `this.eventEmitter.emit('user.created', payload)` → `UserCreatedHandler` başka modülde dinler
 
@@ -390,21 +414,47 @@ async createUser(input: CreateUserInput) {
 // infrastructure/prisma/encryption.middleware.ts
 import { Prisma } from '@prisma/client';
 import { KmsService } from '../kms/kms.service';
-import { hmacSha256Hex, encryptAes256GcmDeterministic, decryptAes256Gcm } from '../../common/utils/crypto.util';
+import {
+  hmacSha256Hex,
+  encryptAes256GcmDeterministic,
+  decryptAes256Gcm,
+} from '../../common/utils/crypto.util';
 
 interface DeterministicFieldSpec {
-  model: string;             // 'User'
-  virtualField: string;      // 'email'
-  encryptedCol: string;      // 'email_encrypted'
-  blindIndexCol: string;     // 'email_blind_index'
-  normalize?: (v: string) => string;   // lowercase, trim, vb.
+  model: string; // 'User'
+  virtualField: string; // 'email'
+  encryptedCol: string; // 'email_encrypted'
+  blindIndexCol: string; // 'email_blind_index'
+  normalize?: (v: string) => string; // lowercase, trim, vb.
 }
 
 const DETERMINISTIC_FIELDS: DeterministicFieldSpec[] = [
-  { model: 'User', virtualField: 'sicil',          encryptedCol: 'sicilEncrypted',         blindIndexCol: 'sicilBlindIndex' },
-  { model: 'User', virtualField: 'email',          encryptedCol: 'emailEncrypted',         blindIndexCol: 'emailBlindIndex', normalize: (v) => v.toLowerCase().trim() },
-  { model: 'User', virtualField: 'phone',          encryptedCol: 'phoneEncrypted',         blindIndexCol: 'phoneBlindIndex' },
-  { model: 'User', virtualField: 'managerEmail',   encryptedCol: 'managerEmailEncrypted',  blindIndexCol: 'managerEmailBlindIndex', normalize: (v) => v.toLowerCase().trim() },
+  {
+    model: 'User',
+    virtualField: 'sicil',
+    encryptedCol: 'sicilEncrypted',
+    blindIndexCol: 'sicilBlindIndex',
+  },
+  {
+    model: 'User',
+    virtualField: 'email',
+    encryptedCol: 'emailEncrypted',
+    blindIndexCol: 'emailBlindIndex',
+    normalize: (v) => v.toLowerCase().trim(),
+  },
+  {
+    model: 'User',
+    virtualField: 'phone',
+    encryptedCol: 'phoneEncrypted',
+    blindIndexCol: 'phoneBlindIndex',
+  },
+  {
+    model: 'User',
+    virtualField: 'managerEmail',
+    encryptedCol: 'managerEmailEncrypted',
+    blindIndexCol: 'managerEmailBlindIndex',
+    normalize: (v) => v.toLowerCase().trim(),
+  },
 ];
 
 export function applyEncryptionExtension(prisma: PrismaClient, kms: KmsService, pepper: Buffer) {
@@ -629,7 +679,7 @@ export const AUDIT_ACTION_KEY = Symbol('audit-action');
 export interface AuditActionMeta {
   action: string;
   entity: string;
-  entityIdFrom?: 'response.data.id' | 'params.id' | string;  // default: response.data.id
+  entityIdFrom?: 'response.data.id' | 'params.id' | string; // default: response.data.id
 }
 
 export const AuditAction = (action: string, meta: Omit<AuditActionMeta, 'action'>) =>
@@ -723,22 +773,26 @@ tanımlanır ve runtime'da bir **registry**'e kayıt olur.
 ```typescript
 // modules/processes/process-type.registry.ts
 export interface ProcessTypeDefinition {
-  type: string;                           // 'BEFORE_AFTER_KAIZEN'
-  displayIdPrefix: string;                // 'KTI'
+  type: string; // 'BEFORE_AFTER_KAIZEN'
+  displayIdPrefix: string; // 'KTI'
   steps: StepDefinition[];
   startFormSchema: z.ZodSchema;
   onStart: (input: unknown, context: StartContext) => Promise<StartResult>;
 }
 
 export interface StepDefinition {
-  key: string;                                        // 'KTI_MANAGER_APPROVAL'
-  label: string;                                      // 'Yönetici Onay'
+  key: string; // 'KTI_MANAGER_APPROVAL'
+  label: string; // 'Yönetici Onay'
   order: number;
   assignmentMode: 'SINGLE' | 'CLAIM' | 'ALL_REQUIRED';
   assignmentResolver: (process: Process, prevTask?: Task) => AssignmentTarget;
-  allowedActions: string[];                           // ['APPROVE', 'REJECT', 'REQUEST_REVISION']
-  reasonRequiredFor: string[];                        // ['REJECT', 'REQUEST_REVISION']
-  completionHandler: (task: Task, action: string | null, formData: unknown) => Promise<CompletionResult>;
+  allowedActions: string[]; // ['APPROVE', 'REJECT', 'REQUEST_REVISION']
+  reasonRequiredFor: string[]; // ['REJECT', 'REQUEST_REVISION']
+  completionHandler: (
+    task: Task,
+    action: string | null,
+    formData: unknown,
+  ) => Promise<CompletionResult>;
   slaHours: number | null;
 }
 
@@ -771,6 +825,7 @@ export class ProcessTypeRegistry {
 ### 10.3 KTİ Submodule (15. bölümde detaylı örnek)
 
 KTİ süreç modülü `onModuleInit` hook'unda registry'e kayıt olur. Böylece generic `ProcessesService` ve `TasksService` süreç tipini bilmeden:
+
 - `/processes/:displayId` detay endpoint'i → registry'den step label'larını çeker
 - `/tasks/:id` detay endpoint'i → registry'den `allowedActions`'ı çeker
 - `/tasks/:id/complete` → registry'den `completionHandler`'ı çağırır
@@ -793,18 +848,19 @@ Worker pod'u `packages/shared-types`, `packages/shared-schemas`, infrastructure 
 
 ### 11.2 Queue ve Worker Listesi
 
-| Queue | Worker job tipleri | Tetikleyici |
-|---|---|---|
-| `notifications` | `send-in-app`, `send-email` | Domain event'ler (user.created, task.assigned, sla.breached vb.) |
-| `documents-scan` | `scan-invoke`, `scan-callback-handle` | Document create → ClamAV Lambda tetikle + S3 → EventBridge → API callback |
-| `sla-monitor` | `check-task-sla` | Cron — 5 dakikada bir |
-| `retention` | `cleanup-notifications`, `cleanup-login-attempts`, `cleanup-reset-tokens`, `archive-sessions` | Cron — gecelik 02:00 TRT |
-| `audit-chain-check` | `verify-chain-integrity` | Cron — gecelik 03:00 TRT |
-| `role-recomputation` | `recompute-attribute-roles` | Role rule create/update/delete events |
+| Queue                | Worker job tipleri                                                                            | Tetikleyici                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `notifications`      | `send-in-app`, `send-email`                                                                   | Domain event'ler (user.created, task.assigned, sla.breached vb.)          |
+| `documents-scan`     | `scan-invoke`, `scan-callback-handle`                                                         | Document create → ClamAV Lambda tetikle + S3 → EventBridge → API callback |
+| `sla-monitor`        | `check-task-sla`                                                                              | Cron — 5 dakikada bir                                                     |
+| `retention`          | `cleanup-notifications`, `cleanup-login-attempts`, `cleanup-reset-tokens`, `archive-sessions` | Cron — gecelik 02:00 TRT                                                  |
+| `audit-chain-check`  | `verify-chain-integrity`                                                                      | Cron — gecelik 03:00 TRT                                                  |
+| `role-recomputation` | `recompute-attribute-roles`                                                                   | Role rule create/update/delete events                                     |
 
 ### 11.3 Retry Policy
 
 Tüm job'lar için varsayılan:
+
 - `attempts: 5`
 - `backoff: { type: 'exponential', delay: 1000 }` — 1s, 2s, 4s, 8s, 16s
 - `removeOnComplete: { age: 3600, count: 1000 }` — 1 saat saklama
@@ -830,14 +886,14 @@ Event-tetikli job'lar için `jobId` kullanılır — `user.created:${userId}` gi
 
 ### 12.2 Log Seviyeleri
 
-| Seviye | Ne zaman |
-|---|---|
-| `trace` | Prisma query'leri, detaylı debug — yalnız dev |
-| `debug` | External service request/response — dev + opsiyonel staging |
-| `info` | HTTP request tamamlandı, domain event emit edildi, job başladı/bitti, boot event'leri — default production |
-| `warn` | Recoverable edge case'ler: retry tetiklendi, cache miss anormal, beklenmedik input |
-| `error` | Hata — unhandled exception, external service failure, audit write başarısız |
-| `fatal` | Process crash — boot failure, connection pool exhausted |
+| Seviye  | Ne zaman                                                                                                   |
+| ------- | ---------------------------------------------------------------------------------------------------------- |
+| `trace` | Prisma query'leri, detaylı debug — yalnız dev                                                              |
+| `debug` | External service request/response — dev + opsiyonel staging                                                |
+| `info`  | HTTP request tamamlandı, domain event emit edildi, job başladı/bitti, boot event'leri — default production |
+| `warn`  | Recoverable edge case'ler: retry tetiklendi, cache miss anormal, beklenmedik input                         |
+| `error` | Hata — unhandled exception, external service failure, audit write başarısız                                |
+| `fatal` | Process crash — boot failure, connection pool exhausted                                                    |
 
 Default log seviyesi `LOG_LEVEL` env değişkeni ile kontrol edilir; production `info`, staging `debug`, dev `trace`.
 
@@ -845,16 +901,16 @@ Default log seviyesi `LOG_LEVEL` env değişkeni ile kontrol edilir; production 
 
 Her log satırı JSON format; zorunlu alanlar:
 
-| Alan | Açıklama |
-|---|---|
-| `timestamp` | ISO 8601 UTC |
-| `level` | Seviye string |
-| `requestId` | Request context içinde otomatik |
-| `userId` | Authenticated request'lerde otomatik |
-| `message` | Human-readable özet |
-| `durationMs` | HTTP request'lerde ve job'larda |
-| `statusCode` | HTTP response'da |
-| `err` | Error log'larında — `{ name, message, stack, code }` |
+| Alan         | Açıklama                                             |
+| ------------ | ---------------------------------------------------- |
+| `timestamp`  | ISO 8601 UTC                                         |
+| `level`      | Seviye string                                        |
+| `requestId`  | Request context içinde otomatik                      |
+| `userId`     | Authenticated request'lerde otomatik                 |
+| `message`    | Human-readable özet                                  |
+| `durationMs` | HTTP request'lerde ve job'larda                      |
+| `statusCode` | HTTP response'da                                     |
+| `err`        | Error log'larında — `{ name, message, stack, code }` |
 
 ### 12.4 Yasak Alanlar
 
@@ -927,7 +983,10 @@ export abstract class BaseException extends Error {
   readonly statusCode: number;
   readonly details?: Record<string, unknown>;
 
-  constructor(input: { code: string; message?: string; details?: Record<string, unknown> }, statusCode: number) {
+  constructor(
+    input: { code: string; message?: string; details?: Record<string, unknown> },
+    statusCode: number,
+  ) {
     super(input.message ?? userMessageFor(input.code));
     this.code = input.code;
     this.statusCode = statusCode;
@@ -1025,6 +1084,7 @@ export function validateConfig(raw: NodeJS.ProcessEnv): AppConfig {
 ### 14.2 Env Hierarchy
 
 Öncelik sırası (sol en yüksek):
+
 1. Process env (`process.env`)
 2. `.env.local` (gitignore'da — dev lokal override)
 3. `.env.<NODE_ENV>` (`.env.development`, `.env.staging`, `.env.production`)
@@ -1083,8 +1143,15 @@ export const CreateUserSchema = z.object({
   sicil: z.string().regex(/^\d{8}$/, 'Sicil 8 haneli olmalı'),
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  email: z.string().email().max(254).transform((s) => s.toLowerCase().trim()),
-  phone: z.string().regex(/^(\+90|0)?5\d{9}$/).optional(),
+  email: z
+    .string()
+    .email()
+    .max(254)
+    .transform((s) => s.toLowerCase().trim()),
+  phone: z
+    .string()
+    .regex(/^(\+90|0)?5\d{9}$/)
+    .optional(),
   employeeType: z.enum(['WHITE_COLLAR', 'BLUE_COLLAR', 'INTERN']),
   companyId: z.string().cuid(),
   locationId: z.string().cuid(),
@@ -1155,7 +1222,12 @@ import { PrismaService } from '@/infrastructure/prisma/prisma.service';
 import { UsersRepository } from './users.repository';
 import { MasterDataRepository } from '@/modules/master-data/master-data.repository';
 import { PermissionResolverService } from '@/modules/auth/permission-resolver.service';
-import { ConflictException, NotFoundException, UnprocessableException, AuthorizationException } from '@/common/exceptions';
+import {
+  ConflictException,
+  NotFoundException,
+  UnprocessableException,
+  AuthorizationException,
+} from '@/common/exceptions';
 
 @Injectable()
 export class UsersService {
@@ -1176,14 +1248,24 @@ export class UsersService {
       this.usersRepository.existsBySicil(input.sicil),
       this.usersRepository.existsByEmail(input.email),
     ]);
-    if (sicilExists) throw new ConflictException({ code: 'USER_SICIL_DUPLICATE', details: { field: 'sicil' } });
-    if (emailExists) throw new ConflictException({ code: 'USER_EMAIL_DUPLICATE', details: { field: 'email' } });
+    if (sicilExists)
+      throw new ConflictException({ code: 'USER_SICIL_DUPLICATE', details: { field: 'sicil' } });
+    if (emailExists)
+      throw new ConflictException({ code: 'USER_EMAIL_DUPLICATE', details: { field: 'email' } });
 
     // 3. Manager aktiflik kontrolü
     if (input.managerUserId) {
       const manager = await this.usersRepository.findById(input.managerUserId);
-      if (!manager) throw new NotFoundException({ code: 'USER_NOT_FOUND', details: { field: 'managerUserId' } });
-      if (!manager.isActive) throw new UnprocessableException({ code: 'USER_NOT_FOUND', details: { field: 'managerUserId', reason: 'inactive' } });
+      if (!manager)
+        throw new NotFoundException({
+          code: 'USER_NOT_FOUND',
+          details: { field: 'managerUserId' },
+        });
+      if (!manager.isActive)
+        throw new UnprocessableException({
+          code: 'USER_NOT_FOUND',
+          details: { field: 'managerUserId', reason: 'inactive' },
+        });
     }
 
     // 4. Transaction — user create + audit payload
@@ -1205,7 +1287,12 @@ export class UsersService {
     });
   }
 
-  async updateAttribute(userId: string, input: UpdateUserInput, currentUser: AuthenticatedUser, request: Request) {
+  async updateAttribute(
+    userId: string,
+    input: UpdateUserInput,
+    currentUser: AuthenticatedUser,
+    request: Request,
+  ) {
     if (userId === currentUser.id) {
       throw new AuthorizationException({ code: 'USER_SELF_EDIT_FORBIDDEN' });
     }
@@ -1228,7 +1315,10 @@ export class UsersService {
 
       // Attribute değişimi attribute-based rol atamalarını etkileyebilir → cache invalidate
       await this.permissionResolver.invalidate(userId);
-      this.eventEmitter.emit('user.attribute-changed', { userId, changedFields: Object.keys(input) });
+      this.eventEmitter.emit('user.attribute-changed', {
+        userId,
+        changedFields: Object.keys(input),
+      });
 
       return this.toPublicDto(after);
     });
@@ -1244,9 +1334,20 @@ export class UsersService {
       this.masterDataRepository.isActive('work_areas', input.workAreaId),
     ];
     const results = await Promise.all(checks);
-    const inactiveFields = ['companyId', 'locationId', 'departmentId', 'positionId', 'levelId', 'workAreaId'];
+    const inactiveFields = [
+      'companyId',
+      'locationId',
+      'departmentId',
+      'positionId',
+      'levelId',
+      'workAreaId',
+    ];
     results.forEach((active, i) => {
-      if (!active) throw new UnprocessableException({ code: 'MASTER_DATA_IN_USE', details: { field: inactiveFields[i] } });
+      if (!active)
+        throw new UnprocessableException({
+          code: 'MASTER_DATA_IN_USE',
+          details: { field: inactiveFields[i] },
+        });
     });
   }
 
@@ -1255,7 +1356,7 @@ export class UsersService {
     const visited = new Set<string>();
     while (current) {
       if (current === userId) throw new UnprocessableException({ code: 'USER_MANAGER_CYCLE' });
-      if (visited.has(current)) break;  // başka bir cycle, yeni attamada değil
+      if (visited.has(current)) break; // başka bir cycle, yeni attamada değil
       visited.add(current);
       const m = await this.usersRepository.findManagerUserId(current);
       current = m;
@@ -1264,7 +1365,14 @@ export class UsersService {
 
   private snapshotForAudit(user: User) {
     // PII field'ları mask
-    return { id: user.id, firstName: user.firstName, lastName: user.lastName, employeeType: user.employeeType, companyId: user.companyId, ...{ sicil: '***', email: '***', phone: user.phone ? '***' : null } };
+    return {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      employeeType: user.employeeType,
+      companyId: user.companyId,
+      ...{ sicil: '***', email: '***', phone: user.phone ? '***' : null },
+    };
   }
 
   private snapshotChangedFieldsMasked(user: User, delta: Partial<UpdateUserInput>) {
@@ -1354,13 +1462,19 @@ export class UsersRepository {
   }
 
   async findManagerUserId(userId: string): Promise<string | null> {
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { managerUserId: true } });
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { managerUserId: true },
+    });
     return u?.managerUserId ?? null;
   }
 
   async findIdsWithRoleAccess(roleId: string): Promise<string[]> {
     // Direct assignment'lar
-    const direct = await this.prisma.userRole.findMany({ where: { roleId }, select: { userId: true } });
+    const direct = await this.prisma.userRole.findMany({
+      where: { roleId },
+      select: { userId: true },
+    });
     // Attribute-based kullanıcıları bulmak için RoleRuleService'den yararlanılır — bu örnekte basit tutuldu
     return direct.map((ur) => ur.userId);
   }
@@ -1381,7 +1495,9 @@ export class UserCreatedHandler {
   @OnEvent('user.created', { async: true })
   async handle(payload: { userId: string; createdByUserId: string }) {
     // Welcome email + şifre belirleme linki
-    await this.notificationsService.enqueueByEvent('USER_ACCOUNT_CREATED', { userId: payload.userId });
+    await this.notificationsService.enqueueByEvent('USER_ACCOUNT_CREATED', {
+      userId: payload.userId,
+    });
   }
 }
 ```
@@ -1409,6 +1525,7 @@ export class UsersModule {}
 ```
 
 **Bu pattern neleri gösterir:**
+
 - Decorator zinciri (`@RequirePermission`, `@AuditAction`, `@ZodBody`, `@CurrentUser`)
 - Zod şema paylaşımı (shared-schemas paketi)
 - Transaction içinde repository çağrısı + audit payload set
@@ -1463,24 +1580,31 @@ export const KTI_STEPS: StepDefinition[] = [
     order: 1,
     assignmentMode: 'SINGLE',
     assignmentResolver: (_process, _prev) => ({ type: 'STARTED_BY_SELF' }),
-    allowedActions: [],  // Başlatma submit-only, action yok
+    allowedActions: [], // Başlatma submit-only, action yok
     reasonRequiredFor: [],
-    slaHours: null,      // Başlatma SLA'sız
-    completionHandler: async (_task, _action, _form) => ({ nextStepKey: 'KTI_MANAGER_APPROVAL', processStatus: 'IN_PROGRESS' }),
+    slaHours: null, // Başlatma SLA'sız
+    completionHandler: async (_task, _action, _form) => ({
+      nextStepKey: 'KTI_MANAGER_APPROVAL',
+      processStatus: 'IN_PROGRESS',
+    }),
   },
   {
     key: 'KTI_MANAGER_APPROVAL',
     label: 'Yönetici Onay',
     order: 2,
     assignmentMode: 'SINGLE',
-    assignmentResolver: (process, _prev) => ({ type: 'MANAGER_OF_STARTER', userId: process.startedBy.managerUserId }),
+    assignmentResolver: (process, _prev) => ({
+      type: 'MANAGER_OF_STARTER',
+      userId: process.startedBy.managerUserId,
+    }),
     allowedActions: ['APPROVE', 'REJECT', 'REQUEST_REVISION'],
     reasonRequiredFor: ['REJECT', 'REQUEST_REVISION'],
     slaHours: 72,
     completionHandler: async (_task, action, _form) => {
       if (action === 'APPROVE') return { nextStepKey: null, processStatus: 'COMPLETED' };
-      if (action === 'REJECT')  return { nextStepKey: null, processStatus: 'REJECTED' };
-      if (action === 'REQUEST_REVISION') return { nextStepKey: 'KTI_REVISION', processStatus: 'IN_PROGRESS' };
+      if (action === 'REJECT') return { nextStepKey: null, processStatus: 'REJECTED' };
+      if (action === 'REQUEST_REVISION')
+        return { nextStepKey: 'KTI_REVISION', processStatus: 'IN_PROGRESS' };
       throw new Error(`Unknown action: ${action}`);
     },
   },
@@ -1489,11 +1613,17 @@ export const KTI_STEPS: StepDefinition[] = [
     label: 'Revize (Başlatıcıda)',
     order: 3,
     assignmentMode: 'SINGLE',
-    assignmentResolver: (process, _prev) => ({ type: 'STARTED_BY_SELF', userId: process.startedByUserId }),
+    assignmentResolver: (process, _prev) => ({
+      type: 'STARTED_BY_SELF',
+      userId: process.startedByUserId,
+    }),
     allowedActions: [],
     reasonRequiredFor: [],
     slaHours: 48,
-    completionHandler: async (_task, _action, _form) => ({ nextStepKey: 'KTI_MANAGER_APPROVAL', processStatus: 'IN_PROGRESS' }),
+    completionHandler: async (_task, _action, _form) => ({
+      nextStepKey: 'KTI_MANAGER_APPROVAL',
+      processStatus: 'IN_PROGRESS',
+    }),
   },
 ];
 ```
@@ -1527,7 +1657,10 @@ export class KaizenService {
     // 1. Kullanıcının manager'ı var mı? KTİ manager şart.
     const fullStarter = await this.usersRepository.findByIdWithRelations(starter.id);
     if (!fullStarter?.managerUserId) {
-      throw new UnprocessableException({ code: 'USER_NOT_FOUND', details: { field: 'starter.managerUserId' } });
+      throw new UnprocessableException({
+        code: 'USER_NOT_FOUND',
+        details: { field: 'starter.managerUserId' },
+      });
     }
 
     // 2. Tüm dokümanlar CLEAN ve currentUser'a ait mi?
@@ -1537,7 +1670,10 @@ export class KaizenService {
     // 3. Transaction
     return this.prisma.$transaction(async (tx) => {
       // 3a. Process insert
-      const processNumber = await this.processesRepository.nextProcessNumber(tx, 'BEFORE_AFTER_KAIZEN');
+      const processNumber = await this.processesRepository.nextProcessNumber(
+        tx,
+        'BEFORE_AFTER_KAIZEN',
+      );
       const displayId = `KTI-${String(processNumber).padStart(6, '0')}`;
 
       const process = await this.processesRepository.create(tx, {
@@ -1584,17 +1720,37 @@ export class KaizenService {
       });
 
       // 3d. Document'leri bu process'e bağla
-      await this.documentsService.attachToProcessAndTask(tx, allDocIds, process.id, approvalTask.id);
+      await this.documentsService.attachToProcessAndTask(
+        tx,
+        allDocIds,
+        process.id,
+        approvalTask.id,
+      );
 
       // 3e. Audit payload
       request.auditPayload = {
-        newValue: { displayId, processType: 'BEFORE_AFTER_KAIZEN', companyId: input.companyId, savingAmount: input.savingAmount, documentCount: allDocIds.length },
+        newValue: {
+          displayId,
+          processType: 'BEFORE_AFTER_KAIZEN',
+          companyId: input.companyId,
+          savingAmount: input.savingAmount,
+          documentCount: allDocIds.length,
+        },
       };
 
       // 3f. Bildirim event
-      this.eventEmitter.emit('task.assigned', { taskId: approvalTask.id, userId: fullStarter.managerUserId, processDisplayId: displayId });
+      this.eventEmitter.emit('task.assigned', {
+        taskId: approvalTask.id,
+        userId: fullStarter.managerUserId,
+        processDisplayId: displayId,
+      });
 
-      return { id: process.id, displayId, firstTaskId: approvalTask.id, startedAt: process.startedAt };
+      return {
+        id: process.id,
+        displayId,
+        firstTaskId: approvalTask.id,
+        startedAt: process.startedAt,
+      };
     });
   }
 }
@@ -1656,13 +1812,16 @@ export class KaizenModule implements OnModuleInit {
       displayIdPrefix: 'KTI',
       steps: KTI_STEPS,
       startFormSchema: KtiStartFormSchema as z.ZodSchema,
-      onStart: async () => { throw new Error('use KaizenController directly'); },
+      onStart: async () => {
+        throw new Error('use KaizenController directly');
+      },
     });
   }
 }
 ```
 
 **Bu pattern neleri gösterir:**
+
 - Per-process submodule organizasyonu — her süreç kendi klasöründe
 - Zod form schema'ları step bazında ayrı tanımlı
 - `StepDefinition` array'i ile state machine decouple
@@ -1672,6 +1831,7 @@ export class KaizenModule implements OnModuleInit {
 - Transaction içinde 6 ayrı işlem (process + 2 task + assignment + documents + audit) atomik
 
 **Yeni süreç eklemek için agent:**
+
 1. `modules/processes/types/<new-type>/` klasörü oluştur
 2. Form schema (Zod), step definitions, service, controller, module yaz
 3. Root `ProcessesModule`'a import et
@@ -1686,17 +1846,18 @@ export class KaizenModule implements OnModuleInit {
 
 Detaylı strateji `08_TESTING_STRATEGY` dokümanında. Backend perspektifinden kısa özet:
 
-| Seviye | Konum | Framework | Çalışma süresi (tüm suite) |
-|---|---|---|---|
-| Unit | `<feature>/__tests__/*.spec.ts` | Vitest | < 30 sn |
-| Integration | `test/integration/*.test.ts` | Vitest + Testcontainers (PostgreSQL + Redis) | < 5 dk |
-| E2E | `test/e2e/*.test.ts` | Playwright (browser-level) | < 15 dk |
+| Seviye      | Konum                           | Framework                                    | Çalışma süresi (tüm suite) |
+| ----------- | ------------------------------- | -------------------------------------------- | -------------------------- |
+| Unit        | `<feature>/__tests__/*.spec.ts` | Vitest                                       | < 30 sn                    |
+| Integration | `test/integration/*.test.ts`    | Vitest + Testcontainers (PostgreSQL + Redis) | < 5 dk                     |
+| E2E         | `test/e2e/*.test.ts`            | Playwright (browser-level)                   | < 15 dk                    |
 
 **Testcontainers:** Her integration test suite kendi PostgreSQL ve Redis container'ını ayağa kaldırır, Prisma migration çalıştırır, test sonunda tear down. In-memory mock yerine gerçek PostgreSQL — encryption middleware, trigger'lar, JSONB, sequence'lar gerçek ortamda test edilir.
 
 **Coverage gereksinimleri:** Auth %90, encryption middleware %95, permission resolver %90, process state transitions %85 — CI'da bu modüllerde coverage altına düşme merge'i blokelar. Diğer modüller %70 genel hedef.
 
 **Mock disiplini:**
+
 - External services (S3, KMS, SES, ClamAV) **daima mock** — integration'da bile
 - DB **gerçek** (Testcontainers)
 - Redis **gerçek** (Testcontainers)
