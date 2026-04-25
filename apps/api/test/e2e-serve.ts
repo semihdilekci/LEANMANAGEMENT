@@ -11,6 +11,9 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testconta
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { createPrismaClient } from '../src/prisma/prisma-factory.js';
+import { runE2ePlaywrightSeed } from './e2e-playwright-seed.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.join(__dirname, '..');
 
@@ -61,12 +64,21 @@ async function main(): Promise<void> {
     APP_PII_PEPPER: PII_PEPPER,
     JWT_ACCESS_SECRET_CURRENT: JWT_SECRET,
     AUTH_EXPOSE_RESET_TOKEN: 'true',
+    DOCUMENTS_STORAGE_DRIVER: 'noop',
+    S3_DOCUMENTS_BUCKET: 'e2e-placeholder',
   };
+
+  Object.assign(process.env, env);
 
   execSync('pnpm exec prisma migrate deploy', { cwd: apiDir, stdio: 'inherit', env });
   execSync('pnpm exec prisma db seed', { cwd: apiDir, stdio: 'inherit', env });
 
-  Object.assign(process.env, env);
+  const prismaSeed = createPrismaClient(databaseUrl);
+  try {
+    await runE2ePlaywrightSeed(prismaSeed);
+  } finally {
+    await prismaSeed.$disconnect();
+  }
 
   const { AppModule } = await import('../src/app.module.js');
   app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());

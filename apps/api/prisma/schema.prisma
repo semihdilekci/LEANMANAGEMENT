@@ -2,12 +2,12 @@
 // Faz 2 İter 1 — Prisma v1
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // --- Enums (PostgreSQL native) ---
@@ -101,6 +101,102 @@ enum RoleRuleConditionOperator {
   @@map("role_rule_condition_operator")
 }
 
+enum ProcessType {
+  BEFORE_AFTER_KAIZEN
+
+  @@map("process_type")
+}
+
+enum ProcessStatus {
+  INITIATED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+
+  @@map("process_status")
+}
+
+enum TaskStatus {
+  PENDING
+  CLAIMED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED_BY_PEER
+  SKIPPED_BY_ROLLBACK
+
+  @@map("task_status")
+}
+
+enum AssignmentMode {
+  SINGLE
+  CLAIM
+  ALL_REQUIRED
+
+  @@map("assignment_mode")
+}
+
+enum TaskAssignmentStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+
+  @@map("task_assignment_status")
+}
+
+enum DocumentScanStatus {
+  PENDING_SCAN
+  SCANNING
+  CLEAN
+  INFECTED
+  SCAN_FAILED
+
+  @@map("document_scan_status")
+}
+
+/** docs/02_DATABASE_SCHEMA.md §6.6 — notifications.event_type */
+enum NotificationEventType {
+  TASK_ASSIGNED
+  TASK_CLAIMED_BY_PEER
+  SLA_WARNING
+  SLA_BREACH
+  PROCESS_COMPLETED
+  PROCESS_REJECTED
+  PROCESS_CANCELLED
+  ROLLBACK_PERFORMED
+  DOCUMENT_INFECTED
+  ACCOUNT_LOCKED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_CHANGED
+  PASSWORD_EXPIRY_WARNING
+  SUSPICIOUS_LOGIN
+  SUPERADMIN_LOGIN
+  SECURITY_ANOMALY
+  AUDIT_CHAIN_BROKEN
+  /** İlk giriş / hesap oluşturma hoş geldin e-postası — docs/02 §6.6 şablon seti */
+  USER_LOGIN_WELCOME
+  /** Günlük özet e-postası — digest cron */
+  DAILY_DIGEST
+
+  @@map("notification_event_type")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+
+  @@map("notification_channel")
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  BOUNCED
+
+  @@map("notification_delivery_status")
+}
+
 // --- Master data (ortak şablon) ---
 
 model Company {
@@ -115,6 +211,7 @@ model Company {
 
   users     User[]     @relation("UserCompany")
   locations Location[]
+  processes Process[]
 
   @@index([isActive], map: "companies_is_active_idx")
   @@map("companies")
@@ -313,6 +410,15 @@ model User {
   rolesCreated          Role[]           @relation("RoleCreatedBy")
   roleRulesCreated      RoleRule[]       @relation("RoleRuleCreatedBy")
   systemSettingsUpdated SystemSetting[]  @relation("SystemSettingUpdatedBy")
+  processesStarted     Process[]        @relation("ProcessStartedBy")
+  processesCancelled  Process[]        @relation("ProcessCancelledBy")
+  tasksCompleted      Task[]           @relation("TaskCompletedBy")
+  tasksClaimed        Task[]           @relation("TaskClaimedBy")
+  taskAssignments     TaskAssignment[] @relation("TaskAssignmentUser")
+  documentsUploaded   Document[]       @relation("DocumentUploadedBy")
+  notifications       Notification[]
+  notificationPreferences NotificationPreference[]
+  emailTemplatesUpdated EmailTemplate[] @relation("EmailTemplateUpdatedBy")
 
   @@index([companyId, isActive], map: "users_company_active_idx")
   @@index([locationId, isActive], map: "users_location_active_idx")
@@ -413,9 +519,10 @@ model Role {
   createdByUserId String?  @map("created_by_user_id")
   createdByUser   User?    @relation("RoleCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
-  userRoles       UserRole[]
-  rolePermissions RolePermission[]
-  roleRules       RoleRule[]
+  userRoles        UserRole[]
+  rolePermissions  RolePermission[]
+  roleRules        RoleRule[]
+  taskAssignments  TaskAssignment[]
 
   @@index([isActive], map: "roles_is_active_idx")
   @@map("roles")
@@ -568,4 +675,170 @@ model SystemSetting {
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("system_settings")
+}
+
+// --- Workflow (Faz 5) — kaynak: docs/02_DATABASE_SCHEMA.md §6.4 ---
+
+model Process {
+  id                 String         @id @default(cuid())
+  processNumber      BigInt         @map("process_number")
+  processType        ProcessType    @map("process_type")
+  displayId          String         @unique @map("display_id") @db.VarChar(32)
+  startedByUserId    String         @map("started_by_user_id")
+  startedBy          User           @relation("ProcessStartedBy", fields: [startedByUserId], references: [id], onDelete: Restrict)
+  companyId          String         @map("company_id")
+  company            Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  status             ProcessStatus  @default(INITIATED)
+  startedAt          DateTime       @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt        DateTime?      @map("completed_at") @db.Timestamptz(6)
+  cancelledAt        DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason       String?        @map("cancel_reason") @db.Text
+  cancelledByUserId  String?        @map("cancelled_by_user_id")
+  cancelledBy        User?          @relation("ProcessCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  rollbackHistory    Json?          @map("rollback_history")
+  metadata           Json?
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  tasks     Task[]
+  documents Document[]
+
+  @@unique([processType, processNumber], map: "processes_type_number_key")
+  @@index([startedByUserId, status], map: "processes_started_by_status_idx")
+  @@index([companyId, status, startedAt(sort: Desc)], map: "processes_company_status_started_idx")
+  @@index([status, startedAt(sort: Desc)], map: "processes_status_started_idx")
+  @@index([startedAt(sort: Desc)], map: "processes_started_at_idx")
+  @@map("processes")
+}
+
+model Task {
+  id                 String         @id @default(cuid())
+  processId          String         @map("process_id")
+  process            Process        @relation(fields: [processId], references: [id], onDelete: Restrict)
+  stepKey            String         @map("step_key") @db.VarChar(64)
+  stepOrder          Int            @map("step_order")
+  assignmentMode     AssignmentMode @map("assignment_mode")
+  status             TaskStatus     @default(PENDING)
+  completionAction  String?        @map("completion_action") @db.VarChar(64)
+  completionReason  String?        @map("completion_reason") @db.Text
+  formData           Json?         @map("form_data")
+  slaDueAt           DateTime?      @map("sla_due_at") @db.Timestamptz(6)
+  slaWarningSentAt  DateTime?     @map("sla_warning_sent_at") @db.Timestamptz(6)
+  slaBreachSentAt   DateTime?     @map("sla_breach_sent_at") @db.Timestamptz(6)
+  completedByUserId  String?       @map("completed_by_user_id")
+  completedBy        User?         @relation("TaskCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  completedAt        DateTime?     @map("completed_at") @db.Timestamptz(6)
+  claimedByUserId    String?       @map("claimed_by_user_id")
+  claimedBy          User?         @relation("TaskClaimedBy", fields: [claimedByUserId], references: [id], onDelete: SetNull)
+  isSlaOverdue       Boolean       @default(false) @map("is_sla_overdue")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  assignments TaskAssignment[]
+  documents   Document[]
+
+  @@index([processId, stepOrder], map: "tasks_process_order_idx")
+  @@index([status, slaDueAt], map: "tasks_status_sla_idx")
+  @@index([claimedByUserId], map: "tasks_claimed_by_user_id_idx")
+  @@index([completedByUserId, completedAt(sort: Desc)], map: "tasks_completed_by_idx")
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id               String               @id @default(cuid())
+  taskId           String               @map("task_id")
+  task             Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId           String?              @map("user_id")
+  user             User?                @relation("TaskAssignmentUser", fields: [userId], references: [id], onDelete: SetNull)
+  roleId           String?              @map("role_id")
+  role             Role?                @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  status           TaskAssignmentStatus @default(PENDING)
+  resolvedByRule  Boolean              @default(false) @map("resolved_by_rule")
+  completedAt      DateTime?            @map("completed_at") @db.Timestamptz(6)
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([taskId, status], map: "task_assignments_task_status_idx")
+  @@index([userId, status], map: "task_assignments_user_status_idx")
+  @@index([roleId], map: "task_assignments_role_idx")
+  @@map("task_assignments")
+}
+
+model Document {
+  id               String             @id @default(cuid())
+  uploadedByUserId String             @map("uploaded_by_user_id")
+  uploadedBy       User               @relation("DocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  s3Key            String             @map("s3_key") @db.VarChar(512)
+  originalFilename String             @map("original_filename") @db.VarChar(255)
+  fileSizeBytes    BigInt             @map("file_size_bytes")
+  contentType      String             @map("content_type") @db.VarChar(100)
+  scanStatus       DocumentScanStatus @default(PENDING_SCAN) @map("scan_status")
+  scanResultDetail String?            @map("scan_result_detail") @db.Text
+  processId        String?            @map("process_id")
+  process          Process?           @relation(fields: [processId], references: [id], onDelete: Restrict)
+  taskId           String?            @map("task_id")
+  task             Task?              @relation(fields: [taskId], references: [id], onDelete: Restrict)
+  uploadedAt       DateTime           @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([scanStatus], map: "documents_scan_status_idx")
+  @@index([uploadedByUserId], map: "documents_uploaded_by_idx")
+  @@index([processId], map: "documents_process_idx")
+  @@map("documents")
+}
+
+// --- Notifications (Faz 7 iter 1) — docs/02_DATABASE_SCHEMA.md §6.6 ---
+
+model Notification {
+  id                      String                     @id @default(cuid())
+  userId                  String                     @map("user_id")
+  user                    User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType               NotificationEventType      @map("event_type")
+  channel                 NotificationChannel
+  title                   String                     @db.VarChar(200)
+  body                    String                     @db.Text
+  linkUrl                 String?                    @map("link_url") @db.VarChar(500)
+  metadata                Json?
+  readAt                  DateTime?                  @map("read_at") @db.Timestamptz(6)
+  sentAt                  DateTime                   @default(now()) @map("sent_at") @db.Timestamptz(6)
+  deliveryStatus          NotificationDeliveryStatus @default(PENDING) @map("delivery_status")
+  deliveryFailureReason   String?                    @map("delivery_failure_reason") @db.Text
+  createdAt               DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, readAt, createdAt(sort: Desc)], map: "notifications_user_read_created_idx")
+  @@index([userId, channel], map: "notifications_user_channel_idx")
+  @@index([createdAt(sort: Desc)], map: "notifications_created_at_idx")
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id             String                @id @default(cuid())
+  userId         String                @map("user_id")
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType      NotificationEventType @map("event_type")
+  inAppEnabled   Boolean               @default(true) @map("in_app_enabled")
+  emailEnabled   Boolean               @default(true) @map("email_enabled")
+  digestEnabled  Boolean               @default(false) @map("digest_enabled")
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([userId, eventType], map: "notification_preferences_user_event_key")
+  @@index([userId], map: "notification_preferences_user_idx")
+  @@map("notification_preferences")
+}
+
+/** docs/02_DATABASE_SCHEMA.md §6.6 — email_templates */
+model EmailTemplate {
+  id                 String                  @id @default(cuid())
+  eventType          NotificationEventType   @unique @map("event_type")
+  subjectTemplate    String                  @map("subject_template") @db.VarChar(300)
+  htmlBodyTemplate   String                  @map("html_body_template") @db.Text
+  textBodyTemplate   String                  @map("text_body_template") @db.Text
+  requiredVariables  Json                    @default("[]") @map("required_variables")
+  updatedByUserId    String?                 @map("updated_by_user_id")
+  updatedByUser      User?                   @relation("EmailTemplateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  createdAt          DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("email_templates")
 }

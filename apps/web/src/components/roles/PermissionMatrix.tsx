@@ -1,10 +1,14 @@
 'use client';
 
+import type { AxiosError } from 'axios';
 import { Permission } from '@leanmgmt/shared-types';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { PermissionGate } from '@/components/shared/PermissionGate';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 import {
   usePermissionMetadataQuery,
   useReplaceRolePermissionsMutation,
@@ -14,6 +18,8 @@ import {
 import { RoleSummaryBand } from '@/components/roles/RoleSummaryBand';
 
 const CATEGORIES = ['MENU', 'ACTION', 'DATA', 'FIELD'] as const;
+
+const DIFF_PREVIEW_LIMIT = 12;
 
 export function PermissionMatrix({ roleId }: { roleId: string }) {
   const { data: role } = useRoleDetailQuery(roleId);
@@ -27,6 +33,9 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
   const [tab, setTab] = useState<(typeof CATEGORIES)[number]>('ACTION');
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+
+  useUnsavedChangesWarning(dirty);
 
   useEffect(() => {
     setSelected(new Set(grantedRows?.map((r) => r.key) ?? []));
@@ -44,6 +53,23 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
     }
     return m;
   }, [meta]);
+
+  const categoryStats = useMemo(() => {
+    const list = meta ?? [];
+    const stats: Record<(typeof CATEGORIES)[number], { total: number; selected: number }> = {
+      MENU: { total: 0, selected: 0 },
+      ACTION: { total: 0, selected: 0 },
+      DATA: { total: 0, selected: 0 },
+      FIELD: { total: 0, selected: 0 },
+    };
+    for (const p of list) {
+      const cat = p.category as (typeof CATEGORIES)[number];
+      if (!(cat in stats)) continue;
+      stats[cat].total += 1;
+      if (selected.has(p.key)) stats[cat].selected += 1;
+    }
+    return stats;
+  }, [meta, selected]);
 
   const rowsInTab = useMemo(() => {
     const list = meta ?? [];
@@ -88,28 +114,37 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
   const hasSensitiveChange = useMemo(() => {
     const check = (keys: string[]) =>
       keys.some((k) => {
-        const m = metaByKey.get(k);
-        return m?.isSensitive;
+        const row = metaByKey.get(k);
+        return row?.isSensitive;
       });
     return check(added) || check(removed);
   }, [added, removed, metaByKey]);
 
-  const save = async () => {
-    setError(null);
-    if (hasSensitiveChange) {
-      const ok = window.confirm(
-        'Hassas yetkilerde değişiklik var. Bu işlem güvenlik etkisi doğurabilir. Devam edilsin mi?',
-      );
-      if (!ok) return;
-    } else if (!window.confirm('Rol yetkileri güncellenecek. Onaylıyor musunuz?')) {
-      return;
+  const copyKey = async (key: string) => {
+    try {
+      await navigator.clipboard.writeText(key);
+      toast.success('Yetki anahtarı panoya kopyalandı');
+    } catch {
+      toast.error('Panoya kopyalanamadı');
     }
+  };
+
+  const executeSave = async () => {
+    setError(null);
     try {
       await replaceMutation.mutateAsync([...selected]);
       setDirty(false);
+      toast.success('Rol yetkileri güncellendi');
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: { message?: string } } } };
-      setError(err.response?.data?.error?.message ?? 'Kayıt başarısız.');
+      const ax = e as AxiosError<{ error?: { code?: string; message?: string } }>;
+      const code = ax.response?.data?.error?.code;
+      const message = ax.response?.data?.error?.message;
+      if (code === 'ROLE_SELF_EDIT_FORBIDDEN') {
+        toast.error('Kendi rolünüzün yetkilerini düşüremezsiniz');
+      } else {
+        setError(message ?? 'Kayıt başarısız.');
+      }
+      throw e;
     }
   };
 
@@ -141,20 +176,26 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
       <RoleSummaryBand role={role} active="permissions" />
 
       <div className="flex flex-wrap gap-2">
-        {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            type="button"
-            className={`rounded-[var(--radius-md)] px-3 py-1.5 text-sm ${
-              tab === c
-                ? 'bg-[var(--color-primary-100)] font-medium text-[var(--color-primary-900)]'
-                : 'bg-[var(--color-neutral-100)]'
-            }`}
-            onClick={() => setTab(c)}
-          >
-            {c}
-          </button>
-        ))}
+        {CATEGORIES.map((c) => {
+          const { total, selected: sel } = categoryStats[c];
+          return (
+            <button
+              key={c}
+              type="button"
+              className={`rounded-[var(--radius-md)] px-3 py-1.5 text-sm ${
+                tab === c
+                  ? 'bg-[var(--color-primary-100)] font-medium text-[var(--color-primary-900)]'
+                  : 'bg-[var(--color-neutral-100)]'
+              }`}
+              onClick={() => setTab(c)}
+            >
+              {c}{' '}
+              <span className="text-xs text-[var(--color-neutral-500)]">
+                ({sel}/{total})
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <input
@@ -191,6 +232,14 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <code className="text-xs text-[var(--color-neutral-800)]">{p.key}</code>
+                <button
+                  type="button"
+                  className="text-[10px] text-[var(--color-primary-700)] underline"
+                  aria-label={`${p.key} anahtarını kopyala`}
+                  onClick={() => void copyKey(p.key)}
+                >
+                  Kopyala
+                </button>
                 {p.isSensitive ? (
                   <span className="rounded bg-[var(--color-error-100)] px-1.5 py-0.5 text-xs text-[var(--color-error-800)]">
                     Hassas
@@ -208,6 +257,69 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
           {error}
         </p>
       ) : null}
+
+      <ConfirmDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        title={hasSensitiveChange ? 'Hassas yetki değişikliği' : 'Yetkileri güncelle'}
+        description={
+          hasSensitiveChange
+            ? 'Hassas yetkilerde değişiklik var. Bu işlem güvenlik etkisi doğurabilir. Özet aşağıda.'
+            : 'Rol yetkileri aşağıdaki özetle güncellenecek.'
+        }
+        confirmLabel={replaceMutation.isPending ? 'Kaydediliyor…' : 'Kaydet'}
+        cancelLabel="Vazgeç"
+        destructive={hasSensitiveChange}
+        confirmDisabled={replaceMutation.isPending}
+        onConfirm={executeSave}
+      >
+        <div className="max-h-48 space-y-2 overflow-y-auto text-xs">
+          {added.length > 0 ? (
+            <div>
+              <p className="font-medium text-[var(--color-success)]">Eklenecek ({added.length})</p>
+              <ul className="mt-1 flex flex-wrap gap-1">
+                {added.slice(0, DIFF_PREVIEW_LIMIT).map((k) => (
+                  <li
+                    key={k}
+                    className="rounded px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-success)]"
+                    style={{ background: 'var(--color-success-soft)' }}
+                  >
+                    +{k}
+                  </li>
+                ))}
+              </ul>
+              {added.length > DIFF_PREVIEW_LIMIT ? (
+                <p className="mt-1 text-[var(--color-neutral-500)]">
+                  ve {added.length - DIFF_PREVIEW_LIMIT} diğer…
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {removed.length > 0 ? (
+            <div>
+              <p className="font-medium text-[var(--color-danger)]">
+                Kaldırılacak ({removed.length})
+              </p>
+              <ul className="mt-1 flex flex-wrap gap-1">
+                {removed.slice(0, DIFF_PREVIEW_LIMIT).map((k) => (
+                  <li
+                    key={k}
+                    className="rounded px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-danger)]"
+                    style={{ background: 'var(--color-danger-soft)' }}
+                  >
+                    −{k}
+                  </li>
+                ))}
+              </ul>
+              {removed.length > DIFF_PREVIEW_LIMIT ? (
+                <p className="mt-1 text-[var(--color-neutral-500)]">
+                  ve {removed.length - DIFF_PREVIEW_LIMIT} diğer…
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </ConfirmDialog>
 
       {dirty ? (
         <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-neutral-200)] bg-[var(--color-neutral-0)] py-3">
@@ -230,9 +342,9 @@ export function PermissionMatrix({ roleId }: { roleId: string }) {
                 type="button"
                 className="ls-btn ls-btn--primary ls-btn--sm"
                 disabled={replaceMutation.isPending}
-                onClick={() => void save()}
+                onClick={() => setSaveDialogOpen(true)}
               >
-                {replaceMutation.isPending ? 'Kaydediliyor…' : 'Kaydet'}
+                Kaydet
               </button>
             </PermissionGate>
           </div>

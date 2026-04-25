@@ -41,6 +41,9 @@ export {
   UserIdParamSchema,
   UserListQuerySchema,
   UserReactivateSchema,
+  UserRoleItemSchema,
+  UserRoleListResponseSchema,
+  UserRoleMatchedConditionSetSchema,
   type CreateUserInput,
   type UpdateUserInput,
   type UserAnonymizeInput,
@@ -48,6 +51,8 @@ export {
   type UserIdParam,
   type UserListQuery,
   type UserReactivateInput,
+  type UserRoleItem,
+  type UserRoleMatchedConditionSet,
 } from './users.schemas.js';
 
 export {
@@ -82,6 +87,51 @@ export {
   type UpdateRoleRuleActiveInput,
   type UserIdInRoleParam,
 } from './roles.schemas.js';
+
+export {
+  ProcessCancelBodySchema,
+  ProcessListQuerySchema,
+  ProcessRollbackBodySchema,
+  KtiStartBodySchema,
+  type ProcessCancelInput,
+  type ProcessListQuery,
+  type ProcessRollbackInput,
+  type KtiStartInput,
+} from './processes.schemas.js';
+
+export {
+  TaskCompleteBodySchema,
+  TaskListQuerySchema,
+  type TaskCompleteBodyInput,
+  type TaskListQuery,
+} from './tasks.schemas.js';
+
+export {
+  DOCUMENT_ALLOWED_CONTENT_TYPES,
+  DocumentCreateBodySchema,
+  DocumentIdParamSchema,
+  DocumentUploadInitiateBodySchema,
+  type DocumentCreateInput,
+  type DocumentIdParam,
+  type DocumentUploadInitiateInput,
+} from './documents.schemas.js';
+
+export {
+  NOTIFICATION_EVENT_TYPES,
+  NotificationListQuerySchema,
+  NotificationPreferencesPutSchema,
+  type NotificationEventTypeValue,
+  type NotificationListQuery,
+  type NotificationPreferencesPutInput,
+} from './notifications.schemas.js';
+
+export {
+  EmailTemplateEventTypeParamSchema,
+  EmailTemplatePreviewSchema,
+  UpdateEmailTemplateSchema,
+  type EmailTemplatePreviewInput,
+  type UpdateEmailTemplateInput,
+} from './email-templates.schemas.js';
 
 /** Ortak Zod şemaları */
 export const EmptyObjectSchema = z.object({}).strict();

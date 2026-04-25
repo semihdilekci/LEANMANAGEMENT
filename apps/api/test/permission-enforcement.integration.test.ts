@@ -229,4 +229,68 @@ describe('4-katman + cache invalidation (integration)', () => {
     expect(put.statusCode).toBe(200);
     expect(await r0.get(redisKey)).toBeNull();
   });
+
+  it('Rol kuralı ekleme: Redis user_permissions temizlenir', async () => {
+    const prisma = app.get(PrismaService);
+    const onlyProc = await prisma.user.findFirst({
+      where: { firstName: 'Proc', lastName: 'Only' },
+    });
+    expect(onlyProc).toBeTruthy();
+    const onlyProcId = onlyProc!.id;
+    const companyId = onlyProc!.companyId;
+    expect(companyId).toBeTruthy();
+    const procRole = await prisma.role.findFirstOrThrow({ where: { code: 'PROCESS_MANAGER' } });
+
+    const srv = app.getHttpAdapter().getInstance();
+    const loginP = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        email: 'integration_process@leanmgmt.local',
+        password: 'OnlyProc123!@#',
+      }),
+    });
+    const tokP = (JSON.parse(loginP.body) as { data: { accessToken: string } }).data;
+    await srv.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { authorization: `Bearer ${tokP.accessToken}` },
+    });
+    const redisKey = `user_permissions:${onlyProcId}`;
+    const r0 = app.get(RedisService).raw;
+    if (!(await r0.get(redisKey))) {
+      const res = app.get(PermissionResolverService);
+      await res.getUserPermissions(onlyProcId);
+    }
+    expect(await r0.get(redisKey)).toBeTruthy();
+
+    const loginS = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ email: 'superadmin@leanmgmt.local', password: 'AdminPass123!@#' }),
+    });
+    const b = JSON.parse(loginS.body) as { data: { accessToken: string; csrfToken: string } };
+    const cookies = parseSetCookie(loginS.headers['set-cookie']);
+    const post = await srv.inject({
+      method: 'POST',
+      url: `/api/v1/roles/${procRole.id}/rules`,
+      headers: {
+        authorization: `Bearer ${b.data.accessToken}`,
+        'x-csrf-token': b.data.csrfToken,
+        'content-type': 'application/json',
+        cookie: `refresh_token=${cookies.refresh_token ?? ''}; csrf_token=${cookies.csrf_token ?? ''}`,
+      },
+      payload: JSON.stringify({
+        conditionSets: [
+          {
+            conditions: [{ attributeKey: 'COMPANY_ID', operator: 'EQUALS', value: companyId! }],
+          },
+        ],
+      }),
+    });
+    expect(post.statusCode).toBe(201);
+    expect(await r0.get(redisKey)).toBeNull();
+  });
 });

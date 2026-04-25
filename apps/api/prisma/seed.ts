@@ -1,18 +1,25 @@
 /**
  * Kaynak: docs/02_DATABASE_SCHEMA.md (seed notları), docs/01_DOMAIN_MODEL.md §2.3–2.4
  */
+import 'dotenv/config';
 import { createHash } from 'node:crypto';
 
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
+import { createPrismaClient } from '../src/prisma/prisma-factory.js';
+
 import {
+  bufferToPrismaBytes,
   encryptAes256GcmDeterministic,
   encryptAes256GcmProbabilistic,
   hmacBlindIndexHex,
-} from '../../../packages/shared-utils/src/pii-crypto.js';
+} from '@leanmgmt/shared-utils';
 
-const prisma = new PrismaClient();
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL gerekli');
+}
+const prisma = createPrismaClient(databaseUrl);
 
 const BCRYPT_COST = 12;
 
@@ -43,6 +50,8 @@ const ALL_PERMISSION_KEYS: string[] = [
   'USER_SESSION_REVOKE',
   'USER_ANONYMIZE',
   'NOTIFICATION_READ',
+  'EMAIL_TEMPLATE_VIEW',
+  'EMAIL_TEMPLATE_EDIT',
   'USER_PROFILE_VIEW',
   'MASTER_DATA_VIEW',
 ];
@@ -80,49 +89,67 @@ async function main(): Promise<void> {
 
   const passwordHash = await bcrypt.hash(superadminPassword, BCRYPT_COST);
 
-  const company = await prisma.company.create({
-    data: { code: 'SYSTEM', name: 'System' },
+  /** Aynı DB’de `pnpm prisma:seed` tekrar çalışsın diye benzersiz kodlarda upsert */
+  const company = await prisma.company.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System' },
+    update: {},
   });
 
-  const location = await prisma.location.create({
-    data: { code: 'SYSTEM', name: 'System', companyId: company.id },
+  const location = await prisma.location.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System', companyId: company.id },
+    update: { companyId: company.id },
   });
 
-  const department = await prisma.department.create({
-    data: { code: 'SYSTEM', name: 'System' },
+  const department = await prisma.department.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System' },
+    update: {},
   });
 
-  const level = await prisma.level.create({
-    data: { code: 'SYSTEM', name: 'System' },
+  const level = await prisma.level.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System' },
+    update: {},
   });
 
-  const position = await prisma.position.create({
-    data: { code: 'SYSTEM', name: 'System' },
+  const position = await prisma.position.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System' },
+    update: {},
   });
 
-  const team = await prisma.team.create({
-    data: { code: 'SYSTEM', name: 'System' },
+  const team = await prisma.team.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System' },
+    update: {},
   });
 
-  const workArea = await prisma.workArea.create({
-    data: { code: 'SYSTEM', name: 'System' },
+  const workArea = await prisma.workArea.upsert({
+    where: { code: 'SYSTEM' },
+    create: { code: 'SYSTEM', name: 'System' },
+    update: {},
   });
 
-  const workSubArea = await prisma.workSubArea.create({
-    data: {
+  const workSubArea = await prisma.workSubArea.upsert({
+    where: { code: 'SYSTEM' },
+    create: {
       code: 'SYSTEM',
       name: 'System',
       parentWorkAreaCode: workArea.code,
     },
+    update: {},
   });
 
-  const superadmin = await prisma.user.create({
-    data: {
-      sicilEncrypted: sicilEnc,
+  const superadmin = await prisma.user.upsert({
+    where: { sicilBlindIndex: sicilBlind },
+    create: {
+      sicilEncrypted: bufferToPrismaBytes(sicilEnc),
       sicilBlindIndex: sicilBlind,
       firstName: 'Super',
       lastName: 'Admin',
-      emailEncrypted: emailEnc,
+      emailEncrypted: bufferToPrismaBytes(emailEnc),
       emailBlindIndex: emailBlind,
       passwordHash,
       employeeType: 'WHITE_COLLAR',
@@ -136,6 +163,43 @@ async function main(): Promise<void> {
       workSubAreaId: workSubArea.id,
       passwordChangedAt: new Date(),
     },
+    update: {},
+  });
+
+  /** KTİ başlatma testleri ve süreç motoru için superadmin’e atanmış yönetici */
+  const managerSicil = '00000003';
+  const managerSicilEnc = encryptAes256GcmDeterministic(managerSicil, piiKey, 'user:sicil:v1');
+  const managerSicilBlind = hmacBlindIndexHex(managerSicil, pepper);
+  const managerEmail = 'seed.manager@leanmgmt.local';
+  const managerEmailEnc = encryptAes256GcmDeterministic(managerEmail, piiKey, 'user:email:v1');
+  const managerEmailBlind = hmacBlindIndexHex(managerEmail, pepper);
+  const managerPasswordHash = await bcrypt.hash('ManagerPass123!@#', BCRYPT_COST);
+  const seedManager = await prisma.user.upsert({
+    where: { sicilBlindIndex: managerSicilBlind },
+    create: {
+      sicilEncrypted: bufferToPrismaBytes(managerSicilEnc),
+      sicilBlindIndex: managerSicilBlind,
+      firstName: 'Seed',
+      lastName: 'Manager',
+      emailEncrypted: bufferToPrismaBytes(managerEmailEnc),
+      emailBlindIndex: managerEmailBlind,
+      passwordHash: managerPasswordHash,
+      employeeType: 'WHITE_COLLAR',
+      companyId: company.id,
+      locationId: location.id,
+      departmentId: department.id,
+      positionId: position.id,
+      levelId: level.id,
+      teamId: team.id,
+      workAreaId: workArea.id,
+      workSubAreaId: workSubArea.id,
+      passwordChangedAt: new Date(),
+    },
+    update: {},
+  });
+  await prisma.user.update({
+    where: { id: superadmin.id },
+    data: { managerUserId: seedManager.id },
   });
 
   const rolesData = [
@@ -152,13 +216,18 @@ async function main(): Promise<void> {
 
   const createdRoles: { id: string; code: string }[] = [];
   for (const r of rolesData) {
-    const role = await prisma.role.create({
-      data: {
+    const role = await prisma.role.upsert({
+      where: { code: r.code },
+      create: {
         code: r.code,
         name: r.name,
         description: r.description,
         isSystem: r.isSystem,
         createdByUserId: superadmin.id,
+      },
+      update: {
+        name: r.name,
+        description: r.description ?? undefined,
       },
     });
     createdRoles.push({ id: role.id, code: role.code });
@@ -168,12 +237,19 @@ async function main(): Promise<void> {
   if (!superadminRole) throw new Error('SUPERADMIN rolü oluşturulamadı');
 
   for (const key of ALL_PERMISSION_KEYS) {
-    await prisma.rolePermission.create({
-      data: {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionKey: {
+          roleId: superadminRole.id,
+          permissionKey: key,
+        },
+      },
+      create: {
         roleId: superadminRole.id,
         permissionKey: key,
         grantedByUserId: superadmin.id,
       },
+      update: {},
     });
   }
 
@@ -210,8 +286,16 @@ async function main(): Promise<void> {
     const role = createdRoles.find((x) => x.code === code);
     if (!role) return;
     for (const key of keys) {
-      await prisma.rolePermission.create({
-        data: { roleId: role.id, permissionKey: key, grantedByUserId: superadmin.id },
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionKey: { roleId: role.id, permissionKey: key },
+        },
+        create: {
+          roleId: role.id,
+          permissionKey: key,
+          grantedByUserId: superadmin.id,
+        },
+        update: {},
       });
     }
   };
@@ -220,12 +304,16 @@ async function main(): Promise<void> {
   await grantToRole('USER_MANAGER', userManagerPerms);
   await grantToRole('PROCESS_MANAGER', processManagerPerms);
 
-  await prisma.userRole.create({
-    data: {
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: { userId: superadmin.id, roleId: superadminRole.id },
+    },
+    create: {
       userId: superadmin.id,
       roleId: superadminRole.id,
       assignedByUserId: superadmin.id,
     },
+    update: {},
   });
 
   const pepperHex = process.env.APP_PII_PEPPER!;
@@ -237,30 +325,59 @@ async function main(): Promise<void> {
   });
   const { ciphertext: contentEnc, dek: contentDek } = encryptAes256GcmProbabilistic(consentBody);
 
-  const publishedConsent = await prisma.consentVersion.create({
-    data: {
+  const publishedConsent = await prisma.consentVersion.upsert({
+    where: { version: 1 },
+    create: {
       version: 1,
-      contentEncrypted: contentEnc,
-      contentDek: contentDek,
+      contentEncrypted: bufferToPrismaBytes(contentEnc),
+      contentDek: bufferToPrismaBytes(contentDek),
       status: 'PUBLISHED',
       publishedAt: new Date(),
       effectiveFrom: new Date(),
       createdByUserId: superadmin.id,
     },
+    update: {},
   });
 
   const superadminConsentSignature = createHash('sha256')
     .update(`${superadmin.id}:${publishedConsent.id}:${pepperHex}`)
     .digest('hex');
 
-  await prisma.userConsent.create({
-    data: {
+  await prisma.userConsent.upsert({
+    where: {
+      userId_consentVersionId: {
+        userId: superadmin.id,
+        consentVersionId: publishedConsent.id,
+      },
+    },
+    create: {
       userId: superadmin.id,
       consentVersionId: publishedConsent.id,
       ipHash: createHash('sha256').update('seed-consent').digest('hex'),
       userAgent: 'seed',
       signature: superadminConsentSignature,
     },
+    update: {},
+  });
+
+  const seedManagerConsentSignature = createHash('sha256')
+    .update(`${seedManager.id}:${publishedConsent.id}:${pepperHex}`)
+    .digest('hex');
+  await prisma.userConsent.upsert({
+    where: {
+      userId_consentVersionId: {
+        userId: seedManager.id,
+        consentVersionId: publishedConsent.id,
+      },
+    },
+    create: {
+      userId: seedManager.id,
+      consentVersionId: publishedConsent.id,
+      ipHash: createHash('sha256').update('seed-manager-consent').digest('hex'),
+      userAgent: 'seed',
+      signature: seedManagerConsentSignature,
+    },
+    update: {},
   });
 
   const pendingSicil = '00000002';
@@ -277,13 +394,14 @@ async function main(): Promise<void> {
   const userManagerRole = createdRoles.find((x) => x.code === 'USER_MANAGER');
   if (!userManagerRole) throw new Error('USER_MANAGER rolü yok');
 
-  const consentPendingUser = await prisma.user.create({
-    data: {
-      sicilEncrypted: pendingSicilEnc,
+  const consentPendingUser = await prisma.user.upsert({
+    where: { sicilBlindIndex: pendingSicilBlind },
+    create: {
+      sicilEncrypted: bufferToPrismaBytes(pendingSicilEnc),
       sicilBlindIndex: pendingSicilBlind,
       firstName: 'Rıza',
       lastName: 'Bekleyen',
-      emailEncrypted: pendingEnc,
+      emailEncrypted: bufferToPrismaBytes(pendingEnc),
       emailBlindIndex: pendingBlind,
       passwordHash: pendingHash,
       employeeType: 'WHITE_COLLAR',
@@ -297,14 +415,19 @@ async function main(): Promise<void> {
       workSubAreaId: workSubArea.id,
       passwordChangedAt: new Date(),
     },
+    update: {},
   });
 
-  await prisma.userRole.create({
-    data: {
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: { userId: consentPendingUser.id, roleId: userManagerRole.id },
+    },
+    create: {
       userId: consentPendingUser.id,
       roleId: userManagerRole.id,
       assignedByUserId: superadmin.id,
     },
+    update: {},
   });
 
   /** Faz 4: integration — USER_LIST_VIEW dışı yetkilerle kullanıcı */
@@ -319,13 +442,14 @@ async function main(): Promise<void> {
   const onlyProcPassword = process.env.SEED_INTEGRATION_PROCESS_PASSWORD ?? 'OnlyProc123!@#';
   const onlyProcHash = await bcrypt.hash(onlyProcPassword, BCRYPT_COST);
 
-  const onlyProcessUser = await prisma.user.create({
-    data: {
-      sicilEncrypted: onlyProcSicilEnc,
+  const onlyProcessUser = await prisma.user.upsert({
+    where: { sicilBlindIndex: onlyProcSicilBlind },
+    create: {
+      sicilEncrypted: bufferToPrismaBytes(onlyProcSicilEnc),
       sicilBlindIndex: onlyProcSicilBlind,
       firstName: 'Proc',
       lastName: 'Only',
-      emailEncrypted: onlyProcEnc,
+      emailEncrypted: bufferToPrismaBytes(onlyProcEnc),
       emailBlindIndex: onlyProcBlind,
       passwordHash: onlyProcHash,
       employeeType: 'WHITE_COLLAR',
@@ -339,25 +463,37 @@ async function main(): Promise<void> {
       workSubAreaId: workSubArea.id,
       passwordChangedAt: new Date(),
     },
+    update: {},
   });
-  await prisma.userRole.create({
-    data: {
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: { userId: onlyProcessUser.id, roleId: processManagerRole.id },
+    },
+    create: {
       userId: onlyProcessUser.id,
       roleId: processManagerRole.id,
       assignedByUserId: superadmin.id,
     },
+    update: {},
   });
   const onlyProcSignature = createHash('sha256')
     .update(`${onlyProcessUser.id}:${publishedConsent.id}:${pepperHex}`)
     .digest('hex');
-  await prisma.userConsent.create({
-    data: {
+  await prisma.userConsent.upsert({
+    where: {
+      userId_consentVersionId: {
+        userId: onlyProcessUser.id,
+        consentVersionId: publishedConsent.id,
+      },
+    },
+    create: {
       userId: onlyProcessUser.id,
       consentVersionId: publishedConsent.id,
       ipHash: createHash('sha256').update('seed-onlyproc').digest('hex'),
       userAgent: 'seed',
       signature: onlyProcSignature,
     },
+    update: {},
   });
 
   const systemSettingsSeed: { key: string; value: unknown; description: string | null }[] = [
@@ -375,16 +511,155 @@ async function main(): Promise<void> {
   ];
 
   for (const row of systemSettingsSeed) {
-    await prisma.systemSetting.create({
-      data: {
+    await prisma.systemSetting.upsert({
+      where: { key: row.key },
+      create: {
         key: row.key,
         value: row.value as object,
         description: row.description,
       },
+      update: {
+        value: row.value as object,
+        description: row.description ?? undefined,
+      },
     });
   }
 
-  const genesisHash = chainHashPlaceholder('GENESIS', JSON.stringify({ event: 'seed' }));
+  /** Faz 7 iter 2 — varsayılan e-posta şablonları (tekrar seed: update boş, admin düzenlemesi korunur) */
+  const defaultEmailTemplates: {
+    eventType:
+      | 'TASK_ASSIGNED'
+      | 'TASK_CLAIMED_BY_PEER'
+      | 'SLA_WARNING'
+      | 'SLA_BREACH'
+      | 'PROCESS_COMPLETED'
+      | 'PROCESS_REJECTED'
+      | 'PROCESS_CANCELLED'
+      | 'ROLLBACK_PERFORMED'
+      | 'PASSWORD_RESET_REQUESTED'
+      | 'PASSWORD_CHANGED'
+      | 'USER_LOGIN_WELCOME'
+      | 'DAILY_DIGEST';
+    subjectTemplate: string;
+    htmlBodyTemplate: string;
+    textBodyTemplate: string;
+    requiredVariables: string[];
+  }[] = [
+    {
+      eventType: 'TASK_ASSIGNED',
+      subjectTemplate: 'Yeni görev: {{taskTitle}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p><strong>{{taskTitle}}</strong> adımı için görev atandı. Süreç: {{displayId}}</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{taskTitle}} görevi atandı. Süreç {{displayId}}.',
+      requiredVariables: ['firstName', 'taskTitle', 'displayId'],
+    },
+    {
+      eventType: 'TASK_CLAIMED_BY_PEER',
+      subjectTemplate: 'Görev üstlenildi: {{displayId}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{displayId}} sürecinde görevi başka bir aday üstlendi.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{displayId}} — görev başka kullanıcıda.',
+      requiredVariables: ['firstName', 'displayId'],
+    },
+    {
+      eventType: 'SLA_WARNING',
+      subjectTemplate: 'SLA uyarısı: {{taskTitle}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{taskTitle}} görevi için SLA süresi yaklaşıyor ({{displayId}}).</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{taskTitle}} SLA uyarısı. {{displayId}}',
+      requiredVariables: ['firstName', 'taskTitle', 'displayId'],
+    },
+    {
+      eventType: 'SLA_BREACH',
+      subjectTemplate: 'SLA aşımı: {{taskTitle}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{taskTitle}} görevinde SLA aşıldı. Süreç: {{displayId}}.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{taskTitle}} SLA aşımı. {{displayId}}',
+      requiredVariables: ['firstName', 'taskTitle', 'displayId'],
+    },
+    {
+      eventType: 'PROCESS_COMPLETED',
+      subjectTemplate: 'Süreç tamamlandı: {{displayId}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{displayId}} Kaizen süreci onaylandı ve tamamlandı.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{displayId}} süreci tamamlandı.',
+      requiredVariables: ['firstName', 'displayId'],
+    },
+    {
+      eventType: 'PROCESS_REJECTED',
+      subjectTemplate: 'Süreç reddedildi: {{displayId}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{displayId}} Kaizen süreci reddedildi.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{displayId}} süreci reddedildi.',
+      requiredVariables: ['firstName', 'displayId'],
+    },
+    {
+      eventType: 'PROCESS_CANCELLED',
+      subjectTemplate: 'Süreç iptal: {{displayId}}',
+      htmlBodyTemplate: '<p>Merhaba {{firstName}},</p><p>{{displayId}} süreci iptal edildi.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{displayId}} iptal edildi.',
+      requiredVariables: ['firstName', 'displayId'],
+    },
+    {
+      eventType: 'ROLLBACK_PERFORMED',
+      subjectTemplate: 'Geri alma: {{displayId}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{displayId}} sürecinde geri alma uygulandı.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{displayId}} geri alındı.',
+      requiredVariables: ['firstName', 'displayId'],
+    },
+    {
+      eventType: 'PASSWORD_RESET_REQUESTED',
+      subjectTemplate: 'Şifre sıfırlama talebi',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>Şifre sıfırlama için bağlantı: {{resetLink}}</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, şifre sıfırlama: {{resetLink}}',
+      requiredVariables: ['firstName', 'resetLink'],
+    },
+    {
+      eventType: 'PASSWORD_CHANGED',
+      subjectTemplate: 'Şifreniz güncellendi',
+      htmlBodyTemplate: '<p>Merhaba {{firstName}},</p><p>Hesap şifreniz değiştirildi.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, şifreniz değiştirildi.',
+      requiredVariables: ['firstName'],
+    },
+    {
+      eventType: 'USER_LOGIN_WELCOME',
+      subjectTemplate: 'Lean Management’a hoş geldiniz',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>Hesabınız oluşturuldu. Giriş: {{loginUrl}}</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, hoş geldiniz. Giriş: {{loginUrl}}',
+      requiredVariables: ['firstName', 'loginUrl'],
+    },
+    {
+      eventType: 'DAILY_DIGEST',
+      subjectTemplate: 'Günlük özet — {{digestDate}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>{{digestDate}} için özet:</p><p>{{digestBodyHtml}}</p>',
+      textBodyTemplate: 'Merhaba {{firstName}},\n{{digestDate}}\n{{digestBodyText}}',
+      requiredVariables: ['firstName', 'digestDate', 'digestBodyHtml', 'digestBodyText'],
+    },
+  ];
+
+  for (const t of defaultEmailTemplates) {
+    await prisma.emailTemplate.upsert({
+      where: { eventType: t.eventType },
+      create: {
+        eventType: t.eventType,
+        subjectTemplate: t.subjectTemplate,
+        htmlBodyTemplate: t.htmlBodyTemplate,
+        textBodyTemplate: t.textBodyTemplate,
+        requiredVariables: t.requiredVariables,
+        updatedByUserId: superadmin.id,
+      },
+      update: {},
+    });
+  }
+
+  const genesisHash = chainHashPlaceholder(
+    'GENESIS',
+    JSON.stringify({ event: 'seed', at: new Date().toISOString() }),
+  );
   await prisma.auditLog.create({
     data: {
       userId: superadmin.id,

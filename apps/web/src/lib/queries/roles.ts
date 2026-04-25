@@ -229,6 +229,7 @@ export function useCreateRoleRuleMutation(roleId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.roles.rules(roleId) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.roles.detail(roleId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
     },
   });
 }
@@ -250,6 +251,7 @@ export function usePatchRoleRuleMutation(roleId: string) {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.roles.detail(roleId), 'users'],
       });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
     },
   });
 }
@@ -265,6 +267,7 @@ export function useDeleteRoleRuleMutation(roleId: string) {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.roles.detail(roleId), 'users'],
       });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
     },
   });
 }

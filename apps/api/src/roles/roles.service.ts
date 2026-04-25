@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '@leanmgmt/prisma-client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
   AssignUserToRoleInput,

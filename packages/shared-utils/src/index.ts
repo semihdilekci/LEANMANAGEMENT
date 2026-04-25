@@ -3,6 +3,7 @@ export function noop(): void {
   /* scaffold */
 }
 
+export { bufferToPrismaBytes, bytesToNodeBuffer } from './bytes.js';
 export {
   decryptAes256GcmDeterministic,
   decryptAes256GcmProbabilistic,

@@ -28,6 +28,8 @@ export enum Permission {
   USER_SESSION_REVOKE = 'USER_SESSION_REVOKE',
   USER_ANONYMIZE = 'USER_ANONYMIZE',
   NOTIFICATION_READ = 'NOTIFICATION_READ',
+  EMAIL_TEMPLATE_VIEW = 'EMAIL_TEMPLATE_VIEW',
+  EMAIL_TEMPLATE_EDIT = 'EMAIL_TEMPLATE_EDIT',
   USER_PROFILE_VIEW = 'USER_PROFILE_VIEW',
   MASTER_DATA_VIEW = 'MASTER_DATA_VIEW',
 }
@@ -188,9 +190,21 @@ export const PERMISSION_METADATA: Record<Permission, PermissionMetadata> = {
   },
   [Permission.NOTIFICATION_READ]: {
     key: Permission.NOTIFICATION_READ,
-    category: 'DATA',
-    description: 'Bildirimleri okuma',
+    category: 'MENU',
+    description: 'Bildirim merkezi, okunmamış sayacı ve bildirim tercihleri',
     isSensitive: false,
+  },
+  [Permission.EMAIL_TEMPLATE_VIEW]: {
+    key: Permission.EMAIL_TEMPLATE_VIEW,
+    category: 'DATA',
+    description: 'E-posta şablonlarını görüntüleme',
+    isSensitive: false,
+  },
+  [Permission.EMAIL_TEMPLATE_EDIT]: {
+    key: Permission.EMAIL_TEMPLATE_EDIT,
+    category: 'ACTION',
+    description: 'E-posta şablonlarını düzenleme ve önizleme',
+    isSensitive: true,
   },
   [Permission.USER_PROFILE_VIEW]: {
     key: Permission.USER_PROFILE_VIEW,

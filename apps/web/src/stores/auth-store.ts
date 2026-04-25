@@ -1,5 +1,19 @@
 import { create } from 'zustand';
 
+/** GET /auth/me ve login yanıtı ile hizalı (şirket / yönetici KTİ başlatma için) */
+export interface AuthUserCompany {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface AuthUserManager {
+  id: string;
+  sicil: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface AuthUser {
   id: string;
   sicil: string;
@@ -10,6 +24,8 @@ export interface AuthUser {
   activeConsentVersionId: string | null;
   consentAccepted: boolean;
   passwordExpiresAt: string | null;
+  company?: AuthUserCompany;
+  manager?: AuthUserManager | null;
 }
 
 interface AuthState {

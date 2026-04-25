@@ -6,7 +6,7 @@ description: "[Faz 5] Process engine + KTİ — 4 iterasyon/chat (core SM → do
 
 ## Goal
 
-ProcessTypeRegistry pattern — workflow'u extensible. KTİ workflow (BEFORE_AFTER_KAIZEN state machine: INITIATED → IN_PROGRESS → COMPLETED/REJECTED, revision loop). Documents module (upload initiate → S3 → mark-scanning → scan poll). KTİ embedded start endpoint (process + first task + documents tek transaction). Process detail + KTİ start screen.
+ProcessTypeRegistry pattern — workflow extensible. KTİ (`BEFORE_AFTER_KAIZEN`): `startKti` ile süreç + tamamlanmış başlatma adımı + yönetici onay task’ı; doküman modülü (upload-initiate → S3 presigned PUT → `POST /documents` → scan kuyruğu → poll). Süreç listesi/detay UI + KTİ start ekranı. **Görev `complete` (onay/ret/revize) ve revizyon/reject entegrasyon testlerinin tamamı Faz 6** (`03_API_CONTRACTS` 9.6).
 
 ## Bu fazın çalışma modeli (iterasyonlar)
 
@@ -14,47 +14,47 @@ ProcessTypeRegistry pattern — workflow'u extensible. KTİ workflow (BEFORE_AFT
 
 ### İterasyon 1 — Registry + KTİ state machine (backend)
 
-**Hedef:** `processes/*`, `process-type-registry`, `kti.workflow`, geçiş kuralları, iptal/rollback API’leri (spec’e göre); state machine unit testleri.
+**Hedef:** `processes/*`, `process-type-registry`, `kti.workflow`, iptal/rollback API; state machine unit testleri.
 
-**Minimum bağlam:** `docs/01_DOMAIN_MODEL.md` Bölüm 3–4; `docs/02_DATABASE_SCHEMA.md` Bölüm 9–11 (process/task); `docs/03_API_CONTRACTS.md` 9.5.
+**Minimum bağlam:** `docs/01_DOMAIN_MODEL.md` Bölüm 3–4; `docs/02_DATABASE_SCHEMA.md` Bölüm 9–11; `docs/03_API_CONTRACTS.md` 9.5.
 
-**Bu iterasyonda yok:** S3 upload, ClamAV worker, çok adımlı web formu.
+**Bu iterasyonda yok:** S3 upload, worker, çok adımlı web formu.
 
-**Stop:** [ ] Registry pattern kanıtı; [ ] KTİ transition testleri exhaustive. PR/onay.
+**Stop:** [ ] Registry pattern kanıtı; [ ] KTİ transition testleri (workflow sınıfı). PR/onay.
 
 ### İterasyon 2 — Documents + S3 + scan path + worker
 
-**Hedef:** `documents/*`, presigned URL akışı, scan durumları, BullMQ consumer (ClamAV entegrasyonu); `POST /processes/kti/start` transaction (process + first task + documents) **document CLEAN gate** ile.
+**Hedef:** `documents/*`, presigned URL, `DocumentScanStatus` (PENDING_SCAN → … → CLEAN/INFECTED), BullMQ + ClamAV (`apps/worker`); `POST /processes/kti/start` **CLEAN gate**.
 
-**Minimum bağlam:** `docs/03_API_CONTRACTS.md` 9.6; `docs/04_BACKEND_SPEC.md` Bölüm 8.
+**Minimum bağlam:** `docs/03_API_CONTRACTS.md` 9.7; `docs/04_BACKEND_SPEC.md` Bölüm 8.
 
-**Bu iterasyonda yok:** Zengin frontend upload UX son rötuş (İter 4’e bırakılabilir minimal UI İter 3’te).
+**Bu iterasyonda yok:** Zengin upload UX rötuş (iter 4).
 
-**Stop:** [ ] Upload→scan→clean happy path + infected path testleri. PR/onay.
+**Stop:** [ ] Upload→scan→clean + infected path testleri. PR/onay.
 
 ### İterasyon 3 — Process list + detail UI
 
-**Hedef:** `S-PROCESS-LIST`, `S-PROCESS-DETAIL`, timeline/assignees/documents görünürlüğü.
+**Hedef:** `S-PROCESS-LIST`, `S-PROCESS-DETAIL`, timeline/assignees/documents.
 
-**Bu iterasyonda yok:** KTİ multi-step formunun tüm adımları (İter 4).
+**Bu iterasyonda yok:** KTİ formunun tüm adımları (iter 4).
 
-**Stop:** [ ] Liste + detay E2E/smoke. PR/onay.
+**Stop:** [ ] Liste + detay smoke. PR/onay.
 
-### İterasyon 4 — KTİ start form + E2E + revision/reject
+### İterasyon 4 — KTİ start form + E2E smoke
 
-**Hedef:** `S-KTI-START` multi-step, `DocumentUpload` bileşeni, cancel/rollback senaryoları; integration/E2E (happy + revision + reject).
+**Hedef:** `S-KTI-START` multi-step, `DocumentUpload`, cancel/rollback API’ye uygun backend (UI modalları Faz 6 olabilir). Integration: **KTİ start happy + doküman edge**. **Revizyon/ret akışı + E2E full journey → Faz 6** (task complete).
 
-**Stop:** Faz 5 Done Definition tamamı; roadmap işareti.
+**Stop:** Faz 5 Done Definition (aşağıdaki checkbox’lar); roadmap F5 human gate.
 
 ## Required Context
 
-- `docs/01_DOMAIN_MODEL.md` Bölüm 3-4 (state machines)
-- `docs/02_DATABASE_SCHEMA.md` Bölüm 9-11 (processes, tasks, documents)
-- `docs/03_API_CONTRACTS.md` Bölüm 9.5-9.6 (Processes + Documents)
-- `docs/04_BACKEND_SPEC.md` Bölüm 8 (ProcessTypeRegistry)
+- `docs/01_DOMAIN_MODEL.md` Bölüm 3-4
+- `docs/02_DATABASE_SCHEMA.md` Bölüm 9-11
+- `docs/03_API_CONTRACTS.md` Bölüm 9.5, 9.7
+- `docs/04_BACKEND_SPEC.md` Bölüm 8
 - `docs/06_SCREEN_CATALOG.md` — S-KTI-START, S-PROCESS-DETAIL, S-PROCESS-LIST
 
-## Scope
+## Scope (repo ile hizalı)
 
 ### Backend
 
@@ -65,19 +65,19 @@ apps/api/src/processes/
 ├── processes.service.ts
 ├── processes.exceptions.ts
 ├── process-type-registry.service.ts
-├── workflows/
-│   ├── base-workflow.interface.ts
-│   └── kti.workflow.ts                       # BEFORE_AFTER_KAIZEN
+└── workflows/
+    ├── base-workflow.interface.ts
+    └── kti.workflow.ts
 
 apps/api/src/documents/
 ├── documents.module.ts
 ├── documents.controller.ts
 ├── documents.service.ts
-├── s3.service.ts
-└── scan-status-poller.service.ts            # ClamAV integration
+├── documents-object-storage.ts    # S3 presigned (Noop / S3)
+└── document-scan-queue.service.ts # BullMQ enqueue
 
-apps/api/src/worker/
-└── src/documents/scan-consumer.ts           # BullMQ consumer (virus scan trigger)
+apps/worker/
+└── src/document-scan.processor.ts
 ```
 
 ### Frontend
@@ -85,59 +85,59 @@ apps/api/src/worker/
 ```
 apps/web/src/app/(app)/
 ├── processes/
-│   ├── page.tsx                              # S-PROCESS-LIST
-│   ├── [displayId]/page.tsx                  # S-PROCESS-DETAIL
-│   └── kti/new/page.tsx                      # S-KTI-START (embedded)
+│   ├── page.tsx
+│   ├── [displayId]/page.tsx
+│   └── kti/start/page.tsx
 
 apps/web/src/components/processes/
 ├── ProcessList.tsx
 ├── ProcessDetail.tsx
-├── ProcessTimeline.tsx                       # State transitions visualized
-└── KtiStartForm.tsx                          # Multi-step form with document upload
+├── ProcessTimeline.tsx
+└── KtiStartForm.tsx
 
 apps/web/src/components/documents/
-└── DocumentUpload.tsx                        # Initiate → S3 → scan poll
+└── DocumentUpload.tsx
 ```
 
 ## Constraints
 
-- State machine strict — invalid transition → 409 `PROCESS_INVALID_TRANSITION`
-- KTİ'de workflow determination workflow class'ta, service'te değil
-- Document scan status: PENDING → SCANNING → CLEAN (or INFECTED)
-- Process start → document scan CLEAN zorunlu (PENDING/SCANNING → 425)
-- Manager assignee → initiator.manager_user_id (yoksa 422 throw)
-- display_id generation: PostgreSQL sequence (`process_kti_sequence`)
-- Transaction: process + first task + documents link + assignees — atomic
+- State machine: geçersiz iş kuralı → typed exception; **task completion** workflow’u Faz 6.
+- KTİ workflow kuralları `KtiWorkflow` + registry’de; service’te kopya iş kuralı yok.
+- Doküman tarama: `DocumentScanStatus` (Prisma) — PENDING_SCAN, SCANNING, CLEAN, INFECTED, …
+- Süreç başlatmada dokümanlar CLEAN olmalı; beklemede/taramada → **`DOCUMENT_SCAN_PENDING` + HTTP 409** (`03_API_CONTRACTS` ile uyumlu; 425 değil).
+- Yönetici: `initiator.managerUserId` (yoksa 422, kod `USER_NOT_FOUND`).
+- `displayId`: PostgreSQL sequence (ör. `process_seq_before_after_kaizen`), format `KTI-NNNNNN`.
+- `startKti` transaction: process + task’lar + atamalar + doküman linki atomik.
 
 ## Done Definition
 
-- [ ] ProcessTypeRegistry pattern çalışıyor — yeni workflow eklemek tek register call
-- [ ] KTİ workflow state machine test exhaustive (valid + invalid transitions)
-- [ ] KTİ embedded start endpoint: `POST /processes/kti/start`
-- [ ] Document upload flow: `POST /documents/upload-initiate` → presigned S3 URL → client upload → `POST /documents/mark-scanning` → scan → `GET /documents/:id` status poll
-- [ ] ClamAV integration (worker scan job)
-- [ ] Process detail shows timeline, assignees, documents, reason fields
-- [ ] KTİ start form multi-step (validate → review → submit)
-- [ ] Cancel endpoint — non-terminal → CANCELLED, active task SKIPPED_BY_ROLLBACK
-- [ ] Rollback endpoint — previous step'e yeni task
-- [ ] Integration test: KTİ full happy path + revision path + reject
-- [ ] E2E test: KTİ start (critical journey 2)
+- [x] ProcessTypeRegistry — `ProcessTypeRegistryService` + `onModuleInit` register
+- [x] KTİ workflow unit testleri (`kti.workflow.test.ts` vb.)
+- [x] `POST /api/v1/processes/kti/start`
+- [x] Doküman: `POST /documents/upload-initiate` → presigned S3 PUT → `POST /documents` → worker scan → `GET /documents/:id` veya `.../scan-status` poll
+- [x] Worker: scan job (ClamAV instream)
+- [x] Süreç detay: timeline, assignee, doküman alanları (mevcut API sınırlarında)
+- [x] KTİ start form: çok adımlı (bilgi → gözden geçir → ONAYLIYORUM + submit)
+- [x] Cancel: terminal olmayan → CANCELLED; aktif task’lar SKIPPED_BY_ROLLBACK
+- [x] Rollback: hedef adıma yeni task
+- [ ] Integration: **revizyon + ret tam akış** — **Faz 6** (task `complete` yoksa mümkün değil)
+- [x] E2E smoke: KTİ start sayfası + süreç listesi (Playwright). **Uçtan uca upload+manager onay E2E → Faz 6**
 
 ## Explicit Don'ts
 
-- Other process types (5S, TPM) — post-MVP
-- Video upload (only PDF + image)
-- Document versioning — immutable once uploaded
-- Process parallel tasks — strictly sequential for KTİ
-- Custom state machine editor — spec-based only
+- Diğer süreç tipleri (5S, TPM) — post-MVP
+- Video (yalnızca PDF + image — spec whitelist)
+- Doküman versiyonlama — yüklenen değişmez
+- KTİ’de paralel task — sıralı
+- Görsel state machine editörü — yok
 
 ## Related ADRs
 
-- ADR-0016: ProcessTypeRegistry pattern (extensibility)
-- ADR-0017: State machine strict enforcement
-- ADR-0018: ClamAV for document antivirus scan
-- ADR-0019: S3 presigned URL for client upload (direct)
+- ADR-0016: ProcessTypeRegistry
+- ADR-0017: State machine
+- ADR-0018: ClamAV
+- ADR-0019: S3 presigned client upload
 
 ---
 
-Phase done → roadmap Faz 5 check mark.
+Faz 5 human gate: `docs/10_IMPLEMENTATION_ROADMAP.md` — Faz 5 bölümü.

@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "generate:prisma": "pnpm --dir ../api exec prisma generate",
+    "prebuild": "pnpm run generate:prisma",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
@@ -11,13 +13,21 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1036.0",
+    "@aws-sdk/client-sesv2": "^3.1036.0",
     "@leanmgmt/shared-schemas": "workspace:*",
     "@leanmgmt/shared-types": "workspace:*",
     "@leanmgmt/shared-utils": "workspace:*",
     "@nestjs/common": "^10.4.15",
     "@nestjs/core": "^10.4.15",
     "@nestjs/platform-fastify": "^10.4.15",
+    "@prisma/adapter-pg": "7.8.0",
+    "@prisma/client": "7.8.0",
+    "bullmq": "^5.76.1",
     "fastify": "^4.28.1",
+    "handlebars": "4.7.8",
+    "ioredis": "^5.4.2",
+    "pg": "8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

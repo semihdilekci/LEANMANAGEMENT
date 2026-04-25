@@ -1,10 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { UpdateRolePermissionsInput } from '@leanmgmt/shared-schemas';
 
 import { AuditLogService } from '../common/audit/audit-log.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
+import {
+  PERMISSION_CACHE_EVENT,
+  type RoleAffectsUserPermissionsCachePayload,
+} from './permission-cache.events.js';
 import { PermissionResolverService } from './permission-resolver.service.js';
 import {
   RoleNotFoundException,
@@ -18,6 +23,7 @@ export class RolePermissionManagementService {
     @Inject(PermissionResolverService)
     private readonly permissionResolver: PermissionResolverService,
     @Inject(AuditLogService) private readonly audit: AuditLogService,
+    @Inject(EventEmitter2) private readonly events: EventEmitter2,
   ) {}
 
   /**
@@ -61,8 +67,10 @@ export class RolePermissionManagementService {
       }
     });
 
-    // Deferred event listener; avoid race with Vitest/Prisma connection lifecycle
     await this.permissionResolver.invalidateRole(roleId);
+    this.events.emit(PERMISSION_CACHE_EVENT.ROLE_AFFECTS_USER_PERMISSIONS, {
+      roleId,
+    } satisfies RoleAffectsUserPermissionsCachePayload);
 
     await this.audit.append({
       userId: actor.id,

@@ -8,13 +8,13 @@
 
 Güvenlik tek bir yerde uygulanmaz — beş katmanda birbirini destekleyen kontroller vardır. Hiçbir katman yalnız başına yeterli değildir; derinlemesine savunma prensibi:
 
-| Katman | Örnek kontroller |
-|---|---|
-| **Ağ (Network)** | ALB + Security Group + WAF kuralları; AWS Shield Standard; VPC private subnet |
-| **Uygulama boundary (Middleware)** | JWT doğrulama, CSRF, rate limit, CORS, input Zod validation |
-| **Domain/business logic** | Resource ownership, permission check (`@RequirePermission`), state machine transition kuralları |
-| **Veritabanı** | Encryption-at-rest (AWS KMS), encrypted column'lar (AES-256-GCM deterministic/probabilistic), append-only trigger |
-| **İzleme (Observability)** | CloudWatch alerting, Sentry, audit log chain verify, anomaly detection |
+| Katman                             | Örnek kontroller                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Ağ (Network)**                   | ALB + Security Group + WAF kuralları; AWS Shield Standard; VPC private subnet                                     |
+| **Uygulama boundary (Middleware)** | JWT doğrulama, CSRF, rate limit, CORS, input Zod validation                                                       |
+| **Domain/business logic**          | Resource ownership, permission check (`@RequirePermission`), state machine transition kuralları                   |
+| **Veritabanı**                     | Encryption-at-rest (AWS KMS), encrypted column'lar (AES-256-GCM deterministic/probabilistic), append-only trigger |
+| **İzleme (Observability)**         | CloudWatch alerting, Sentry, audit log chain verify, anomaly detection                                            |
 
 Her endpoint için en az üç katman aktif. Örneğin `POST /api/v1/users` (yeni kullanıcı oluşturma) çağrısında: WAF + TLS + JWT guard + CSRF + rate limit + `@RequirePermission(USER_CREATE)` + Zod validation + encrypted persist + audit trigger. Bir katman atlansa bile diğerleri koruyucu olur.
 
@@ -215,7 +215,7 @@ API Request (authenticated endpoint)
 Frontend ConsentModal yakalamaları:
   - Initial layout mount: /auth/me response'unda consentAccepted:false
   - Runtime: herhangi bir endpoint 403 AUTH_CONSENT_REQUIRED döner
-  
+
 Kullanıcı onay aksiyonu:
   POST /api/v1/auth/consent/accept {consentVersionId}
   → UPDATE users SET consent_accepted_version_id = $1, consent_accepted_at = NOW
@@ -232,6 +232,7 @@ Kullanıcı onay aksiyonu:
 ### 3.1 Access Token
 
 **Algoritma:** HS256 (HMAC-SHA256). RS256 değil — operasyonel basitlik önceliklidir:
+
 - Tek backend deployment (monolith NestJS); key sharing yok
 - Key rotation tek Redis update (signing secret version bump)
 - RS256 public/private key management ve JWK endpoint complexity MVP için gereksiz
@@ -301,6 +302,7 @@ Path `/api/v1/auth` ile sınırlı — diğer endpoint'lere gönderilmez, bandwi
 ### 3.3 Rotation ve Family Tracking
 
 Her refresh çağrısında:
+
 1. Mevcut refresh token verify
 2. Redis'te `refresh_token_family:{familyId}` kaydı bul
 3. Token'ın `generation` field'ı kayıttaki generation ile match ediyor mu?
@@ -341,7 +343,7 @@ export class CsrfGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const method = request.method;
     if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return true;
-    
+
     const headerToken = request.headers['x-csrf-token'];
     const cookieToken = request.cookies?.csrf_token;
     if (!headerToken || !cookieToken || headerToken !== cookieToken) {
@@ -365,6 +367,7 @@ TTL: token kalan ömrü (max 15 dk)
 Auth guard her request'te Redis GET yapar. 15 dakikadan sonra key otomatik expire olur (TTL ile).
 
 **Revoke tetikleyicileri:**
+
 - Logout
 - Password change (diğer session'ların token'ları)
 - Admin manual session revoke
@@ -378,7 +381,7 @@ Signing secret 180 günde bir rotate edilir. Dual-key validity window:
 // Backend JWT verify
 const KEYS = {
   current: process.env.JWT_ACCESS_SECRET_CURRENT,
-  previous: process.env.JWT_ACCESS_SECRET_PREVIOUS,  // Rotation sonrası 15 dk geçerli
+  previous: process.env.JWT_ACCESS_SECRET_PREVIOUS, // Rotation sonrası 15 dk geçerli
 };
 
 try {
@@ -396,6 +399,7 @@ try {
 ```
 
 Rotation playbook:
+
 1. AWS Secrets Manager'da yeni secret oluştur
 2. Backend env var'a `JWT_ACCESS_SECRET_PREVIOUS` = eski, `JWT_ACCESS_SECRET_CURRENT` = yeni
 3. Deploy (rolling)
@@ -429,11 +433,11 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const token = this.extractBearer(request.headers.authorization);
     if (!token) throw new AuthTokenMissingException();
-    
-    const payload = this.jwtService.verify(token);  // imza + expiry
+
+    const payload = this.jwtService.verify(token); // imza + expiry
     const isRevoked = await this.redis.get(`token_revoked:${payload.jti}`);
     if (isRevoked) throw new AuthTokenRevokedException();
-    
+
     request.user = payload;
     return true;
   }
@@ -466,7 +470,7 @@ export class PermissionGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
     const userPermissions = await this.permissionResolver.getUserPermissions(user.sub);
-    
+
     const hasAll = required.every((p) => userPermissions.has(p));
     if (!hasAll) {
       throw new ForbiddenException({
@@ -491,33 +495,33 @@ async findByDisplayId(displayId: string, currentUser: AuthenticatedUser): Promis
     where: { display_id: displayId },
     include: { tasks: { include: { assignees: true } } },
   });
-  
+
   if (!process) throw new ProcessNotFoundException();
-  
+
   // Resource ownership check
   const isOwner = process.started_by_user_id === currentUser.id;
   const isAssignee = process.tasks.some((t) => t.assignees.some((a) => a.user_id === currentUser.id));
   const hasViewAll = await this.permissionResolver.hasPermission(currentUser.id, Permission.PROCESS_VIEW_ALL);
-  
+
   if (!isOwner && !isAssignee && !hasViewAll) {
     throw new ForbiddenException({ code: 'PROCESS_ACCESS_DENIED' });
   }
-  
+
   return process;
 }
 ```
 
 Ownership kuralı her domain entity için farklı:
 
-| Entity | Ownership kuralı |
-|---|---|
-| Process | `started_by_user_id === userId` OR task assignee OR `PROCESS_VIEW_ALL` |
-| Task | Task'a atanmış OR parent process'in başlatıcısı OR `PROCESS_VIEW_ALL` |
-| Document | Upload eden OR parent task/process'in erişilebilirliği OR admin permission |
-| User (read) | Self OR `USER_LIST_VIEW` |
-| User (edit) | `USER_UPDATE_ATTRIBUTE` AND NOT self |
-| Notification | `recipient_user_id === userId` (daima self) |
-| Audit log | `AUDIT_LOG_VIEW` (Superadmin only) |
+| Entity       | Ownership kuralı                                                           |
+| ------------ | -------------------------------------------------------------------------- |
+| Process      | `started_by_user_id === userId` OR task assignee OR `PROCESS_VIEW_ALL`     |
+| Task         | Task'a atanmış OR parent process'in başlatıcısı OR `PROCESS_VIEW_ALL`      |
+| Document     | Upload eden OR parent task/process'in erişilebilirliği OR admin permission |
+| User (read)  | Self OR `USER_LIST_VIEW`                                                   |
+| User (edit)  | `USER_UPDATE_ATTRIBUTE` AND NOT self                                       |
+| Notification | `recipient_user_id === userId` (daima self)                                |
+| Audit log    | `AUDIT_LOG_VIEW` (Superadmin only)                                         |
 
 #### Katman 4 — Field-Level Filter
 
@@ -529,7 +533,7 @@ serializeForUser(process: Process, currentUser: AuthenticatedUser, userPermissio
   const isOwner = process.started_by_user_id === currentUser.id;
   const hasViewAll = userPermissions.has(Permission.PROCESS_VIEW_ALL);
   const isFullAccess = isOwner || hasViewAll;
-  
+
   return {
     id: process.id,
     displayId: process.display_id,
@@ -539,7 +543,7 @@ serializeForUser(process: Process, currentUser: AuthenticatedUser, userPermissio
     tasks: process.tasks.map((task) => {
       const isAssignee = task.assignees.some((a) => a.user_id === currentUser.id);
       const taskFullAccess = isFullAccess || isAssignee;
-      
+
       return {
         id: task.id,
         stepLabel: task.step_label,
@@ -575,7 +579,7 @@ async getUserPermissions(userId: string): Promise<Set<Permission>> {
   const cacheKey = `user_permissions:${userId}`;
   const cached = await this.redis.get(cacheKey);
   if (cached) return new Set(JSON.parse(cached));
-  
+
   const permissions = await this.resolveFromDb(userId);
   await this.redis.setex(cacheKey, 300, JSON.stringify([...permissions]));
   return permissions;
@@ -587,7 +591,7 @@ async resolveFromDb(userId: string): Promise<Set<Permission>> {
     where: { user_id: userId, source: 'DIRECT' },
     include: { role: { include: { role_permissions: true } } },
   });
-  
+
   // 2. Attribute-rule-based role assignments
   const user = await this.prisma.users.findUnique({ where: { id: userId } });
   const matchingRules = await this.evaluateAttributeRules(user);
@@ -596,7 +600,7 @@ async resolveFromDb(userId: string): Promise<Set<Permission>> {
     where: { id: { in: ruleRoleIds } },
     include: { role_permissions: true },
   });
-  
+
   // 3. Union of permissions
   const allRoles = [...directRoles.map((ur) => ur.role), ...ruleRoles];
   const permissions = new Set<Permission>();
@@ -611,13 +615,13 @@ async resolveFromDb(userId: string): Promise<Set<Permission>> {
 
 **Invalidation tetikleyicileri:**
 
-| Event | Silinecek cache key'ler |
-|---|---|
-| User'a direct rol ataması/çıkarımı | `user_permissions:{userId}` |
-| Rol'e permission ekleme/kaldırma | Rolün atandığı **tüm** kullanıcılar için key'ler: `user_permissions:*` `DEL` by pattern (production'da `SCAN` + batch DEL) |
-| Kullanıcı attribute değişimi (şirket, pozisyon vs) | `user_permissions:{userId}` (attribute-rule matching değişebilir) |
-| Attribute rule ekleme/güncelleme/silme | Rolün atandığı **tüm** kullanıcılar |
-| Kullanıcı deactivate | `user_permissions:{userId}` + session revoke |
+| Event                                              | Silinecek cache key'ler                                                                                                    |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| User'a direct rol ataması/çıkarımı                 | `user_permissions:{userId}`                                                                                                |
+| Rol'e permission ekleme/kaldırma                   | Rolün atandığı **tüm** kullanıcılar için key'ler: `user_permissions:*` `DEL` by pattern (production'da `SCAN` + batch DEL) |
+| Kullanıcı attribute değişimi (şirket, pozisyon vs) | `user_permissions:{userId}` (attribute-rule matching değişebilir)                                                          |
+| Attribute rule ekleme/güncelleme/silme             | Rolün atandığı **tüm** kullanıcılar                                                                                        |
+| Kullanıcı deactivate                               | `user_permissions:{userId}` + session revoke                                                                               |
 
 Cache-wide invalidation pahalı — rol permission değişimi gibi bulk operation sonrası. Bunu azaltmak için: rolün affected user'larını DB'den çek, her biri için key sil:
 
@@ -633,9 +637,9 @@ async invalidateRolePermissionCache(roleId: string): Promise<void> {
     ...affectedUsers.map((ur) => ur.user_id),
     ...ruleMatches.map((u) => u.id),
   ]);
-  
+
   if (allUserIds.size === 0) return;
-  
+
   const pipeline = this.redis.pipeline();
   for (const userId of allUserIds) {
     pipeline.del(`user_permissions:${userId}`);
@@ -651,21 +655,25 @@ Sistem rolleri (seed data):
 **SUPERADMIN** — Tüm permission'lara sahip. Tek kısıtı: `USER_SELF_EDIT_FORBIDDEN` (kendi kullanıcı bilgisini düzenlemek için bile S-PROFILE kullanılmalı). MVP'de teknik olarak **tek Superadmin kullanıcı** zorunluluğu yok ama operasyonel olarak 2-3 kişi önerilir.
 
 **USER_MANAGER** — Kullanıcı yaşam döngüsünü yönetir:
+
 - `USER_LIST_VIEW`, `USER_CREATE`, `USER_UPDATE_ATTRIBUTE`, `USER_DEACTIVATE`, `USER_REACTIVATE`
 - `MASTER_DATA_MANAGE` (şirket, lokasyon, pozisyon vs — kullanıcı oluştururken master data ekleme gerekebilir)
 - `USER_SESSION_VIEW` yok (şüpheli activity inceleme Superadmin yetkisi)
 
 **ROLE_MANAGER** — Rol ve yetki yapısını yönetir:
+
 - `ROLE_VIEW`, `ROLE_CREATE`, `ROLE_UPDATE`, `ROLE_DELETE`, `ROLE_ASSIGN`
 - `ROLE_PERMISSION_MANAGE` (hassas — rol-yetki tablosu)
 - `ROLE_RULE_MANAGE` (hassas — attribute rule builder)
 - `ROLE_SELF_EDIT_FORBIDDEN`: Kendi rolünün permission'ını düşüremez
 
 **PROCESS_ADMIN** — Tüm süreçleri yönetir:
+
 - `PROCESS_VIEW_ALL`, `PROCESS_CANCEL`, `PROCESS_ROLLBACK`
 - KTİ başlatabilir (`PROCESS_KTI_START`) ama bu default yetki, rolden bağımsız
 
 **BASIC_USER** — Her authenticated user default davranışı (role atanmasa bile):
+
 - Kendi profilini görme (`/profile`)
 - Kendisine atanmış görevleri görme (`/tasks`)
 - Kendi başlattığı süreçleri görme (`/processes?scope=my-started`)
@@ -673,23 +681,23 @@ Sistem rolleri (seed data):
 
 ### 4.4 Hassas Permission'lar — Örnek Yetki Matrisi
 
-Tüm 42 permission × 4 rol matrisini burada listemek yerine yalnız **hassas** veya **kritik karar noktası** permission'ları tabloda verilir. Full matris `packages/shared-types/src/permissions.ts` metadata'sından ve database seed script'inden (`prisma/seed.ts`) türetilir — tek doğruluk kaynağı kod.
+MVP’de `Permission` enum’undaki tüm değerleri × 4 tablo satırı burada listemek yerine yalnız **hassas** veya **kritik karar noktası** permission'ları aşağıda verilir. Tam liste `packages/shared-types/src/permission.ts` metadata'sından ve database seed’inden (`prisma/seed.ts`) türetilir — tek doğruluk kaynağı kod.
 
-| Permission | `isSensitive` | Superadmin | User Mgr | Role Mgr | Process Admin |
-|---|---|---|---|---|---|
-| USER_CREATE | ✓ | ✓ | ✓ | ✗ | ✗ |
-| USER_DEACTIVATE | ✓ | ✓ | ✓ | ✗ | ✗ |
-| USER_SESSION_VIEW | ✓ | ✓ | ✗ | ✗ | ✗ |
-| ROLE_PERMISSION_MANAGE | ✓ | ✓ | ✗ | ✓ | ✗ |
-| ROLE_RULE_MANAGE | ✓ | ✓ | ✗ | ✓ | ✗ |
-| PROCESS_VIEW_ALL | ✓ | ✓ | ✗ | ✗ | ✓ |
-| PROCESS_CANCEL | ✓ | ✓ | ✗ | ✗ | ✓ |
-| PROCESS_ROLLBACK | ✓ | ✓ | ✗ | ✗ | ✓ |
-| AUDIT_LOG_VIEW | ✓ | ✓ | ✗ | ✗ | ✗ |
-| SYSTEM_SETTINGS_EDIT | ✓ | ✓ | ✗ | ✗ | ✗ |
-| EMAIL_TEMPLATE_EDIT | ✓ | ✓ | ✗ | ✗ | ✗ |
-| CONSENT_VERSION_EDIT | ✓ | ✓ | ✗ | ✗ | ✗ |
-| MASTER_DATA_MANAGE | — | ✓ | ✓ | ✗ | ✗ |
+| Permission             | `isSensitive` | Superadmin | User Mgr | Role Mgr | Process Admin |
+| ---------------------- | ------------- | ---------- | -------- | -------- | ------------- |
+| USER_CREATE            | ✓             | ✓          | ✓        | ✗        | ✗             |
+| USER_DEACTIVATE        | ✓             | ✓          | ✓        | ✗        | ✗             |
+| USER_SESSION_VIEW      | ✓             | ✓          | ✗        | ✗        | ✗             |
+| ROLE_PERMISSION_MANAGE | ✓             | ✓          | ✗        | ✓        | ✗             |
+| ROLE_RULE_MANAGE       | ✓             | ✓          | ✗        | ✓        | ✗             |
+| PROCESS_VIEW_ALL       | ✓             | ✓          | ✗        | ✗        | ✓             |
+| PROCESS_CANCEL         | ✓             | ✓          | ✗        | ✗        | ✓             |
+| PROCESS_ROLLBACK       | ✓             | ✓          | ✗        | ✗        | ✓             |
+| AUDIT_LOG_VIEW         | ✓             | ✓          | ✗        | ✗        | ✗             |
+| SYSTEM_SETTINGS_EDIT   | ✓             | ✓          | ✗        | ✗        | ✗             |
+| EMAIL_TEMPLATE_EDIT    | ✓             | ✓          | ✗        | ✗        | ✗             |
+| CONSENT_VERSION_EDIT   | ✓             | ✓          | ✗        | ✗        | ✗             |
+| MASTER_DATA_MANAGE     | —             | ✓          | ✓        | ✗        | ✗             |
 
 `isSensitive: true` olan permission'lar rol-yetki tablosu UI'da kırmızı "Hassas" rozeti ile işaretlenir ve atama sırasında ek onay gerekir (`06_SCREEN_CATALOG` S-ROLE-PERMISSIONS).
 
@@ -726,7 +734,7 @@ async login(email: string, password: string) {
   const user = await this.prisma.users.findUnique({ where: { email, is_active: true } });
   const hashToCompare = user?.password_hash ?? DUMMY_HASH;
   const valid = await verifyPassword(password, hashToCompare);
-  
+
   if (!user || !valid) throw new AuthInvalidCredentialsException();
   // ...
 }
@@ -734,18 +742,18 @@ async login(email: string, password: string) {
 
 ### 5.2 Complexity Policy
 
-| Kural | Değer |
-|---|---|
-| Minimum uzunluk | 12 karakter |
-| Maksimum uzunluk | 128 karakter (bcrypt 72-byte limit için utf-8 buffer) |
-| Uppercase | En az 1 |
-| Lowercase | En az 1 |
-| Digit | En az 1 |
-| Special | En az 1 (`!@#$%^&*()_+-=[]{};:'"\,.<>/?`) |
-| Boşluk | Yasak |
+| Kural                           | Değer                                                      |
+| ------------------------------- | ---------------------------------------------------------- |
+| Minimum uzunluk                 | 12 karakter                                                |
+| Maksimum uzunluk                | 128 karakter (bcrypt 72-byte limit için utf-8 buffer)      |
+| Uppercase                       | En az 1                                                    |
+| Lowercase                       | En az 1                                                    |
+| Digit                           | En az 1                                                    |
+| Special                         | En az 1 (`!@#$%^&*()_+-=[]{};:'"\,.<>/?`)                  |
+| Boşluk                          | Yasak                                                      |
 | Kullanıcı bilgisi ile benzerlik | Username/email/sicil ile >4 karakter ortak substring yasak |
-| HIBP (Have I Been Pwned) check | k-anonymity API ile; dictionary'de varsa reject |
-| Son 5 şifre | Rehash ile compare (`password_history` tablosundan) |
+| HIBP (Have I Been Pwned) check  | k-anonymity API ile; dictionary'de varsa reject            |
+| Son 5 şifre                     | Rehash ile compare (`password_history` tablosundan)        |
 
 ```typescript
 // Password policy validation
@@ -773,6 +781,7 @@ async checkHibp(password: string): Promise<boolean> {
 ### 5.3 Expiry
 
 `PASSWORD_EXPIRY_DAYS` setting (default 90). User'ın `password_changed_at` + 90 gün > şu an ise:
+
 - 14 gün kala: frontend banner "Şifreniz X gün içinde dolacak"
 - 3 gün kala: kırmızı banner
 - 0 gün: 403 `AUTH_PASSWORD_EXPIRED` → zorunlu şifre değiştirme
@@ -786,18 +795,18 @@ Son 5 şifre (`PASSWORD_HISTORY_COUNT`) rehash ile tutulur. Yeni şifre değişi
 ```typescript
 async changePassword(userId: string, currentPassword: string, newPassword: string) {
   const user = await this.prisma.users.findUnique({ where: { id: userId } });
-  
+
   // Current verify
   const validCurrent = await verifyPassword(currentPassword, user.password_hash);
   if (!validCurrent) throw new AuthInvalidCredentialsException();
-  
+
   // History check
   const history = await this.prisma.password_history.findMany({
     where: { user_id: userId },
     orderBy: { created_at: 'desc' },
     take: PASSWORD_HISTORY_COUNT,
   });
-  
+
   for (const h of history) {
     if (await verifyPassword(newPassword, h.password_hash)) {
       throw new ValidationFailedException({
@@ -806,7 +815,7 @@ async changePassword(userId: string, currentPassword: string, newPassword: strin
       });
     }
   }
-  
+
   // Update
   const newHash = await hashPassword(newPassword);
   await this.prisma.$transaction([
@@ -854,12 +863,12 @@ async login(email: string, password: string, ip: string, userAgent: string) {
       created_at: { gte: new Date(Date.now() - 5 * 60 * 1000) },  // son 5 dk
     },
   });
-  
+
   if (recentFailures >= 3) {
     const delay = Math.min(8000, 1000 * Math.pow(2, recentFailures - 3));
     await sleep(delay);
   }
-  
+
   // ... normal login flow
 }
 ```
@@ -929,15 +938,15 @@ MVP'de limit yok — kullanıcı birden fazla cihazdan eşzamanlı oturum açabi
 
 ### 6.5 Session Revoke Tetikleyicileri
 
-| Tetikleyici | Revoke edilen session'lar |
-|---|---|
-| Kullanıcı logout | Yalnız mevcut session |
-| Password change | Kullanıcının **diğer** tüm session'ları (mevcut korunur) |
-| Admin manual revoke | Belirtilen session(lar) |
-| Account deactivate | Kullanıcının **tüm** session'ları |
-| Rol değişimi (critical) | Hayır — cache invalidation yeterli, session kapatılmaz |
-| Theft detection | Refresh token family'deki tüm session'lar |
-| Inactivity timeout | Tetiklenen session (cron) |
+| Tetikleyici             | Revoke edilen session'lar                                |
+| ----------------------- | -------------------------------------------------------- |
+| Kullanıcı logout        | Yalnız mevcut session                                    |
+| Password change         | Kullanıcının **diğer** tüm session'ları (mevcut korunur) |
+| Admin manual revoke     | Belirtilen session(lar)                                  |
+| Account deactivate      | Kullanıcının **tüm** session'ları                        |
+| Rol değişimi (critical) | Hayır — cache invalidation yeterli, session kapatılmaz   |
+| Theft detection         | Refresh token family'deki tüm session'lar                |
+| Inactivity timeout      | Tetiklenen session (cron)                                |
 
 ---
 
@@ -958,13 +967,15 @@ async create(@Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserInput
 Schema Zod'un `strict()` mode'unda — bilinmeyen field reddedilir:
 
 ```typescript
-export const CreateUserSchema = z.object({
-  sicil: z.string().regex(/^\d{8}$/),
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
-  email: z.string().email().toLowerCase().max(254),
-  // ...
-}).strict();  // ← ek field yasak
+export const CreateUserSchema = z
+  .object({
+    sicil: z.string().regex(/^\d{8}$/),
+    firstName: z.string().min(1).max(100),
+    lastName: z.string().min(1).max(100),
+    email: z.string().email().toLowerCase().max(254),
+    // ...
+  })
+  .strict(); // ← ek field yasak
 ```
 
 Frontend aynı şemaları `packages/shared-schemas` paketinden import eder — single source of truth.
@@ -1018,17 +1029,21 @@ export const handler = async (event: S3Event) => {
   for (const record of event.Records) {
     const s3Key = record.s3.object.key;
     const documentId = extractDocumentId(s3Key);
-    
+
     // Update scan status to scanning
     await updateScanStatus(documentId, 'SCANNING');
-    
+
     try {
       const fileStream = await s3.getObject({ Bucket, Key: s3Key }).createReadStream();
       const scanResult = await clamavScan(fileStream);
-      
+
       if (scanResult.infected) {
         await updateScanStatus(documentId, 'INFECTED', { threat: scanResult.threatName });
-        await s3.putObjectTagging({ Bucket, Key: s3Key, Tagging: { TagSet: [{ Key: 'scan', Value: 'INFECTED' }] } });
+        await s3.putObjectTagging({
+          Bucket,
+          Key: s3Key,
+          Tagging: { TagSet: [{ Key: 'scan', Value: 'INFECTED' }] },
+        });
         await notifyAdmin({ documentId, threat: scanResult.threatName });
       } else {
         await updateScanStatus(documentId, 'CLEAN');
@@ -1044,6 +1059,7 @@ export const handler = async (event: S3Event) => {
 ### 7.4 SQL Injection
 
 **Prisma ORM parametrized queries.** Raw SQL (`$queryRaw`, `$executeRaw`) kullanımı:
+
 - Code review'da flag
 - ESLint custom rule — `$queryRaw` daima template literal olmalı (string concat yasak)
 - Unavoidable cases: parametrized version (`$queryRawUnsafe` yasak)
@@ -1059,6 +1075,7 @@ await prisma.$queryRawUnsafe(`SELECT * FROM users WHERE email = '${email}'`);
 ### 7.5 XSS
 
 React default autoescape. Yasak kullanımlar:
+
 - `dangerouslySetInnerHTML` — ESLint rule ile disallow; zorunluluk varsa DOMPurify sonrası
 - `eval`, `Function()` constructor — disallow
 - Inline event handler string'leri (`onClick="..."`) — JSX zaten engelliyor, HTML template'lerde de yok
@@ -1085,7 +1102,7 @@ Next.js `middleware.ts` nonce injection:
 export function middleware(request: NextRequest) {
   const nonce = crypto.randomBytes(16).toString('base64');
   const cspHeader = buildCSP(nonce);
-  
+
   const response = NextResponse.next({
     request: { headers: new Headers(request.headers) },
   });
@@ -1098,6 +1115,7 @@ export function middleware(request: NextRequest) {
 ### 7.6 SSRF
 
 External URL fetch **yok** MVP'de. Gelecekte webhooks, external API integrations eklenirse:
+
 - Whitelist ile çalış
 - Private IP range'leri block (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8, AWS metadata 169.254.169.254)
 - DNS rebinding koruması (URL resolve + validate + separate fetch)
@@ -1114,6 +1132,7 @@ External URL fetch **yok** MVP'de. Gelecekte webhooks, external API integrations
 AWS ALB SSL policy: `ELBSecurityPolicy-TLS13-1-2-2021-06` (ALB current best).
 
 Cipher suites (öncelik sırası):
+
 ```
 TLS_AES_128_GCM_SHA256
 TLS_AES_256_GCM_SHA384
@@ -1140,10 +1159,10 @@ Domain Chrome HSTS preload list'e submit edilir (https://hstspreload.org).
 
 Tüm cookie'ler: `Secure` (HTTPS-only), `HttpOnly` (JS erişimi engel — CSRF token hariç), `SameSite=Strict`.
 
-| Cookie | HttpOnly | Secure | SameSite | Path | Max-Age |
-|---|---|---|---|---|---|
-| refresh_token | ✓ | ✓ | Strict | /api/v1/auth | 14 gün |
-| csrf_token | ✗ | ✓ | Strict | / | 14 gün |
+| Cookie        | HttpOnly | Secure | SameSite | Path         | Max-Age |
+| ------------- | -------- | ------ | -------- | ------------ | ------- |
+| refresh_token | ✓        | ✓      | Strict   | /api/v1/auth | 14 gün  |
+| csrf_token    | ✗        | ✓      | Strict   | /            | 14 gün  |
 
 ---
 
@@ -1172,6 +1191,7 @@ Cross-Origin-Embedder-Policy: require-corp
 ### 10.1 Veri İkameti
 
 Tüm production veri AWS eu-central-1 (Frankfurt). Yasal zorunluluk yok (veri Türkiye'de tutulmak zorunda değil) — operasyonel tercih:
+
 - AB GDPR zorunlulukları platforma otomatik uygulanır (KVKK ile uyum yüksek)
 - Düşük latency (Türkiye'den ~25ms)
 - AWS eu-central-1 mature services
@@ -1190,6 +1210,7 @@ Kullanıcıdan toplanan PII minimum: sicil, ad, soyad, email, telefon (opsiyonel
 ### 10.3 Encryption
 
 **At-rest:**
+
 - Aurora PostgreSQL storage encryption AWS KMS (AES-256)
 - S3 documents bucket SSE-S3 + bucket policy encryption zorunlu
 - PII columns (email, phone) `pgcrypto` extension ile AES-256-GCM
@@ -1197,6 +1218,7 @@ Kullanıcıdan toplanan PII minimum: sicil, ad, soyad, email, telefon (opsiyonel
   - Probabilistic (phone — lookup yok): random IV
 
 **In-transit:**
+
 - Her network hop'ta TLS 1.2+
 - VPC içi traffic (API → RDS, API → Redis) TLS zorunlu (Redis TLS port 6380, RDS SSL connection)
 
@@ -1204,17 +1226,17 @@ Kullanıcıdan toplanan PII minimum: sicil, ad, soyad, email, telefon (opsiyonel
 
 KVKK Madde 11 hakları ve bu platformda uygulanımı:
 
-| Hak | Uygulama |
-|---|---|
-| (a) Kişisel veri işlenip işlenmediğini öğrenme | S-PROFILE "Bilgilerim" + "Verilerim" |
-| (b) İşlenmişse buna ilişkin bilgi talep etme | Aynı — "Verilerim" sekmesinde kapsamlı görüntü |
-| (c) İşlenme amacı + amacına uygun kullanıldığını öğrenme | `privacy@holding.com` email — statik cevap şablonu |
-| (d) Yurtiçinde veya yurtdışında aktarılan üçüncü kişileri bilme | "Verilerim" sayfasında statik not: "Verileriniz üçüncü tarafla paylaşılmaz" |
-| (e) Eksik/yanlış işlenmişse düzeltilmesini isteme | Yönetici başvurusu — S-USER-EDIT üzerinden; KVKK email kanalı ikincil |
-| (f) Silinme / yok edilmesini isteme | Anonimleştirme — aşağıda 10.5 |
-| (g) (e) ve (f) çerçevesinde yapılan işlemlerin aktarıldığı üçüncü kişilere bildirilmesi | Üçüncü taraf yok; uygulanmaz |
-| (h) Otomatik sistemler marifetiyle analiz edilen sonuçlara itiraz | Otomatik karar verme yok (MVP); uygulanmaz |
-| (i) Zarar halinde tazminat talep etme | Yasal kanal — KVKK email |
+| Hak                                                                                     | Uygulama                                                                    |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| (a) Kişisel veri işlenip işlenmediğini öğrenme                                          | S-PROFILE "Bilgilerim" + "Verilerim"                                        |
+| (b) İşlenmişse buna ilişkin bilgi talep etme                                            | Aynı — "Verilerim" sekmesinde kapsamlı görüntü                              |
+| (c) İşlenme amacı + amacına uygun kullanıldığını öğrenme                                | `privacy@holding.com` email — statik cevap şablonu                          |
+| (d) Yurtiçinde veya yurtdışında aktarılan üçüncü kişileri bilme                         | "Verilerim" sayfasında statik not: "Verileriniz üçüncü tarafla paylaşılmaz" |
+| (e) Eksik/yanlış işlenmişse düzeltilmesini isteme                                       | Yönetici başvurusu — S-USER-EDIT üzerinden; KVKK email kanalı ikincil       |
+| (f) Silinme / yok edilmesini isteme                                                     | Anonimleştirme — aşağıda 10.5                                               |
+| (g) (e) ve (f) çerçevesinde yapılan işlemlerin aktarıldığı üçüncü kişilere bildirilmesi | Üçüncü taraf yok; uygulanmaz                                                |
+| (h) Otomatik sistemler marifetiyle analiz edilen sonuçlara itiraz                       | Otomatik karar verme yok (MVP); uygulanmaz                                  |
+| (i) Zarar halinde tazminat talep etme                                                   | Yasal kanal — KVKK email                                                    |
 
 **"Verilerimi İndir" MVP dışı.** JSON/CSV export özelliği kapsam dışı; yasal talepler `kvkk@holding.com` email kanalı üzerinden manuel karşılanır. Bu kapsam dışı karar kullanıcı deneyimi alt seviye ama yasal uyumluluk seviyesi aynı (10 gün içinde cevap yükümlülüğü email ile yönetilebilir).
 
@@ -1255,6 +1277,7 @@ async anonymizeUser(userId: string) {
 ```
 
 Anonymized user'ların:
+
 - İsim/email/telefon maskelenir
 - Audit log'ları anonim kullanıcı olarak kalır (entity_id üzerinden)
 - Başlattığı süreçler COMPLETED/REJECTED/CANCELLED statüsünde ise değişmez; IN_PROGRESS/INITIATED ise CANCELLED'a çevrilir
@@ -1263,23 +1286,24 @@ Anonymized user'ların:
 - password_reset tokens Redis'ten silinir
 
 Anonymization tetikleyicileri:
+
 - KVKK erasure request (manuel — Superadmin tarafından)
 - İşten ayrılış + 2 yıl retention sonunda (otomatik cron — opsiyonel, MVP'de manuel)
 
 ### 10.6 Retention Tablosu
 
-| Data türü | Retention | Temizleme mekanizması |
-|---|---|---|
-| Users (aktif) | Unlimited (iş süresi) | Anonimleştirme manuel |
-| Users (pasif) | 2 yıl | Otomatik anonymize cron (opsiyonel) |
-| Sessions | 14 gün (revoke sonrası) | Daily cron DELETE |
-| login_attempts | 90 gün | Daily cron DELETE |
-| Password history | Unlimited (user lifetime); anonymize'da silinir | Anonymize trigger |
-| Audit logs | 10 yıl | S3 archive (yıllık) + DB purge |
-| Notifications | 90 gün | Daily cron DELETE |
-| Documents | 5 yıl (iş süresi) | Manuel admin aksiyon |
-| Consent acceptance history | Unlimited | Anonymize'da silinir |
-| Process (terminal) | 5 yıl | Manuel archive (opsiyonel) |
+| Data türü                  | Retention                                       | Temizleme mekanizması               |
+| -------------------------- | ----------------------------------------------- | ----------------------------------- |
+| Users (aktif)              | Unlimited (iş süresi)                           | Anonimleştirme manuel               |
+| Users (pasif)              | 2 yıl                                           | Otomatik anonymize cron (opsiyonel) |
+| Sessions                   | 14 gün (revoke sonrası)                         | Daily cron DELETE                   |
+| login_attempts             | 90 gün                                          | Daily cron DELETE                   |
+| Password history           | Unlimited (user lifetime); anonymize'da silinir | Anonymize trigger                   |
+| Audit logs                 | 10 yıl                                          | S3 archive (yıllık) + DB purge      |
+| Notifications              | 90 gün                                          | Daily cron DELETE                   |
+| Documents                  | 5 yıl (iş süresi)                               | Manuel admin aksiyon                |
+| Consent acceptance history | Unlimited                                       | Anonymize'da silinir                |
+| Process (terminal)         | 5 yıl                                           | Manuel archive (opsiyonel)          |
 
 ---
 
@@ -1303,19 +1327,19 @@ async login(...) { ... }
 
 Identifier: IP (authenticated olmayan endpoint'ler için) veya userId (authenticated için).
 
-| Endpoint | Identifier | Limit | Window | Hata kodu |
-|---|---|---|---|---|
-| `POST /auth/login` | IP | 10 | 1 dk | RATE_LIMIT_LOGIN |
-| `POST /auth/login` | email (burst) | 5 | 15 dk | RATE_LIMIT_LOGIN |
-| `POST /auth/password-reset-request` | IP | 5 | 1 saat | RATE_LIMIT_IP |
-| `POST /auth/password-reset-request` | email | 3 | 1 saat | RATE_LIMIT_PASSWORD_RESET |
-| `POST /auth/password-reset-confirm` | IP | 10 | 1 saat | RATE_LIMIT_IP |
-| `POST /auth/refresh` | userId | 30 | 1 dk | RATE_LIMIT_USER |
-| Tüm API (authenticated — default) | userId | 600 | 1 dk | RATE_LIMIT_USER |
-| Tüm API (unauth — default) | IP | 60 | 1 dk | RATE_LIMIT_IP |
-| `POST /documents/upload-initiate` | userId | 20 | 1 dk | RATE_LIMIT_UPLOAD |
-| `POST /admin/audit-logs/export` | userId | 5 | 1 saat | RATE_LIMIT_USER |
-| `POST /admin/email-templates/:id/send-test` | userId | 10 | 1 saat | RATE_LIMIT_USER |
+| Endpoint                                    | Identifier    | Limit | Window | Hata kodu                 |
+| ------------------------------------------- | ------------- | ----- | ------ | ------------------------- |
+| `POST /auth/login`                          | IP            | 10    | 1 dk   | RATE_LIMIT_LOGIN          |
+| `POST /auth/login`                          | email (burst) | 5     | 15 dk  | RATE_LIMIT_LOGIN          |
+| `POST /auth/password-reset-request`         | IP            | 5     | 1 saat | RATE_LIMIT_IP             |
+| `POST /auth/password-reset-request`         | email         | 3     | 1 saat | RATE_LIMIT_PASSWORD_RESET |
+| `POST /auth/password-reset-confirm`         | IP            | 10    | 1 saat | RATE_LIMIT_IP             |
+| `POST /auth/refresh`                        | userId        | 30    | 1 dk   | RATE_LIMIT_USER           |
+| Tüm API (authenticated — default)           | userId        | 600   | 1 dk   | RATE_LIMIT_USER           |
+| Tüm API (unauth — default)                  | IP            | 60    | 1 dk   | RATE_LIMIT_IP             |
+| `POST /documents/upload-initiate`           | userId        | 20    | 1 dk   | RATE_LIMIT_UPLOAD         |
+| `POST /admin/audit-logs/export`             | userId        | 5     | 1 saat | RATE_LIMIT_USER           |
+| `POST /admin/email-templates/:id/send-test` | userId        | 10    | 1 saat | RATE_LIMIT_USER           |
 
 ### 11.3 Redis Key Şeması
 
@@ -1347,6 +1371,7 @@ throttle:default:user:550e8400-e29b-41d4-a716-446655440000
 ```
 
 HTTP status 429. Response header:
+
 ```
 Retry-After: 45
 X-RateLimit-Limit: 10
@@ -1357,6 +1382,7 @@ X-RateLimit-Reset: 1714000060
 ### 11.5 WAF Rate Limiting (Extra Katman)
 
 AWS WAF application seviyesinin üstünde DDoS koruması:
+
 - IP başına 2000 req / 5 dk → IP temporary block
 - Suspicious pattern (SQL injection, XSS patterns) → immediate block
 - AWS Managed Rules — Core Rule Set + Known Bad Inputs
@@ -1440,12 +1466,12 @@ RETURNS TRIGGER AS $$
 DECLARE
   prev_record audit_logs%ROWTYPE;
 BEGIN
-  SELECT * INTO prev_record FROM audit_logs 
+  SELECT * INTO prev_record FROM audit_logs
   ORDER BY sequence_number DESC LIMIT 1;
-  
+
   NEW.prev_hash := COALESCE(prev_record.current_hash, '0000000000000000000000000000000000000000000000000000000000000000');
   NEW.sequence_number := COALESCE(prev_record.sequence_number, 0) + 1;
-  
+
   NEW.current_hash := encode(
     digest(
       NEW.prev_hash ||
@@ -1462,7 +1488,7 @@ BEGIN
     ),
     'hex'
   );
-  
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -1489,12 +1515,12 @@ DECLARE
 BEGIN
   FOR rec IN SELECT * FROM audit_logs ORDER BY sequence_number ASC LOOP
     total := total + 1;
-    
+
     IF rec.prev_hash != expected_prev_hash THEN
       RETURN QUERY SELECT false, rec.id, total;
       RETURN;
     END IF;
-    
+
     computed_hash := encode(
       digest(
         rec.prev_hash || rec.sequence_number::text || rec.timestamp::text ||
@@ -1505,15 +1531,15 @@ BEGIN
       ),
       'hex'
     );
-    
+
     IF computed_hash != rec.current_hash THEN
       RETURN QUERY SELECT false, rec.id, total;
       RETURN;
     END IF;
-    
+
     expected_prev_hash := rec.current_hash;
   END LOOP;
-  
+
   RETURN QUERY SELECT true, null::uuid, total;
 END;
 $$ LANGUAGE plpgsql;
@@ -1532,6 +1558,7 @@ audit_chain_integrity_checks:
 ```
 
 Broken chain tespit edilirse:
+
 - S-ADMIN-AUDIT sayfası üstünde kırmızı banner
 - Superadmin'lere email alert
 - Slack #security-alerts kanalına webhook
@@ -1540,6 +1567,7 @@ Broken chain tespit edilirse:
 ### 12.3 Neden Auto-Repair Yok
 
 Chain kırılmışsa (tampering şüphesi), otomatik onarım kanıtları bozar. Doğru response: forensic analiz + incident report. MVP'de:
+
 1. Zincir broken → son N kaydın backup'tan restore'u (WAL + snapshots)
 2. Hangi kayıt modified tespit et (hash mismatch)
 3. Olay raporu
@@ -1561,9 +1589,9 @@ import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
 const signedUrl = getSignedUrl({
   url: `https://cdn.lean-mgmt.holding.com/docs/${documentId}/${filename}`,
   keyPairId: process.env.CLOUDFRONT_KEY_PAIR_ID,
-  privateKey: process.env.CLOUDFRONT_PRIVATE_KEY,  // AWS Secrets Manager
-  dateLessThan: new Date(Date.now() + 5 * 60 * 1000).toISOString(),  // 5 dakika
-  ipAddress: `${request.ip}/32`,  // Katman 2
+  privateKey: process.env.CLOUDFRONT_PRIVATE_KEY, // AWS Secrets Manager
+  dateLessThan: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 dakika
+  ipAddress: `${request.ip}/32`, // Katman 2
 });
 ```
 
@@ -1585,7 +1613,7 @@ function handler(event) {
     'https://app.lean-mgmt.holding.com/',
     'https://staging.lean-mgmt.holding.com/',
   ];
-  
+
   if (!referer || !allowedReferers.some((r) => referer.startsWith(r))) {
     return {
       statusCode: 403,
@@ -1593,7 +1621,7 @@ function handler(event) {
       body: { encoding: 'text', data: 'Invalid referer' },
     };
   }
-  
+
   return request;
 }
 ```
@@ -1603,6 +1631,7 @@ function handler(event) {
 ### Katman 4 — WAF Rules
 
 CloudFront'un önündeki AWS WAF (WebACL):
+
 - SQL injection / XSS pattern detection (AWS Managed Rules)
 - Rate limit IP başına 100 req / 5 dk
 - Geo blocking (opsiyonel — MVP'de yok; tüm dünyaya açık)
@@ -1615,6 +1644,7 @@ CloudFront'un kendi rate limit özelliği (AWS Shield Standard dahil). Spike det
 ### Katman 6 — Cache Behavior Restriction
 
 CloudFront distribution cache behavior:
+
 - Path pattern: `/docs/*`
 - Allowed methods: GET, HEAD only (POST/PUT/DELETE yasak)
 - TTL: 0 (cache yok — her request origin'e gider, signed URL doğrulama daima tetiklenir)
@@ -1628,10 +1658,10 @@ Origin-request hook'unda pre-flight check:
 exports.handler = async (event) => {
   const request = event.Records[0].cf.request;
   const documentId = extractDocumentIdFromPath(request.uri);
-  
+
   // Döküman scan status check (API call)
   const scanStatus = await fetchScanStatus(documentId);
-  
+
   if (scanStatus === 'INFECTED') {
     return {
       status: '403',
@@ -1641,11 +1671,11 @@ exports.handler = async (event) => {
   }
   if (scanStatus === 'PENDING' || scanStatus === 'SCANNING') {
     return {
-      status: '425',  // Too Early
+      status: '425', // Too Early
       statusDescription: 'Document scan in progress',
     };
   }
-  
+
   return request;
 };
 ```
@@ -1655,6 +1685,7 @@ exports.handler = async (event) => {
 ### Katman 8 — CloudWatch Monitoring
 
 CloudFront access log → S3 → Athena query:
+
 - Anomal download pattern (tek IP'den yüksek sayı)
 - 403/404 spike
 - Signed URL expiration errors spike → signer bug veya clock skew
@@ -1677,11 +1708,11 @@ Alert: > 100 auth error / 5 dk → PagerDuty + Slack.
 
 **AWS Organizations** altında üç ayrı AWS hesap:
 
-| Hesap | Amaç | Erişim |
-|---|---|---|
-| `lean-mgmt-dev` | Geliştirme, özellik dalları | Developer IAM users + CI/CD role |
-| `lean-mgmt-staging` | Pre-production, QA, UAT | Developer + QA IAM users + CI/CD role |
-| `lean-mgmt-prod` | Production | Superadmin IAM users + CI/CD role (restricted) + Oncall role |
+| Hesap               | Amaç                        | Erişim                                                       |
+| ------------------- | --------------------------- | ------------------------------------------------------------ |
+| `lean-mgmt-dev`     | Geliştirme, özellik dalları | Developer IAM users + CI/CD role                             |
+| `lean-mgmt-staging` | Pre-production, QA, UAT     | Developer + QA IAM users + CI/CD role                        |
+| `lean-mgmt-prod`    | Production                  | Superadmin IAM users + CI/CD role (restricted) + Oncall role |
 
 Her hesap kendi VPC, kendi RDS instance, kendi S3 bucket'ları, kendi CloudFront distribution, kendi Secrets Manager secret'ları. **Cross-hesap data flow yasak** — staging'den prod'a DB dump kopyalama yasak; anonymized subset kopyalanabilir (manuel süreç).
 
@@ -1692,13 +1723,13 @@ GitHub Actions OIDC provider her hesap IAM role'üne assume eder:
 ```yaml
 # .github/workflows/deploy-prod.yml
 permissions:
-  id-token: write  # OIDC
+  id-token: write # OIDC
   contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production  # Manual approval gate
+    environment: production # Manual approval gate
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -1712,6 +1743,7 @@ Role permission'ları minimal — sadece deploy için gereken (ECR push, ECS upd
 ### 14.3 Secret Isolation
 
 Her hesap AWS Secrets Manager:
+
 ```
 lean-mgmt-prod:
   /lean-mgmt/prod/db-master-password
@@ -1737,6 +1769,7 @@ Cross-account erişim IAM policy ile blocked. CI/CD her hesaba kendi role'ü ile
 ### 14.4 Network Isolation
 
 Her hesap kendi VPC:
+
 - CIDR block farklı (`10.0.0.0/16` dev, `10.1.0.0/16` staging, `10.2.0.0/16` prod)
 - VPC peering **yok** (dev→prod connectivity engeli)
 - Private subnet'ler outbound-only NAT Gateway
@@ -1745,6 +1778,7 @@ Her hesap kendi VPC:
 ### 14.5 Data Residency ve Backup
 
 Her hesabın RDS snapshot'ları aynı hesap/region'da:
+
 - Prod snapshots `lean-mgmt-prod` hesabında
 - Staging/dev'e snapshot restore edilmez (manuel subset export pattern)
 
@@ -1782,15 +1816,15 @@ IAM role (ECS task role) `secretsmanager:GetSecretValue` yetkisine sahip — sad
 
 ### 15.2 Rotation Schedule
 
-| Secret | Rotation period | Mekanizma |
-|---|---|---|
-| DB master password | 90 gün | AWS Secrets Manager automatic rotation (Lambda) |
-| JWT access signing | 180 gün | Manual (playbook) — dual-key window |
-| JWT refresh signing | 180 gün | Manual — dual-key window |
-| CloudFront private key | 365 gün | Manual — key pair regeneration |
-| Redis auth token | 180 gün | Manual — application restart ile |
-| SMTP credentials | 365 gün | Provider'a bağlı |
-| Sentry DSN | Rotation yok (okuma amaçlı, sızıntısı low-impact) | — |
+| Secret                 | Rotation period                                   | Mekanizma                                       |
+| ---------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| DB master password     | 90 gün                                            | AWS Secrets Manager automatic rotation (Lambda) |
+| JWT access signing     | 180 gün                                           | Manual (playbook) — dual-key window             |
+| JWT refresh signing    | 180 gün                                           | Manual — dual-key window                        |
+| CloudFront private key | 365 gün                                           | Manual — key pair regeneration                  |
+| Redis auth token       | 180 gün                                           | Manual — application restart ile                |
+| SMTP credentials       | 365 gün                                           | Provider'a bağlı                                |
+| Sentry DSN             | Rotation yok (okuma amaçlı, sızıntısı low-impact) | —                                               |
 
 ### 15.3 Development Environment
 
@@ -1801,6 +1835,7 @@ Dev ortamında `.env.local` dosyası (git ignore). Dev secret'lar production ile
 ### 15.4 CI/CD Secrets
 
 GitHub Actions secrets'ta yalnız OIDC için role ARN'ları:
+
 ```
 AWS_DEPLOY_ROLE_DEV
 AWS_DEPLOY_ROLE_STAGING
@@ -1816,6 +1851,7 @@ Uygulama secret'ları AWS Secrets Manager'dan deploy sırasında task definition
 ### 16.1 CloudWatch
 
 **Log groups:**
+
 - `/lean-mgmt/prod/api` — NestJS Pino output
 - `/lean-mgmt/prod/worker` — BullMQ workers
 - `/lean-mgmt/prod/web` — Next.js
@@ -1835,6 +1871,7 @@ fields @timestamp, level, action, userId, ip
 ### 16.2 Metrics
 
 Custom CloudWatch metrics:
+
 - `AuthLoginSuccessCount` / `AuthLoginFailureCount` — per minute
 - `AuthLockoutCount` — per minute
 - `ProcessStartedCount` (per process type)
@@ -1849,6 +1886,7 @@ Custom CloudWatch metrics:
 Frontend + backend her exception Sentry'ye. User context (userId, session, user agent) + request context (endpoint, method, request body redacted).
 
 **Sensitive data filtering** (Sentry beforeSend hook):
+
 ```typescript
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -1868,30 +1906,32 @@ Redacted fields: `password`, `newPassword`, `currentPassword`, `token`, `accessT
 ### 16.4 Alert Eşikleri
 
 Alerting channels:
+
 - **Email** — Superadmin grup (`security@holding.com`, `devops@holding.com`)
 - **Slack** — `#lean-mgmt-alerts` channel (webhook)
 - **Mobile push** — Opsiyonel (OpsGenie/PagerDuty — MVP'de yok)
 
-| Metric | Threshold | Channel | Severity |
-|---|---|---|---|
-| 5xx error rate | > 1% / 5 dk | Email + Slack | HIGH |
-| Login failure spike | > 100 / dk | Email + Slack | MEDIUM |
-| Lockout spike | > 20 / dk | Email + Slack | MEDIUM |
-| Audit chain broken | Instant | Email + Slack | CRITICAL |
-| ClamAV Lambda failure | > 3 consecutive | Email | MEDIUM |
-| RDS CPU | > 80% / 10 dk | Email | MEDIUM |
-| RDS storage | > 85% | Email | HIGH |
-| Redis memory | > 85% | Email | HIGH |
-| SSL certificate expiry | < 30 gün | Email | MEDIUM |
-| Health check /health failing | > 2 dk | Email + Slack | HIGH |
-| API response P95 | > 2 sn / 5 dk | Slack | MEDIUM |
-| Theft detection event | Instant | Email + Slack | HIGH |
-| Admin login success | Instant | Slack (`#audit`) | INFO |
-| SYSTEM_SETTINGS_EDIT | Instant | Slack (`#audit`) | INFO |
+| Metric                       | Threshold       | Channel          | Severity |
+| ---------------------------- | --------------- | ---------------- | -------- |
+| 5xx error rate               | > 1% / 5 dk     | Email + Slack    | HIGH     |
+| Login failure spike          | > 100 / dk      | Email + Slack    | MEDIUM   |
+| Lockout spike                | > 20 / dk       | Email + Slack    | MEDIUM   |
+| Audit chain broken           | Instant         | Email + Slack    | CRITICAL |
+| ClamAV Lambda failure        | > 3 consecutive | Email            | MEDIUM   |
+| RDS CPU                      | > 80% / 10 dk   | Email            | MEDIUM   |
+| RDS storage                  | > 85%           | Email            | HIGH     |
+| Redis memory                 | > 85%           | Email            | HIGH     |
+| SSL certificate expiry       | < 30 gün        | Email            | MEDIUM   |
+| Health check /health failing | > 2 dk          | Email + Slack    | HIGH     |
+| API response P95             | > 2 sn / 5 dk   | Slack            | MEDIUM   |
+| Theft detection event        | Instant         | Email + Slack    | HIGH     |
+| Admin login success          | Instant         | Slack (`#audit`) | INFO     |
+| SYSTEM_SETTINGS_EDIT         | Instant         | Slack (`#audit`) | INFO     |
 
 ### 16.5 Incident Response
 
 **Severity CRITICAL:**
+
 1. Detect (automated alert < 5 dk)
 2. Triage — on-call engineer (15 dk response SLA)
 3. Containment — service isolate, maintenance mode, rollback if deployed recently
@@ -1900,6 +1940,7 @@ Alerting channels:
 6. Post-mortem — blameless retrospective 7 gün içinde
 
 **Playbooks (docs/runbooks/ dizini):**
+
 - `runbook-audit-chain-broken.md`
 - `runbook-db-failover.md`
 - `runbook-secret-rotation.md`
@@ -1910,52 +1951,52 @@ Alerting channels:
 
 ## 17. Tehdit Modeli — STRIDE
 
-| Tehdit | Örnek | Mitigation |
-|---|---|---|
-| **Spoofing** | Saldırgan başka kullanıcı olarak login | Password policy + bcrypt + lockout + MFA (MVP dışı, roadmap) |
-| **Spoofing** | Session hijacking | httpOnly cookie + SameSite=Strict + CSRF token + IP binding (opt) |
-| **Tampering** | Request body modify (örn. başka user'ın süreci iptal) | Server-side resource ownership check (Katman 3) |
-| **Tampering** | Audit log modify | Append-only trigger + DB role + chain hash |
-| **Tampering** | JWT claim modify | HMAC imza; secret unknown to attacker |
-| **Repudiation** | Kullanıcı "ben yapmadım" | Append-only audit log + chain + session binding |
-| **Information Disclosure** | PII leak (email, telefon) | Encryption at rest + TLS in transit + field-level auth |
-| **Information Disclosure** | SQL error → schema leak | Generic error message + Sentry internal detail |
-| **Information Disclosure** | Enumeration (user exists?) | Generic error "Invalid credentials"; timing protection |
-| **Denial of Service** | Brute force login | Rate limit (IP + email) + progressive delay + lockout |
-| **Denial of Service** | Large payload | Body size limit (1 MB JSON, 10 MB document); Fastify limits |
-| **Denial of Service** | DB slow query | Query timeout (30 sn); connection pool limit; rate limit on expensive endpoints |
-| **Denial of Service** | WAF bypass | AWS Shield Standard + CloudFront rate limit + ALB throttle |
-| **Elevation of Privilege** | Rol permission değişimi cached | Cache invalidation on role change; TTL 5 dk max |
-| **Elevation of Privilege** | Direct object reference (IDOR) | Resource ownership check (Katman 3); UUID'ler unguessable |
-| **Elevation of Privilege** | Path traversal (file upload) | Filename sanitize; S3 key validation; no user-controlled path |
-| **Elevation of Privilege** | Admin endpoint discovery | Same response behavior (401 if not authenticated, regardless of path); admin routes permission guarded |
+| Tehdit                     | Örnek                                                 | Mitigation                                                                                             |
+| -------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Spoofing**               | Saldırgan başka kullanıcı olarak login                | Password policy + bcrypt + lockout + MFA (MVP dışı, roadmap)                                           |
+| **Spoofing**               | Session hijacking                                     | httpOnly cookie + SameSite=Strict + CSRF token + IP binding (opt)                                      |
+| **Tampering**              | Request body modify (örn. başka user'ın süreci iptal) | Server-side resource ownership check (Katman 3)                                                        |
+| **Tampering**              | Audit log modify                                      | Append-only trigger + DB role + chain hash                                                             |
+| **Tampering**              | JWT claim modify                                      | HMAC imza; secret unknown to attacker                                                                  |
+| **Repudiation**            | Kullanıcı "ben yapmadım"                              | Append-only audit log + chain + session binding                                                        |
+| **Information Disclosure** | PII leak (email, telefon)                             | Encryption at rest + TLS in transit + field-level auth                                                 |
+| **Information Disclosure** | SQL error → schema leak                               | Generic error message + Sentry internal detail                                                         |
+| **Information Disclosure** | Enumeration (user exists?)                            | Generic error "Invalid credentials"; timing protection                                                 |
+| **Denial of Service**      | Brute force login                                     | Rate limit (IP + email) + progressive delay + lockout                                                  |
+| **Denial of Service**      | Large payload                                         | Body size limit (1 MB JSON, 10 MB document); Fastify limits                                            |
+| **Denial of Service**      | DB slow query                                         | Query timeout (30 sn); connection pool limit; rate limit on expensive endpoints                        |
+| **Denial of Service**      | WAF bypass                                            | AWS Shield Standard + CloudFront rate limit + ALB throttle                                             |
+| **Elevation of Privilege** | Rol permission değişimi cached                        | Cache invalidation on role change; TTL 5 dk max                                                        |
+| **Elevation of Privilege** | Direct object reference (IDOR)                        | Resource ownership check (Katman 3); UUID'ler unguessable                                              |
+| **Elevation of Privilege** | Path traversal (file upload)                          | Filename sanitize; S3 key validation; no user-controlled path                                          |
+| **Elevation of Privilege** | Admin endpoint discovery                              | Same response behavior (401 if not authenticated, regardless of path); admin routes permission guarded |
 
 ### 17.1 Known Acceptable Risks
 
 Bazı riskler MVP kapsamında kabul edildi (backlog'a taşındı):
 
-| Risk | Gerekçe | Future mitigation |
-|---|---|---|
-| MFA yok | Kurum içi VPN ile erişim; 20K kullanıcı MFA rollout complexity | Roadmap Q3 — TOTP (app-based) |
-| IP whitelist Superadmin için yok (MVP) | Iç kurumsal network; VPN zorunlu | Roadmap — dedicated admin subnet + IP restrict |
-| Hardware Security Module (HSM) yok | JWT signing AWS Secrets Manager; cost + complexity tradeoff | Roadmap — financial-grade operations için |
-| WebSocket real-time yok | Polling yeterli (30 sn); WS security eklemesi (auth, rate limit) gereksiz | Future — push notifications için |
-| Anomaly detection (ML-based) yok | Rule-based alerts yeterli | Future — AWS GuardDuty integration |
-| SIEM entegrasyonu yok (Splunk/ELK) | CloudWatch + Sentry yeterli | Future — compliance audit için |
+| Risk                                   | Gerekçe                                                                   | Future mitigation                              |
+| -------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------- |
+| MFA yok                                | Kurum içi VPN ile erişim; 20K kullanıcı MFA rollout complexity            | Roadmap Q3 — TOTP (app-based)                  |
+| IP whitelist Superadmin için yok (MVP) | Iç kurumsal network; VPN zorunlu                                          | Roadmap — dedicated admin subnet + IP restrict |
+| Hardware Security Module (HSM) yok     | JWT signing AWS Secrets Manager; cost + complexity tradeoff               | Roadmap — financial-grade operations için      |
+| WebSocket real-time yok                | Polling yeterli (30 sn); WS security eklemesi (auth, rate limit) gereksiz | Future — push notifications için               |
+| Anomaly detection (ML-based) yok       | Rule-based alerts yeterli                                                 | Future — AWS GuardDuty integration             |
+| SIEM entegrasyonu yok (Splunk/ELK)     | CloudWatch + Sentry yeterli                                               | Future — compliance audit için                 |
 
 ### 17.2 Güvenlik Audit Takvimi
 
-| Aktivite | Frequency | Sorumlu |
-|---|---|---|
-| Dependency vulnerability scan (Snyk/Dependabot) | Haftalık (CI/CD) | Dev |
-| DAST (OWASP ZAP baseline) | Ayda 1 | Dev |
-| Secret scan (gitleaks, trufflehog) | Her PR (CI) | Dev |
-| Penetration test (external) | Yılda 1 | Dış firma |
-| Audit log review (random sample) | Haftalık | Superadmin |
-| Permission assignments review | Ayda 1 | Superadmin |
-| Certificate expiry check | Haftalık (automated) | DevOps |
-| Backup restore test | Ayda 1 | DevOps |
-| Secret rotation checklist review | Çeyrek | DevOps |
+| Aktivite                                        | Frequency            | Sorumlu    |
+| ----------------------------------------------- | -------------------- | ---------- |
+| Dependency vulnerability scan (Snyk/Dependabot) | Haftalık (CI/CD)     | Dev        |
+| DAST (OWASP ZAP baseline)                       | Ayda 1               | Dev        |
+| Secret scan (gitleaks, trufflehog)              | Her PR (CI)          | Dev        |
+| Penetration test (external)                     | Yılda 1              | Dış firma  |
+| Audit log review (random sample)                | Haftalık             | Superadmin |
+| Permission assignments review                   | Ayda 1               | Superadmin |
+| Certificate expiry check                        | Haftalık (automated) | DevOps     |
+| Backup restore test                             | Ayda 1               | DevOps     |
+| Secret rotation checklist review                | Çeyrek               | DevOps     |
 
 ---
 

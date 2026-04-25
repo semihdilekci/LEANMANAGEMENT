@@ -3,7 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { User } from '@prisma/client';
+import type { User } from '@leanmgmt/prisma-client';
 import type { FastifyReply } from 'fastify';
 import bcrypt from 'bcrypt';
 
@@ -138,23 +138,6 @@ export class AuthService {
     if (!user.passwordChangedAt) return null;
     const days = await this.getIntSetting('PASSWORD_EXPIRY_DAYS', 180);
     return addDaysUtc(user.passwordChangedAt, days).toISOString();
-  }
-
-  private async buildLoginUserPayload(user: User): Promise<Record<string, unknown>> {
-    const permissions = await this.loadPermissionKeys(user.id);
-    const { activeConsentVersionId, consentAccepted } = await this.consentState(user.id);
-    const passwordExpiresAt = await this.passwordExpiresAtIso(user);
-    return {
-      id: user.id,
-      sicil: this.encryption.decryptSicil(user.sicilEncrypted),
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: this.encryption.decryptEmail(user.emailEncrypted),
-      permissions,
-      activeConsentVersionId,
-      consentAccepted,
-      passwordExpiresAt,
-    };
   }
 
   private async progressiveDelayMs(emailBlindIndex: string): Promise<number> {
@@ -379,7 +362,8 @@ export class AuthService {
       maxAge: 14 * 24 * 3600,
     });
 
-    const userPayload = await this.buildLoginUserPayload(user);
+    // Login yanıtındaki kullanıcı yükü — getMe ile tek kaynak (company, manager, vb. KTİ formu için)
+    const userPayload = await this.getMe(user.id);
 
     return {
       accessToken,

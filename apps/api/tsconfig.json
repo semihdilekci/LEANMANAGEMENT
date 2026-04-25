@@ -10,6 +10,9 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@leanmgmt/prisma-client": ["src/generated/prisma/client"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
@@ -22,6 +25,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "prisma/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

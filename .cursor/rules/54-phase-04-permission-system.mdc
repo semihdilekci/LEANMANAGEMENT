@@ -68,21 +68,18 @@ apps/api/src/common/guards/
 └── permission.guard.ts                            # global + decorator reader
 ```
 
-Frontend:
-```
-apps/web/src/app/(admin)/admin/
-├── roles/page.tsx                                  # S-ROLE-LIST
-├── roles/new/page.tsx                              # S-ROLE-NEW
-├── roles/[id]/page.tsx                             # S-ROLE-DETAIL
-├── roles/[id]/permissions/page.tsx                 # S-PERMISSION-MATRIX
-├── attribute-rules/page.tsx                        # S-ATTR-RULE-LIST
-└── attribute-rules/new/page.tsx                    # S-ATTR-RULE-NEW
+**Route / layout ağaç notu — kaynak: `docs/06_SCREEN_CATALOG.md`.** Aşağıdaki `(admin)/admin/...` ve ayrı `attribute-rules/...` kökleri yalnız yönlendirici örnektir; uygulama ekranları 06’da `AppLayout` + `/(app)/roles/...` (kural: `roles/[id]/rules`) ile tanımlıdır; attribute kural ekranları 06’ya göre rol detayına gömülüdür.
 
-apps/web/src/components/admin/roles/
-├── RoleForm.tsx
-├── PermissionMatrix.tsx                            # Category-grouped checkboxes
-├── AttributeRuleBuilder.tsx                        # Visual rule editor
-└── UserRoleAssignment.tsx
+Frontend (özet — uygulama 06’ya uyun):
+```
+apps/web/src/app/(app)/...
+├── roles/...
+└── users/[id]/roles/...                             # S-USER-ROLES vb.
+
+apps/web/src/components/roles/ (ve shared)
+├── PermissionMatrix.tsx
+├── AttributeRuleBuilder.tsx
+└── ...
 ```
 
 ## Constraints

@@ -528,63 +528,65 @@ Session'lar:
 
 ### Faz 5 — Process Engine + KTİ Workflow
 
+> **Durum (repo ile hizalı):** KTİ başlatma, doküman upload→scan, süreç listesi/detay UI, iptal/rollback API ve `ProcessTypeRegistry` uygulaması mevcut. **Yönetici onayı / `REJECT` / `REQUEST_REVISION` tamamlama** `POST /tasks/.../complete` ile **Faz 6**'dadır. `03_API_CONTRACTS` içindeki `GET /processes/:displayId/history` ve ayrı `.../documents` uçları henüz yok; detay cevabı görev/doküman özetlerini taşır (backlog veya F6).
+
 #### Kapsam
 
 **Backend:**
 
-- `processes` tablosu (display_id per-type sequence)
-- `tasks` + `task_assignees` tabloları
-- `ProcessTypeRegistry` pattern (`packages/shared-types`'te)
-- KTİ workflow tanımı: `BEFORE_AFTER_KAIZEN`
-  - Step 1: KTİ_INITIATION (başlatıcı task)
-  - Step 2: KTİ_MANAGER_APPROVAL (72 saat SLA, 3 action: APPROVE/REJECT/REQUEST_REVISION)
-  - Step 3 (conditional): KTİ_REVISION (başlatıcıya revize)
-  - Back to Step 2 after revision
-- State machine transition kuralları
-- `POST /processes/kti/start` endpoint (embedded başlatma — task + process aynı anda)
-- Documents modülü: upload-initiate (CloudFront Signed URL), upload-complete, scan-status polling
-- ClamAV Lambda placeholder (dev'de scan PENDING → CLEAN auto-mock; staging'de real ClamAV)
+- `processes` tablosu (display_id per-type sequence — örn. `process_seq_before_after_kaizen`)
+- `tasks` + `task_assignments` (Prisma isimleri repo ile aynı)
+- **`ProcessTypeRegistry` pattern** — uygulama: `apps/api/src/processes/process-type-registry.service.ts` (`KtiWorkflow` onModuleInit'te register)
+- KTİ workflow tanımı: `BEFORE_AFTER_KAIZEN` (`kti.workflow.ts`)
+  - `startKti` transaction: başlatma adımı veritabanında `COMPLETED` (form verisi) + yönetici onay adımı `PENDING` (API yanıtındaki `firstTaskId` buna aittir)
+  - Adım 2: `KTI_MANAGER_APPROVAL` (SLA workflow meta içinde; onay/ret/revize **Faz 6 — task complete**)
+  - Adım 3 (koşullu): `KTI_REVISION` — **Faz 6**
+- `POST /processes/kti/start` — `POST /api/v1/processes/kti/start` (Zod, CLEAN gate, yönetici yok → 422 `USER_NOT_FOUND`)
+- `GET /api/v1/processes`, `GET /api/v1/processes/:displayId` — liste ve detay
+- `POST /api/v1/processes/:displayId/cancel` ve `POST /api/v1/processes/:displayId/rollback` — **Faz 5'te** (`PROCESS_CANCEL` / `PROCESS_ROLLBACK`)
+- **Documents modülü:** `POST /documents/upload-initiate` (S3 presigned PUT, TTL 5 dk) → client PUT → `POST /documents` (meta + kuyruk) → `GET /documents/:id` / `GET /documents/:id/scan-status` poll. **MVP’de S3 imzalı URL;** CloudFront viewer URL’si `07_SECURITY_IMPLEMENTATION` + üretimde.
+- **Worker:** `apps/worker` — `document-scan.processor` (BullMQ + ClamAV instream). Sözleşmede geçen EventBridge/Lambda alternatif bir dağıtım seçeneğidir.
 
 **Frontend:**
 
-- S-KTI-START form (6 field + multi-upload)
-- `<DocumentUploader>` component (Signed URL + progress + scan polling)
-- S-PROC-LIST-MY (başlatıcı için süreç listesi)
+- S-KTI-START — `apps/web/src/app/(app)/processes/kti/start/page.tsx`, `KtiStartForm` (çok adımlı, `ONAYLIYORUM` onayı)
+- **`DocumentUpload`** — initiate → presigned PUT → `POST /documents` → tarama poll (~2 sn aralık, 60 sn timeout; unmount’ta interval temizlenir)
+- S-PROC-LIST-MY — `processes/page.tsx`; detay: `processes/[displayId]/page.tsx` + `ProcessDetail` / `ProcessTimeline`
 
-**Integration:**
+**Integration / E2E (mevcut):**
 
-- E2E: KTİ başlat → süreç detay gör (henüz task detay ekranı yok, Faz 6)
-- Integration test: document scan polling, display_id sequence per-type
+- API integration: KTİ start + doküman edge — `test/documents-kti.integration.test.ts`, `test/processes.integration.test.ts`
+- Playwright: `kti-start` / `processes-list` — login + form/list smoke. **Uçtan uca upload+submit** ve **yönetici onay E2E** → Faz 6.
 
 #### Agent Kick-off Materyali
 
 - **Session 5.1 — Prisma schema: processes + tasks:** `02_DATABASE_SCHEMA`, `01_DOMAIN_MODEL` (state machines)
 - **Session 5.2 — ProcessTypeRegistry pattern:** `04_BACKEND_SPEC` (Bölüm ProcessTypeRegistry), `01_DOMAIN_MODEL`
-- **Session 5.3 — KTİ workflow tanımı:** `01_DOMAIN_MODEL` (KTİ state machine), process workflow
+- **Session 5.3 — KTİ workflow tanımı:** `01_DOMAIN_MODEL` (KTİ state machine), `apps/api/src/processes/workflows/kti.workflow.ts`
 - **Session 5.4 — /processes/kti/start endpoint:** `03_API_CONTRACTS` (9.5 Processes)
-- **Session 5.5 — Documents modülü:** `03_API_CONTRACTS` (9.7 Documents), `07_SECURITY_IMPLEMENTATION` (Bölüm 13 CloudFront 8-katman)
-- **Session 5.6 — `<DocumentUploader>`:** `05_FRONTEND_SPEC` (Bölüm 7.8), `06_SCREEN_CATALOG` (S-KTI-START)
+- **Session 5.5 — Documents modülü:** `03_API_CONTRACTS` (9.7 Documents), `07_SECURITY_IMPLEMENTATION` (üretim/edge/CloudFront; MVP S3)
+- **Session 5.6 — `DocumentUpload`:** `05_FRONTEND_SPEC` (Bölüm 7.8), `06_SCREEN_CATALOG` (S-KTI-START)
 - **Session 5.7 — S-KTI-START:** `06_SCREEN_CATALOG` (tam şablon)
-- **Session 5.8 — S-PROC-LIST-MY:** `06_SCREEN_CATALOG`
-- **Session 5.9 — Testing:** `08_TESTING_STRATEGY` (KTİ workflow senaryoları)
+- **Session 5.8 — S-PROC-LIST / S-PROCESS-DETAIL:** `06_SCREEN_CATALOG`
+- **Session 5.9 — Testing:** `08_TESTING_STRATEGY` (KTİ workflow + doküman senaryoları)
 
 #### Deliverable
 
-- Kullanıcı `/processes/kti/start`'a gider → formu doldurur → fotoğraflar yüklenir (CLEAN scan) → submit → KTI-000001 oluşur
-- Manager'a task atanır (DB'de görülür — henüz UI'da görünmüyor)
-- Süreç detay sayfası henüz yok (sadece liste var — Faz 6'da)
-- Integration test: full KTİ start flow
+- Kullanıcı `/processes/kti/start` sayfasında formu doldurur; fotoğraflar (CLEAN) → submit → `KTI-000001` formatında süreç oluşur
+- Yöneticiye PENDING task atanır; liste ve detay UI: `/processes`, `/processes/{displayId}`
+- Integration test: KTİ start + doküman edge senaryoları
+- **Faz 6’da:** task `complete` (onay/ret/revize), sözleşmedeki ayrı `GET .../history` / `.../documents` (veya sözleşme revizyonu), tam E2E critical journey
 
 #### Human Gate
 
-- [ ] `display_id` format `KTI-000001` (6 haneli padding, process_type başına ayrı sequence)
-- [ ] `processes.state`, `tasks.state` enum'ları `01_DOMAIN_MODEL` ile birebir
-- [ ] State machine transition: sadece allowed transition'lar backend'te accept (invalid → 409)
-- [ ] ProcessTypeRegistry pattern: yeni süreç tipi eklemek kolay (kod örneği ADR)
-- [ ] KTİ başlatıcı manager'ı yoksa → 422 USER_NOT_FOUND uygun error
-- [ ] `<DocumentUploader>` scan status polling 5 sn interval, max 60 sn timeout
-- [ ] CloudFront Signed URL 5 dk TTL
-- [ ] Integration test: before/after photos zorunlu, 1-10 arası
+- [x] `display_id` format `KTI-000001` (6 haneli padding, süreç tipi başına sequence)
+- [x] `process` / `task` durumları Prisma + domain ile tutarlı; görev tamamlama geçişleri Faz 6
+- [x] İptal, rollback, CLEAN olmayan start gibi kurallar typed hata; invalid task transitions Faz 6
+- [x] ProcessTypeRegistry: `ProcessTypeRegistryService` + `KtiWorkflow` (ADR için kaynak kod)
+- [x] Yönetici yok → 422 + `USER_NOT_FOUND` (KTİ için)
+- [x] `DocumentUpload` tarama poll: ~2 sn aralık, 60 sn üst sınır (5 sn istersen sabit tek yerden)
+- [x] Presigned URL 5 dk (300 s) TTL; MVP S3, CloudFront üretim
+- [x] Integration: öncesi/sonrası 1–10 foto, CLEAN zorunluluğu
 
 #### Vibe Coding Risk Uyarıları
 
@@ -592,8 +594,8 @@ Session'lar:
 - **Agent state machine transition'ları enforce etmez** — herhangi bir state → herhangi bir state geçişi yapar. Explicit allowed-transitions matrisi.
 - **Agent display_id için sequence yerine UUID veya counter kullanır** — `02_DATABASE_SCHEMA`'daki per-type PostgreSQL sequence zorunlu.
 - **Agent document upload'ı tek endpoint olarak tasarlar** (client → backend → S3 relay) — scalability engeli. Pre-signed URL pattern zorunlu.
-- **Agent ClamAV'i mock ile değiştirir** (dev için ok) ama staging/prod için real Lambda hazırlığı unutulur. Infrastructure placeholder'ı Faz 1'de hazırlanmış olmalı, Faz 5'te aktive edilir.
-- **Agent `<DocumentUploader>` scan polling'ini browser'da interval ile yapar** ama component unmount olursa interval leak. Cleanup zorunlu.
+- **Agent tarama yolunu yalnız mock bırakır** — dev için ok; worker + kuyruk tamamlanmalı. Altyapı Faz 1, worker Faz 5; Lambda sözleşme alternatifidir.
+- **Agent `DocumentUpload` poll'u unmount'ta temizlemez** — interval sızıntısı. Cleanup zorunlu.
 
 #### Tahmini İterasyon
 
@@ -611,7 +613,7 @@ Session'lar:
 - Claim mode handling (CLAIM tip task'larda peer eviction)
 - Complete action-based handler (completion_action + reason validation)
 - Task visibility (başlatıcı vs assignee vs PROCESS_VIEW_ALL)
-- Process cancel + rollback endpoints
+- **Process cancel + rollback** — uçlar Faz 5'te; Faz 6'da bildirimler, idari `GET /processes/:displayId/history` (sözleşme), UI eşlemesi
 - Integration with KTİ workflow (manager approval transitions)
 - SLA hesaplama (task.sla_due_at assignment-time)
 
@@ -635,7 +637,7 @@ Session'lar:
 - **Session 6.1 — Task endpoints:** `03_API_CONTRACTS` (9.6 Tasks)
 - **Session 6.2 — Claim + complete action handler:** `01_DOMAIN_MODEL` (task semantics), `04_BACKEND_SPEC` (workflow engine)
 - **Session 6.3 — Visibility rules:** `07_SECURITY_IMPLEMENTATION` (Bölüm 4.1 Katman 3+4)
-- **Session 6.4 — Process cancel + rollback:** `03_API_CONTRACTS`, `01_DOMAIN_MODEL` (rollback semantics)
+- **Session 6.4 — Process cancel + rollback (UI + idari):** `03_API_CONTRACTS`, `01_DOMAIN_MODEL` (rollback semantics) — API varsa regresyon + modallar
 - **Session 6.5 — S-TASK-LIST:** `06_SCREEN_CATALOG`
 - **Session 6.6 — S-TASK-DETAIL (en kompleks ekran):** `06_SCREEN_CATALOG` (tam şablon)
 - **Session 6.7 — S-PROC-DETAIL:** `06_SCREEN_CATALOG`

@@ -8,7 +8,10 @@ import {
 import { PermissionResolverService } from './permission-resolver.service.js';
 
 /**
- * Kullanıcı alanındaki değişimde yetki cache — deferred; rol toplu güncellemeleri doğrudan await invalidateRole
+ * `USER_INVALIDATE` — kullanıcı snapshot değişimi (deferred, async: true).
+ * Rol kaynaklı invalidation: `role-permission-management` / `role-rules` servislerinde
+ * `await permissionResolver.invalidateRole` + `ROLE_AFFECTS_USER_PERMISSIONS` emit; HTTP
+ * cevabı aynı request içinde kapanır (ayrı listener yok — Prisma bağlamı gecikmeli işlere kapanmaz).
  */
 @Injectable()
 export class RoleCacheInvalidationListener {

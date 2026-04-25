@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import {
+  bufferToPrismaBytes,
+  bytesToNodeBuffer,
   decryptAes256GcmDeterministic,
   decryptAes256GcmProbabilistic,
   encryptAes256GcmDeterministic,
@@ -30,12 +32,12 @@ export class EncryptionService {
     return hmacBlindIndexHex(sicil, this.pepper);
   }
 
-  encryptSicil(sicil: string): Buffer {
-    return encryptAes256GcmDeterministic(sicil, this.key, NS_SICIL);
+  encryptSicil(sicil: string): Uint8Array {
+    return bufferToPrismaBytes(encryptAes256GcmDeterministic(sicil, this.key, NS_SICIL));
   }
 
-  decryptSicil(payload: Buffer): string {
-    return decryptAes256GcmDeterministic(payload, this.key, NS_SICIL);
+  decryptSicil(payload: Buffer | Uint8Array): string {
+    return decryptAes256GcmDeterministic(bytesToNodeBuffer(payload), this.key, NS_SICIL);
   }
 
   normalizeEmail(email: string): string {
@@ -46,20 +48,23 @@ export class EncryptionService {
     return hmacBlindIndexHex(this.normalizeEmail(email), this.pepper);
   }
 
-  encryptEmail(email: string): Buffer {
-    return encryptAes256GcmDeterministic(this.normalizeEmail(email), this.key, NS_EMAIL);
+  encryptEmail(email: string): Uint8Array {
+    return bufferToPrismaBytes(
+      encryptAes256GcmDeterministic(this.normalizeEmail(email), this.key, NS_EMAIL),
+    );
   }
 
-  decryptEmail(payload: Buffer): string {
-    return decryptAes256GcmDeterministic(payload, this.key, NS_EMAIL);
+  decryptEmail(payload: Buffer | Uint8Array): string {
+    return decryptAes256GcmDeterministic(bytesToNodeBuffer(payload), this.key, NS_EMAIL);
   }
 
   /** docs/03-security-baseline — phone probabilistic */
-  encryptPhone(phone: string): { ciphertext: Buffer; dek: Buffer } {
-    return encryptAes256GcmProbabilistic(phone);
+  encryptPhone(phone: string): { ciphertext: Uint8Array; dek: Uint8Array } {
+    const { ciphertext, dek } = encryptAes256GcmProbabilistic(phone);
+    return { ciphertext: bufferToPrismaBytes(ciphertext), dek: bufferToPrismaBytes(dek) };
   }
 
-  decryptPhone(ciphertext: Buffer, dek: Buffer): string {
-    return decryptAes256GcmProbabilistic(ciphertext, dek);
+  decryptPhone(ciphertext: Buffer | Uint8Array, dek: Buffer | Uint8Array): string {
+    return decryptAes256GcmProbabilistic(bytesToNodeBuffer(ciphertext), bytesToNodeBuffer(dek));
   }
 }

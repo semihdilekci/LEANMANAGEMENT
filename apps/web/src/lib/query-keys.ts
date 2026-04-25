@@ -1,4 +1,4 @@
-import type { MasterDataType } from '@leanmgmt/shared-schemas';
+import type { MasterDataType, TaskListQuery } from '@leanmgmt/shared-schemas';
 
 interface UserListFilters {
   cursor?: string;
@@ -24,6 +24,21 @@ interface RoleListFilters {
   isActive?: string;
   isSystem?: string;
   search?: string;
+}
+
+export interface ProcessListFilters {
+  scope?: string;
+  status?: string;
+  processType?: string;
+  displayId?: string;
+  startedAtFrom?: string;
+  startedAtTo?: string;
+  startedByUserId?: string;
+  companyId?: string;
+  showCancelled?: string;
+  limit?: number;
+  cursor?: string;
+  sort?: string;
 }
 
 export const queryKeys = {
@@ -54,6 +69,21 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.users.details(), id] as const,
     roles: (id: string) => [...queryKeys.users.detail(id), 'roles'] as const,
     sessions: (id: string) => [...queryKeys.users.detail(id), 'sessions'] as const,
+  },
+  processes: {
+    all: () => ['processes'] as const,
+    lists: () => [...queryKeys.processes.all(), 'list'] as const,
+    list: (filters?: ProcessListFilters) =>
+      [...queryKeys.processes.lists(), filters ?? {}] as const,
+    details: () => [...queryKeys.processes.all(), 'detail'] as const,
+    detail: (displayId: string) => [...queryKeys.processes.details(), displayId] as const,
+  },
+  tasks: {
+    all: () => ['tasks'] as const,
+    lists: () => [...queryKeys.tasks.all(), 'list'] as const,
+    list: (filters?: TaskListQuery) => [...queryKeys.tasks.lists(), filters ?? {}] as const,
+    details: () => [...queryKeys.tasks.all(), 'detail'] as const,
+    detail: (id: string) => [...queryKeys.tasks.details(), id] as const,
   },
   masterData: {
     all: () => ['master-data'] as const,

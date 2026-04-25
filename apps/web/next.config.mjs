@@ -6,7 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  allowedDevOrigins: ['http://127.0.0.1:3000'],
+  allowedDevOrigins: ['http://127.0.0.1:3000', 'http://127.0.0.1:3010'],
   reactStrictMode: true,
   outputFileTracingRoot: path.join(__dirname, '../..'),
   transpilePackages: [

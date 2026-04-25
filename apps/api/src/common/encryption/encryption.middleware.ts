@@ -5,9 +5,9 @@
 import type { EncryptionService } from './encryption.service.js';
 
 export type UserPiiWrite = {
-  sicilEncrypted: Buffer;
+  sicilEncrypted: Uint8Array;
   sicilBlindIndex: string;
-  emailEncrypted: Buffer;
+  emailEncrypted: Uint8Array;
   emailBlindIndex: string;
 };
 

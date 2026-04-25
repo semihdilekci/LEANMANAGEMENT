@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { Prisma } from '@leanmgmt/prisma-client';
 import type {
   CreateRoleRuleInput,
   PatchRoleRuleInput,
@@ -17,6 +18,10 @@ import {
   type AbacRoleRuleInput,
   type AbacUserSnapshot,
 } from './attribute-rule-evaluator.service.js';
+import {
+  PERMISSION_CACHE_EVENT,
+  type RoleAffectsUserPermissionsCachePayload,
+} from './permission-cache.events.js';
 import { PermissionResolverService } from './permission-resolver.service.js';
 import {
   RoleNotFoundException,
@@ -32,6 +37,7 @@ export class RoleRulesService {
     private readonly attributeRuleEvaluator: AttributeRuleEvaluatorService,
     @Inject(PermissionResolverService)
     private readonly permissionResolver: PermissionResolverService,
+    @Inject(EventEmitter2) private readonly events: EventEmitter2,
     @Inject(AuditLogService) private readonly audit: AuditLogService,
     @Inject(EncryptionService) private readonly encryption: EncryptionService,
   ) {}
@@ -295,6 +301,9 @@ export class RoleRulesService {
     });
 
     await this.permissionResolver.invalidateRole(roleId);
+    this.events.emit(PERMISSION_CACHE_EVENT.ROLE_AFFECTS_USER_PERMISSIONS, {
+      roleId,
+    } satisfies RoleAffectsUserPermissionsCachePayload);
 
     await this.audit.append({
       userId: actor.id,
@@ -359,6 +368,9 @@ export class RoleRulesService {
     }
 
     await this.permissionResolver.invalidateRole(roleId);
+    this.events.emit(PERMISSION_CACHE_EVENT.ROLE_AFFECTS_USER_PERMISSIONS, {
+      roleId,
+    } satisfies RoleAffectsUserPermissionsCachePayload);
 
     await this.audit.append({
       userId: actor.id,
@@ -379,6 +391,9 @@ export class RoleRulesService {
     await this.prisma.roleRule.delete({ where: { id: ruleId } });
 
     await this.permissionResolver.invalidateRole(roleId);
+    this.events.emit(PERMISSION_CACHE_EVENT.ROLE_AFFECTS_USER_PERMISSIONS, {
+      roleId,
+    } satisfies RoleAffectsUserPermissionsCachePayload);
 
     await this.audit.append({
       userId: actor.id,

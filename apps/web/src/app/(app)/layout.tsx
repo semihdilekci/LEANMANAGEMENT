@@ -35,6 +35,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >
                   Ana Sayfa
                 </Link>
+                <Link
+                  href="/processes"
+                  className="text-sm text-[var(--color-neutral-600)] hover:text-[var(--color-primary-600)]"
+                >
+                  Süreçler
+                </Link>
+                <Link
+                  href="/tasks"
+                  className="text-sm text-[var(--color-neutral-600)] hover:text-[var(--color-primary-600)]"
+                >
+                  Görevlerim
+                </Link>
                 <PermissionGate permission={Permission.USER_LIST_VIEW}>
                   <Link
                     href="/users"

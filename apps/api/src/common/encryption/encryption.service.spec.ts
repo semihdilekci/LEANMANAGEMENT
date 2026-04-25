@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -31,7 +33,7 @@ describe('EncryptionService', () => {
     const e = 'User@Example.COM';
     const a = enc.encryptEmail(e);
     const b = enc.encryptEmail(e);
-    expect(a.equals(b)).toBe(true);
+    expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
     expect(enc.decryptEmail(a)).toBe('user@example.com');
   });
 

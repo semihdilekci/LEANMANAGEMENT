@@ -153,6 +153,30 @@ describe('Roles API (integration)', () => {
     expect(del.statusCode).toBe(204);
   });
 
+  it('GET /users/:id/roles — DIRECT atamalar (superadmin)', async () => {
+    const srv = app.getHttpAdapter().getInstance();
+    const login = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ email: 'superadmin@leanmgmt.local', password: 'AdminPass123!@#' }),
+    });
+    expect(login.statusCode).toBe(200);
+    const body = JSON.parse(login.body) as { data: { user: { id: string }; accessToken: string } };
+    const userId = body.data.user.id;
+    const res = await srv.inject({
+      method: 'GET',
+      url: `/api/v1/users/${userId}/roles`,
+      headers: { authorization: `Bearer ${body.data.accessToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body) as { data: Array<{ source: string; code: string }> };
+    expect(Array.isArray(json.data)).toBe(true);
+    const direct = json.data.filter((r) => r.source === 'DIRECT');
+    expect(direct.length).toBeGreaterThanOrEqual(1);
+    expect(direct.some((r) => r.code === 'SUPERADMIN')).toBe(true);
+  });
+
   it('PROCESS_MANAGER — GET /roles 403', async () => {
     const srv = app.getHttpAdapter().getInstance();
     const login = await srv.inject({

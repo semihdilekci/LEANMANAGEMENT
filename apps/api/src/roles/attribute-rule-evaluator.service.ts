@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { EmployeeType, RoleRuleAttributeKey, RoleRuleConditionOperator } from '@prisma/client';
+import type {
+  EmployeeType,
+  RoleRuleAttributeKey,
+  RoleRuleConditionOperator,
+} from '@leanmgmt/prisma-client';
 
 /** Resolver’ın yüklediği kullanıcı alanları — ABAC eşlemesi için yeterli */
 export interface AbacUserSnapshot {
