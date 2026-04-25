@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { User } from '@prisma/client';
+import { Prisma, type User } from '@leanmgmt/prisma-client';
 
 import type {
   CreateUserInput,
@@ -11,6 +11,7 @@ import type {
   UserDeactivateInput,
   UserListQuery,
   UserReactivateInput,
+  UserRoleItem,
 } from '@leanmgmt/shared-schemas';
 
 import { AuditLogService } from '../common/audit/audit-log.service.js';
@@ -19,6 +20,11 @@ import {
   PERMISSION_CACHE_EVENT,
   type UserPermissionCacheInvalidatePayload,
 } from '../roles/permission-cache.events.js';
+import {
+  AttributeRuleEvaluatorService,
+  type AbacRoleRuleInput,
+  type AbacUserSnapshot,
+} from '../roles/attribute-rule-evaluator.service.js';
 import { PermissionResolverService } from '../roles/permission-resolver.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -39,6 +45,24 @@ import {
 
 const ANON_PLACEHOLDER_PREFIX = 'ANONYMIZED';
 
+const USER_DETAIL_INCLUDE = {
+  company: true,
+  location: true,
+  department: true,
+  position: true,
+  level: true,
+  team: true,
+  workArea: true,
+  workSubArea: true,
+  manager: true,
+  createdByUser: { select: { id: true, firstName: true, lastName: true } },
+  userRoles: { include: { role: true } },
+} as const;
+
+type UserWithDetailRelations = Prisma.UserGetPayload<{
+  include: typeof USER_DETAIL_INCLUDE;
+}>;
+
 function sha256Short(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 16);
 }
@@ -53,6 +77,8 @@ export class UsersService {
     @Inject(AuditLogService) private readonly audit: AuditLogService,
     @Inject(PermissionResolverService)
     private readonly permissionResolver: PermissionResolverService,
+    @Inject(AttributeRuleEvaluatorService)
+    private readonly attributeRuleEvaluator: AttributeRuleEvaluatorService,
     @Inject(RedisService) private readonly redis: RedisService,
     @Inject(EventEmitter2) private readonly events: EventEmitter2,
   ) {}
@@ -64,13 +90,13 @@ export class UsersService {
   private serializeUser(user: User & Record<string, unknown>): Record<string, unknown> {
     return {
       id: user.id,
-      sicil: user.anonymizedAt ? null : this.encryption.decryptSicil(user.sicilEncrypted as Buffer),
+      sicil: user.anonymizedAt ? null : this.encryption.decryptSicil(user.sicilEncrypted),
       firstName: user.firstName,
       lastName: user.lastName,
-      email: user.anonymizedAt ? null : this.encryption.decryptEmail(user.emailEncrypted as Buffer),
+      email: user.anonymizedAt ? null : this.encryption.decryptEmail(user.emailEncrypted),
       phone:
         !user.anonymizedAt && user.phoneEncrypted && user.phoneDek
-          ? this.encryption.decryptPhone(user.phoneEncrypted as Buffer, user.phoneDek as Buffer)
+          ? this.encryption.decryptPhone(user.phoneEncrypted, user.phoneDek)
           : null,
       employeeType: user.employeeType,
       companyId: user.companyId,
@@ -82,33 +108,28 @@ export class UsersService {
       workAreaId: user.workAreaId,
       workSubAreaId: user.workSubAreaId,
       managerUserId: user.managerUserId,
+      managerEmail:
+        !user.anonymizedAt && user.managerEmailEncrypted
+          ? this.encryption.decryptEmail(user.managerEmailEncrypted)
+          : null,
       hireDate: user.hireDate ? (user.hireDate as Date).toISOString().split('T')[0] : null,
       isActive: user.isActive,
       anonymizedAt: user.anonymizedAt ? (user.anonymizedAt as Date).toISOString() : null,
+      anonymizationReason: user.anonymizationReason ?? null,
+      passwordChangedAt: user.passwordChangedAt
+        ? (user.passwordChangedAt as Date).toISOString()
+        : null,
+      failedLoginCount: user.failedLoginCount,
+      lockedUntil: user.lockedUntil ? (user.lockedUntil as Date).toISOString() : null,
+      lastLoginAt: user.lastLoginAt ? (user.lastLoginAt as Date).toISOString() : null,
+      passwordIsSet: Boolean(user.passwordHash),
+      createdByUserId: user.createdByUserId,
       createdAt: (user.createdAt as Date).toISOString(),
       updatedAt: (user.updatedAt as Date).toISOString(),
     };
   }
 
-  private serializeUserWithRelations(
-    user: User & {
-      company: { id: string; code: string; name: string };
-      location: { id: string; code: string; name: string };
-      department: { id: string; code: string; name: string };
-      position: { id: string; code: string; name: string };
-      level: { id: string; code: string; name: string };
-      team: { id: string; code: string; name: string } | null;
-      workArea: { id: string; code: string; name: string };
-      workSubArea: { id: string; code: string; name: string } | null;
-      manager: User | null;
-      userRoles: Array<{
-        id: string;
-        assignedAt: Date;
-        assignedByUserId: string;
-        role: { id: string; code: string; name: string };
-      }>;
-    },
-  ): Record<string, unknown> {
+  private serializeUserWithRelations(user: UserWithDetailRelations): Record<string, unknown> {
     const base = this.serializeUser(user);
     return {
       ...base,
@@ -132,6 +153,13 @@ export class UsersService {
             sicil: this.encryption.decryptSicil(user.manager.sicilEncrypted),
             firstName: user.manager.firstName,
             lastName: user.manager.lastName,
+          }
+        : null,
+      createdBy: user.createdByUser
+        ? {
+            id: user.createdByUser.id,
+            firstName: user.createdByUser.firstName,
+            lastName: user.createdByUser.lastName,
           }
         : null,
       roles: user.userRoles.map((ur) => ({
@@ -250,24 +278,31 @@ export class UsersService {
     const sicilEncrypted = this.encryption.encryptSicil(dto.sicil);
     const emailEncrypted = this.encryption.encryptEmail(dto.email);
 
-    let phoneEncrypted: Buffer | undefined;
-    let phoneDek: Buffer | undefined;
+    let phoneEncrypted: Uint8Array | undefined;
+    let phoneDek: Uint8Array | undefined;
     if (dto.phone) {
       const result = this.encryption.encryptPhone(dto.phone);
       phoneEncrypted = result.ciphertext;
       phoneDek = result.dek;
     }
 
+    let managerEmailEncrypted: Uint8Array | undefined;
+    let managerEmailBlindIndex: string | undefined;
+    if (dto.managerEmail) {
+      managerEmailEncrypted = this.encryption.encryptEmail(dto.managerEmail);
+      managerEmailBlindIndex = this.encryption.emailBlindIndex(dto.managerEmail);
+    }
+
     const user = await this.prisma.user.create({
       data: {
-        sicilEncrypted,
+        sicilEncrypted: sicilEncrypted as Prisma.Bytes,
         sicilBlindIndex: sicilBlind,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        emailEncrypted,
+        emailEncrypted: emailEncrypted as Prisma.Bytes,
         emailBlindIndex: emailBlind,
-        phoneEncrypted: phoneEncrypted ?? null,
-        phoneDek: phoneDek ?? null,
+        phoneEncrypted: (phoneEncrypted ?? null) as Prisma.Bytes | null,
+        phoneDek: (phoneDek ?? null) as Prisma.Bytes | null,
         employeeType: dto.employeeType,
         companyId: dto.companyId,
         locationId: dto.locationId,
@@ -278,21 +313,12 @@ export class UsersService {
         workAreaId: dto.workAreaId,
         workSubAreaId: dto.workSubAreaId ?? null,
         managerUserId: dto.managerUserId ?? null,
+        managerEmailEncrypted: (managerEmailEncrypted ?? null) as Prisma.Bytes | null,
+        managerEmailBlindIndex: managerEmailBlindIndex ?? null,
         hireDate: dto.hireDate ? new Date(dto.hireDate) : null,
         createdByUserId: actor.id,
       },
-      include: {
-        company: true,
-        location: true,
-        department: true,
-        position: true,
-        level: true,
-        team: true,
-        workArea: true,
-        workSubArea: true,
-        manager: true,
-        userRoles: { include: { role: true } },
-      },
+      include: USER_DETAIL_INCLUDE,
     });
 
     await this.audit.append({
@@ -385,18 +411,7 @@ export class UsersService {
   async findById(id: string, actor: AuthenticatedUser): Promise<Record<string, unknown>> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
-        company: true,
-        location: true,
-        department: true,
-        position: true,
-        level: true,
-        team: true,
-        workArea: true,
-        workSubArea: true,
-        manager: true,
-        userRoles: { include: { role: true } },
-      },
+      include: USER_DETAIL_INCLUDE,
     });
 
     if (!user) throw new UserNotFoundException();
@@ -478,21 +493,20 @@ export class UsersService {
       }
     }
 
+    if (dto.managerEmail !== undefined) {
+      if (dto.managerEmail) {
+        updateData['managerEmailEncrypted'] = this.encryption.encryptEmail(dto.managerEmail);
+        updateData['managerEmailBlindIndex'] = this.encryption.emailBlindIndex(dto.managerEmail);
+      } else {
+        updateData['managerEmailEncrypted'] = null;
+        updateData['managerEmailBlindIndex'] = null;
+      }
+    }
+
     const updated = await this.prisma.user.update({
       where: { id },
       data: updateData,
-      include: {
-        company: true,
-        location: true,
-        department: true,
-        position: true,
-        level: true,
-        team: true,
-        workArea: true,
-        workSubArea: true,
-        manager: true,
-        userRoles: { include: { role: true } },
-      },
+      include: USER_DETAIL_INCLUDE,
     });
 
     this.events.emit(PERMISSION_CACHE_EVENT.USER_INVALIDATE, {
@@ -578,11 +592,11 @@ export class UsersService {
       await tx.user.update({
         where: { id },
         data: {
-          sicilEncrypted,
+          sicilEncrypted: sicilEncrypted as Prisma.Bytes,
           sicilBlindIndex: sicilBlind,
           firstName: ANON_PLACEHOLDER_PREFIX,
           lastName: ANON_PLACEHOLDER_PREFIX,
-          emailEncrypted,
+          emailEncrypted: emailEncrypted as Prisma.Bytes,
           emailBlindIndex: emailBlind,
           phoneEncrypted: null,
           phoneDek: null,
@@ -616,8 +630,24 @@ export class UsersService {
     this.logger.warn({ event: 'user.anonymized', actorId: actor.id, userId: id });
   }
 
-  async getUserRoles(id: string): Promise<Record<string, unknown>[]> {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+  async getUserRoles(id: string): Promise<UserRoleItem[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        isActive: true,
+        anonymizedAt: true,
+        companyId: true,
+        locationId: true,
+        departmentId: true,
+        positionId: true,
+        levelId: true,
+        teamId: true,
+        workAreaId: true,
+        workSubAreaId: true,
+        employeeType: true,
+      },
+    });
     if (!user) throw new UserNotFoundException();
 
     const userRoles = await this.prisma.userRole.findMany({
@@ -626,14 +656,84 @@ export class UsersService {
       orderBy: { assignedAt: 'desc' },
     });
 
-    return userRoles.map((ur) => ({
+    const direct: UserRoleItem[] = userRoles.map((ur) => ({
       id: ur.role.id,
       code: ur.role.code,
       name: ur.role.name,
-      source: 'DIRECT' as const,
+      source: 'DIRECT',
       assignedAt: ur.assignedAt.toISOString(),
       assignedByUserId: ur.assignedByUserId,
     }));
+
+    const snapshot: AbacUserSnapshot = {
+      isActive: user.isActive,
+      anonymizedAt: user.anonymizedAt,
+      companyId: user.companyId,
+      locationId: user.locationId,
+      departmentId: user.departmentId,
+      positionId: user.positionId,
+      levelId: user.levelId,
+      teamId: user.teamId,
+      workAreaId: user.workAreaId,
+      workSubAreaId: user.workSubAreaId,
+      employeeType: user.employeeType,
+    };
+
+    const roleRules = await this.prisma.roleRule.findMany({
+      where: { isActive: true, role: { isActive: true } },
+      orderBy: [{ roleId: 'asc' }, { ruleOrder: 'asc' }, { id: 'asc' }],
+      include: {
+        role: { select: { id: true, code: true, name: true } },
+        conditionSets: {
+          orderBy: { setOrder: 'asc' },
+          include: {
+            conditions: { orderBy: { createdAt: 'asc' } },
+          },
+        },
+      },
+    });
+
+    const abac: UserRoleItem[] = [];
+    const abacCoveredRoleIds = new Set<string>();
+    for (const rr of roleRules) {
+      if (abacCoveredRoleIds.has(rr.roleId)) {
+        continue;
+      }
+      const abacInput: AbacRoleRuleInput = {
+        roleId: rr.roleId,
+        conditionSets: rr.conditionSets.map((cs) => ({
+          conditions: cs.conditions.map((c) => ({
+            attributeKey: c.attributeKey,
+            operator: c.operator,
+            value: c.value,
+          })),
+        })),
+      };
+      if (!this.attributeRuleEvaluator.evaluateRoleRule(snapshot, abacInput)) {
+        continue;
+      }
+      abacCoveredRoleIds.add(rr.roleId);
+      abac.push({
+        id: rr.role.id,
+        code: rr.role.code,
+        name: rr.role.name,
+        source: 'ATTRIBUTE_RULE',
+        assignedAt: rr.updatedAt.toISOString(),
+        assignedByUserId: null,
+        matchedRuleId: rr.id,
+        matchedConditionSet: {
+          conditionSets: rr.conditionSets.map((cs) => ({
+            conditions: cs.conditions.map((c) => ({
+              attributeKey: c.attributeKey,
+              operator: c.operator,
+              value: c.value,
+            })),
+          })),
+        },
+      });
+    }
+
+    return [...direct, ...abac];
   }
 
   async getUserSessions(id: string): Promise<Record<string, unknown>[]> {

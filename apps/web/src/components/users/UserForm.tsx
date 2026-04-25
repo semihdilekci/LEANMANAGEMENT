@@ -13,7 +13,12 @@ import {
 } from '@leanmgmt/shared-schemas';
 
 import { useAllMasterDataQuery } from '@/lib/queries/master-data';
-import { useCreateUserMutation, useUpdateUserMutation, type UserDetail } from '@/lib/queries/users';
+import {
+  useCreateUserMutation,
+  useUpdateUserMutation,
+  useUserListQuery,
+  type UserDetail,
+} from '@/lib/queries/users';
 
 interface MasterDataSelectProps {
   id: string;
@@ -67,15 +72,47 @@ export function UserCreateForm() {
   const { data: departments } = useAllMasterDataQuery('departments');
   const { data: positions } = useAllMasterDataQuery('positions');
   const { data: levels } = useAllMasterDataQuery('levels');
+  const { data: teams } = useAllMasterDataQuery('teams');
   const { data: workAreas } = useAllMasterDataQuery('work-areas');
+  const { data: workSubAreas } = useAllMasterDataQuery('work-sub-areas');
+  const { data: managerCandidates } = useUserListQuery({ limit: 100, isActive: 'true' });
 
   const createMutation = useCreateUserMutation();
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
-  } = useForm<CreateUserInput>({ resolver: zodResolver(CreateUserSchema) });
+  } = useForm<CreateUserInput>({
+    resolver: zodResolver(CreateUserSchema),
+    defaultValues: {
+      sicil: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      employeeType: 'WHITE_COLLAR',
+      companyId: '',
+      locationId: '',
+      departmentId: '',
+      positionId: '',
+      levelId: '',
+      teamId: '',
+      workAreaId: '',
+      workSubAreaId: '',
+      managerUserId: '',
+      managerEmail: '',
+      hireDate: '',
+    },
+  });
+
+  const workAreaId = watch('workAreaId');
+  const selectedWa = workAreas?.find((w) => w.id === workAreaId);
+  const subAreaOptions =
+    selectedWa?.code && workSubAreas
+      ? workSubAreas.filter((s) => s.parentWorkAreaCode === selectedWa.code)
+      : [];
 
   const onSubmit = async (data: CreateUserInput) => {
     try {
@@ -192,6 +229,28 @@ export function UserCreateForm() {
 
         <div>
           <label
+            htmlFor="phone"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            Cep telefonu
+          </label>
+          <input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="+905551234567"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('phone')}
+          />
+          {errors.phone && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.phone.message}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label
             htmlFor="employeeType"
             className="block text-sm font-medium text-[var(--color-neutral-700)]"
           >
@@ -250,6 +309,13 @@ export function UserCreateForm() {
           registration={register('levelId')}
         />
         <MasterDataSelect
+          id="teamId"
+          label="Takım"
+          options={teams}
+          error={errors.teamId?.message}
+          registration={register('teamId')}
+        />
+        <MasterDataSelect
           id="workAreaId"
           label="Çalışma Alanı"
           required
@@ -257,6 +323,76 @@ export function UserCreateForm() {
           error={errors.workAreaId?.message}
           registration={register('workAreaId')}
         />
+        <MasterDataSelect
+          id="workSubAreaId"
+          label="Çalışma alt alanı"
+          options={subAreaOptions}
+          error={errors.workSubAreaId?.message}
+          registration={register('workSubAreaId')}
+        />
+        <div>
+          <label
+            htmlFor="hireDate"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            İşe giriş tarihi
+          </label>
+          <input
+            id="hireDate"
+            type="date"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('hireDate')}
+          />
+          {errors.hireDate && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.hireDate.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <label
+            htmlFor="managerUserId"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            Yönetici (kullanıcı)
+          </label>
+          <select
+            id="managerUserId"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('managerUserId')}
+          >
+            <option value="">Seçin</option>
+            {managerCandidates?.items.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.lastName} {u.firstName} — {u.sicil ?? u.id}
+              </option>
+            ))}
+          </select>
+          {errors.managerUserId && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.managerUserId.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <label
+            htmlFor="managerEmail"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            Yönetici e-postası (SAP / harici)
+          </label>
+          <input
+            id="managerEmail"
+            type="email"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('managerEmail')}
+          />
+          {errors.managerEmail && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.managerEmail.message}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center justify-end gap-[var(--space-3)]">
@@ -289,23 +425,47 @@ export function UserEditForm({ userId, defaultValues }: UserEditFormProps) {
   const { data: departments } = useAllMasterDataQuery('departments');
   const { data: positions } = useAllMasterDataQuery('positions');
   const { data: levels } = useAllMasterDataQuery('levels');
+  const { data: teams } = useAllMasterDataQuery('teams');
   const { data: workAreas } = useAllMasterDataQuery('work-areas');
+  const { data: workSubAreas } = useAllMasterDataQuery('work-sub-areas');
+  const { data: managerCandidates } = useUserListQuery({ limit: 100, isActive: 'true' });
+  const managerOptions = managerCandidates?.items.filter((u) => u.id !== userId) ?? [];
 
   const updateMutation = useUpdateUserMutation(userId);
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<UpdateUserInput>({
     resolver: zodResolver(UpdateUserSchema),
     defaultValues: {
-      firstName: defaultValues.firstName,
-      lastName: defaultValues.lastName,
-      email: defaultValues.email ?? undefined,
+      firstName: defaultValues.firstName ?? '',
+      lastName: defaultValues.lastName ?? '',
+      email: defaultValues.email ?? '',
+      phone: defaultValues.phone ?? '',
       employeeType: defaultValues.employeeType as UpdateUserInput['employeeType'],
+      companyId: defaultValues.companyId ?? '',
+      locationId: defaultValues.locationId ?? '',
+      departmentId: defaultValues.departmentId ?? '',
+      positionId: defaultValues.positionId ?? '',
+      levelId: defaultValues.levelId ?? '',
+      teamId: defaultValues.teamId ?? '',
+      workAreaId: defaultValues.workAreaId ?? '',
+      workSubAreaId: defaultValues.workSubAreaId ?? '',
+      managerUserId: defaultValues.managerUserId ?? '',
+      managerEmail: defaultValues.managerEmail ?? '',
+      hireDate: defaultValues.hireDate ?? '',
     },
   });
+
+  const workAreaId = watch('workAreaId');
+  const selectedWa = workAreas?.find((w) => w.id === workAreaId);
+  const subAreaOptions =
+    selectedWa?.code && workSubAreas
+      ? workSubAreas.filter((s) => s.parentWorkAreaCode === selectedWa.code)
+      : [];
 
   const onSubmit = async (data: UpdateUserInput) => {
     try {
@@ -324,16 +484,25 @@ export function UserEditForm({ userId, defaultValues }: UserEditFormProps) {
       aria-label="Kullanıcı düzenleme formu"
       noValidate
     >
+      <div className="rounded-[var(--radius-md)] border border-[var(--color-neutral-200)] bg-[var(--color-neutral-50)] p-[var(--space-4)] sm:col-span-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-neutral-500)]">
+          Sicil (değiştirilemez)
+        </p>
+        <p className="mt-[var(--space-1)] font-mono text-sm text-[var(--color-neutral-900)]">
+          {defaultValues.sicil ?? '—'}
+        </p>
+      </div>
+
       <div className="grid gap-[var(--space-4)] sm:grid-cols-2">
         <div>
           <label
-            htmlFor="firstName"
+            htmlFor="edit-firstName"
             className="block text-sm font-medium text-[var(--color-neutral-700)]"
           >
             Ad
           </label>
           <input
-            id="firstName"
+            id="edit-firstName"
             type="text"
             className="ls-input mt-[var(--space-1)] w-full"
             {...register('firstName')}
@@ -347,13 +516,13 @@ export function UserEditForm({ userId, defaultValues }: UserEditFormProps) {
 
         <div>
           <label
-            htmlFor="lastName"
+            htmlFor="edit-lastName"
             className="block text-sm font-medium text-[var(--color-neutral-700)]"
           >
             Soyad
           </label>
           <input
-            id="lastName"
+            id="edit-lastName"
             type="text"
             className="ls-input mt-[var(--space-1)] w-full"
             {...register('lastName')}
@@ -367,13 +536,13 @@ export function UserEditForm({ userId, defaultValues }: UserEditFormProps) {
 
         <div>
           <label
-            htmlFor="email"
+            htmlFor="edit-email"
             className="block text-sm font-medium text-[var(--color-neutral-700)]"
           >
             E-posta
           </label>
           <input
-            id="email"
+            id="edit-email"
             type="email"
             autoComplete="email"
             className="ls-input mt-[var(--space-1)] w-full"
@@ -388,13 +557,35 @@ export function UserEditForm({ userId, defaultValues }: UserEditFormProps) {
 
         <div>
           <label
-            htmlFor="employeeType"
+            htmlFor="edit-phone"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            Cep telefonu
+          </label>
+          <input
+            id="edit-phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="Boş bırakarak kaldırın"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('phone')}
+          />
+          {errors.phone && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.phone.message}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-employeeType"
             className="block text-sm font-medium text-[var(--color-neutral-700)]"
           >
             Çalışan Tipi
           </label>
           <select
-            id="employeeType"
+            id="edit-employeeType"
             className="ls-input mt-[var(--space-1)] w-full"
             {...register('employeeType')}
           >
@@ -406,47 +597,124 @@ export function UserEditForm({ userId, defaultValues }: UserEditFormProps) {
         </div>
 
         <MasterDataSelect
-          id="companyId"
+          id="edit-companyId"
           label="Şirket"
           options={companies}
           error={errors.companyId?.message}
           registration={register('companyId')}
         />
         <MasterDataSelect
-          id="locationId"
+          id="edit-locationId"
           label="Lokasyon"
           options={locations}
           error={errors.locationId?.message}
           registration={register('locationId')}
         />
         <MasterDataSelect
-          id="departmentId"
+          id="edit-departmentId"
           label="Departman"
           options={departments}
           error={errors.departmentId?.message}
           registration={register('departmentId')}
         />
         <MasterDataSelect
-          id="positionId"
+          id="edit-positionId"
           label="Pozisyon"
           options={positions}
           error={errors.positionId?.message}
           registration={register('positionId')}
         />
         <MasterDataSelect
-          id="levelId"
+          id="edit-levelId"
           label="Seviye"
           options={levels}
           error={errors.levelId?.message}
           registration={register('levelId')}
         />
         <MasterDataSelect
-          id="workAreaId"
+          id="edit-teamId"
+          label="Takım"
+          options={teams}
+          error={errors.teamId?.message}
+          registration={register('teamId')}
+        />
+        <MasterDataSelect
+          id="edit-workAreaId"
           label="Çalışma Alanı"
           options={workAreas}
           error={errors.workAreaId?.message}
           registration={register('workAreaId')}
         />
+        <MasterDataSelect
+          id="edit-workSubAreaId"
+          label="Çalışma alt alanı"
+          options={subAreaOptions}
+          error={errors.workSubAreaId?.message}
+          registration={register('workSubAreaId')}
+        />
+        <div>
+          <label
+            htmlFor="edit-hireDate"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            İşe giriş tarihi
+          </label>
+          <input
+            id="edit-hireDate"
+            type="date"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('hireDate')}
+          />
+          {errors.hireDate && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.hireDate.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <label
+            htmlFor="edit-managerUserId"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            Yönetici (kullanıcı)
+          </label>
+          <select
+            id="edit-managerUserId"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('managerUserId')}
+          >
+            <option value="">Seçin</option>
+            {managerOptions.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.lastName} {u.firstName} — {u.sicil ?? u.id}
+              </option>
+            ))}
+          </select>
+          {errors.managerUserId && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.managerUserId.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <label
+            htmlFor="edit-managerEmail"
+            className="block text-sm font-medium text-[var(--color-neutral-700)]"
+          >
+            Yönetici e-postası (SAP / harici)
+          </label>
+          <input
+            id="edit-managerEmail"
+            type="email"
+            className="ls-input mt-[var(--space-1)] w-full"
+            {...register('managerEmail')}
+          />
+          {errors.managerEmail && (
+            <p role="alert" className="mt-[var(--space-1)] text-xs text-[var(--color-error-600)]">
+              {errors.managerEmail.message}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center justify-end gap-[var(--space-3)]">

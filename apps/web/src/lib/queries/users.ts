@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UserRoleItem } from '@leanmgmt/shared-schemas';
 
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
@@ -18,15 +19,26 @@ export interface UserListItem {
 export interface UserDetail extends UserListItem {
   phone: string | null;
   employeeType: string;
+  companyId: string;
   locationId: string;
   departmentId: string;
+  positionId: string;
   levelId: string;
   teamId: string | null;
   workAreaId: string;
   workSubAreaId: string | null;
   managerUserId: string | null;
+  managerEmail: string | null;
   hireDate: string | null;
   anonymizedAt: string | null;
+  anonymizationReason: string | null;
+  passwordChangedAt: string | null;
+  failedLoginCount: number;
+  lockedUntil: string | null;
+  lastLoginAt: string | null;
+  passwordIsSet: boolean;
+  createdByUserId: string | null;
+  updatedAt: string;
   location: { id: string; code: string; name: string };
   department: { id: string; code: string; name: string };
   level: { id: string; code: string; name: string };
@@ -34,17 +46,11 @@ export interface UserDetail extends UserListItem {
   workArea: { id: string; code: string; name: string };
   workSubArea: { id: string; code: string; name: string } | null;
   manager: { id: string; sicil: string; firstName: string; lastName: string } | null;
+  createdBy: { id: string; firstName: string; lastName: string } | null;
   roles: UserRole[];
 }
 
-export interface UserRole {
-  id: string;
-  code: string;
-  name: string;
-  source: 'DIRECT' | 'ATTRIBUTE_RULE';
-  assignedAt: string;
-  assignedByUserId: string;
-}
+export type UserRole = UserRoleItem;
 
 export interface UserSession {
   id: string;
@@ -72,7 +78,7 @@ export interface UserListFilters {
   limit?: number;
 }
 
-export function useUserListQuery(filters: UserListFilters = {}) {
+export function useUserListQuery(filters: UserListFilters = {}, enabled = true) {
   return useQuery({
     queryKey: queryKeys.users.list(filters),
     queryFn: async () => {
@@ -87,6 +93,7 @@ export function useUserListQuery(filters: UserListFilters = {}) {
     },
     placeholderData: keepPreviousData,
     staleTime: 30_000,
+    enabled,
   });
 }
 
@@ -108,13 +115,45 @@ export function useUserRolesQuery(id: string) {
   return useQuery({
     queryKey: queryKeys.users.roles(id),
     queryFn: async () => {
-      const res = await apiClient.get<{ success: boolean; data: UserRole[] }>(
+      const res = await apiClient.get<{ success: boolean; data: UserRoleItem[] }>(
         `/api/v1/users/${id}/roles`,
       );
       return res.data.data;
     },
     enabled: !!id,
-    staleTime: 60_000,
+    staleTime: 30_000,
+  });
+}
+
+export function useAssignUserRoleOnUserPageMutation(targetUserId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (roleId: string) => {
+      const res = await apiClient.post<{
+        success: boolean;
+        data: { userRoleId: string; assignedAt: string };
+      }>(`/api/v1/roles/${roleId}/users`, { userId: targetUserId });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.roles(targetUserId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(targetUserId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.roles.lists() });
+    },
+  });
+}
+
+export function useRemoveUserRoleOnUserPageMutation(targetUserId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (roleId: string) => {
+      await apiClient.delete(`/api/v1/roles/${roleId}/users/${targetUserId}`);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.roles(targetUserId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(targetUserId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.roles.lists() });
+    },
   });
 }
 

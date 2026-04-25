@@ -159,6 +159,9 @@ export function UserDetailCard({ user }: UserDetailCardProps) {
           {user.anonymizedAt && (
             <span>Tarih: {new Date(user.anonymizedAt).toLocaleDateString('tr-TR')}</span>
           )}
+          {user.anonymizationReason ? (
+            <p className="mt-[var(--space-2)] text-sm">Gerekçe: {user.anonymizationReason}</p>
+          ) : null}
         </div>
       )}
 
@@ -186,35 +189,149 @@ export function UserDetailCard({ user }: UserDetailCardProps) {
 
       {/* Detail grid */}
       {!isAnonymized && (
-        <div className="ls-card grid gap-[var(--space-4)] p-[var(--space-6)] sm:grid-cols-2">
-          <DetailField label="E-posta" value={user.email} />
-          <DetailField label="Şirket" value={user.company?.name} />
-          <DetailField
-            label="Lokasyon"
-            value={(user as UserDetail & { location?: { name: string } }).location?.name}
-          />
-          <DetailField
-            label="Departman"
-            value={(user as UserDetail & { department?: { name: string } }).department?.name}
-          />
-          <DetailField label="Pozisyon" value={user.position?.name} />
-          <DetailField
-            label="Seviye"
-            value={(user as UserDetail & { level?: { name: string } }).level?.name}
-          />
-          <DetailField
-            label="Yönetici"
-            value={user.manager ? `${user.manager.firstName} ${user.manager.lastName}` : undefined}
-          />
-          <DetailField
-            label="İşe Giriş Tarihi"
-            value={user.hireDate ? new Date(user.hireDate).toLocaleDateString('tr-TR') : undefined}
-          />
-          <DetailField
-            label="Kayıt Tarihi"
-            value={new Date(user.createdAt).toLocaleDateString('tr-TR')}
-          />
-        </div>
+        <>
+          <section
+            aria-labelledby="user-detail-identity-heading"
+            className="space-y-[var(--space-3)]"
+          >
+            <h2
+              id="user-detail-identity-heading"
+              className="text-base font-semibold text-[var(--color-neutral-800)]"
+            >
+              Kimlik ve iletişim
+            </h2>
+            <div className="ls-card grid gap-[var(--space-4)] p-[var(--space-6)] sm:grid-cols-2">
+              <DetailField label="Kayıt kimliği" value={user.id} mono />
+              <DetailField label="Sicil" value={user.sicil ?? undefined} mono />
+              <DetailField label="E-posta" value={user.email} />
+              <DetailField label="Telefon" value={user.phone ?? undefined} />
+            </div>
+          </section>
+
+          <section aria-labelledby="user-detail-org-heading" className="space-y-[var(--space-3)]">
+            <h2
+              id="user-detail-org-heading"
+              className="text-base font-semibold text-[var(--color-neutral-800)]"
+            >
+              Organizasyon
+            </h2>
+            <div className="ls-card grid gap-[var(--space-4)] p-[var(--space-6)] sm:grid-cols-2">
+              <DetailField label="Şirket" value={user.company?.name} />
+              <DetailField label="Lokasyon" value={user.location?.name} />
+              <DetailField label="Departman" value={user.department?.name} />
+              <DetailField label="Pozisyon" value={user.position?.name} />
+              <DetailField label="Seviye" value={user.level?.name} />
+              <DetailField label="Takım" value={user.team?.name} />
+              <DetailField label="Çalışma alanı" value={user.workArea?.name} />
+              <DetailField label="Çalışma alt alanı" value={user.workSubArea?.name} />
+              <DetailField
+                label="İşe giriş tarihi"
+                value={
+                  user.hireDate ? new Date(user.hireDate).toLocaleDateString('tr-TR') : undefined
+                }
+              />
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="user-detail-manager-heading"
+            className="space-y-[var(--space-3)]"
+          >
+            <h2
+              id="user-detail-manager-heading"
+              className="text-base font-semibold text-[var(--color-neutral-800)]"
+            >
+              Yönetici
+            </h2>
+            <div className="ls-card grid gap-[var(--space-4)] p-[var(--space-6)] sm:grid-cols-2">
+              <DetailField
+                label="Yönetici (kullanıcı)"
+                value={
+                  user.manager
+                    ? `${user.manager.firstName} ${user.manager.lastName} (${user.manager.sicil})`
+                    : undefined
+                }
+              />
+              <DetailField
+                label="Yönetici e-postası (SAP / harici)"
+                value={user.managerEmail ?? undefined}
+              />
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="user-detail-security-heading"
+            className="space-y-[var(--space-3)]"
+          >
+            <h2
+              id="user-detail-security-heading"
+              className="text-base font-semibold text-[var(--color-neutral-800)]"
+            >
+              Hesap ve güvenlik
+            </h2>
+            <div className="ls-card grid gap-[var(--space-4)] p-[var(--space-6)] sm:grid-cols-2">
+              <DetailField label="Şifre" value={user.passwordIsSet ? 'Tanımlı' : 'Tanımlı değil'} />
+              <DetailField
+                label="Son şifre değişimi"
+                value={
+                  user.passwordChangedAt
+                    ? new Date(user.passwordChangedAt).toLocaleString('tr-TR')
+                    : undefined
+                }
+              />
+              <DetailField label="Ardışık başarısız giriş" value={String(user.failedLoginCount)} />
+              <DetailField
+                label="Kilit bitişi"
+                value={
+                  user.lockedUntil ? new Date(user.lockedUntil).toLocaleString('tr-TR') : undefined
+                }
+              />
+              <DetailField
+                label="Son giriş"
+                value={
+                  user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('tr-TR') : undefined
+                }
+              />
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="user-detail-system-heading"
+            className="space-y-[var(--space-3)]"
+          >
+            <h2
+              id="user-detail-system-heading"
+              className="text-base font-semibold text-[var(--color-neutral-800)]"
+            >
+              Sistem
+            </h2>
+            <div className="ls-card grid gap-[var(--space-4)] p-[var(--space-6)] sm:grid-cols-2">
+              <DetailField
+                label="Oluşturulma"
+                value={new Date(user.createdAt).toLocaleString('tr-TR')}
+              />
+              <DetailField
+                label="Son güncelleme"
+                value={
+                  user.updatedAt ? new Date(user.updatedAt).toLocaleString('tr-TR') : undefined
+                }
+              />
+              <DetailField
+                label="Oluşturan"
+                value={
+                  user.createdBy
+                    ? `${user.createdBy.firstName} ${user.createdBy.lastName}`
+                    : undefined
+                }
+              />
+              <DetailField
+                label="Oluşturan kullanıcı kimliği"
+                value={user.createdByUserId ?? undefined}
+                mono
+              />
+            </div>
+          </section>
+        </>
       )}
 
       {/* Roles */}
@@ -239,13 +356,23 @@ export function UserDetailCard({ user }: UserDetailCardProps) {
   );
 }
 
-function DetailField({ label, value }: { label: string; value?: string | null }) {
+function DetailField({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+}) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase tracking-wide text-[var(--color-neutral-500)]">
         {label}
       </dt>
-      <dd className="mt-[var(--space-1)] text-sm text-[var(--color-neutral-800)]">
+      <dd
+        className={`mt-[var(--space-1)] text-sm text-[var(--color-neutral-800)] ${mono ? 'font-mono text-xs break-all' : ''}`}
+      >
         {value ?? '—'}
       </dd>
     </div>
