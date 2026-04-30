@@ -40,6 +40,7 @@ describe('PermissionResolverService', () => {
   let redis: ReturnType<typeof makeRedis>;
   let prisma: {
     user: { findUnique: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+    role: { findMany: ReturnType<typeof vi.fn> };
     rolePermission: { findMany: ReturnType<typeof vi.fn> };
     roleRule: { findMany: ReturnType<typeof vi.fn> };
     userRole: { findMany: ReturnType<typeof vi.fn> };
@@ -51,6 +52,7 @@ describe('PermissionResolverService', () => {
     redis = makeRedis();
     prisma = {
       user: { findUnique: vi.fn(), findMany: vi.fn() },
+      role: { findMany: vi.fn() },
       rolePermission: { findMany: vi.fn() },
       roleRule: { findMany: vi.fn() },
       userRole: { findMany: vi.fn() },
@@ -112,6 +114,42 @@ describe('PermissionResolverService', () => {
 
     expect(perms).toEqual(new Set(['USER_LIST_VIEW', 'USER_CREATE']));
     expect(prisma.rolePermission.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('listAbacDerivedRolesForUser: doğrudan rol yokken kuraldan gelen rol döner', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      isActive: true,
+      anonymizedAt: null,
+      companyId: 'acme',
+      locationId: 'l1',
+      departmentId: 'd1',
+      positionId: 'p1',
+      levelId: 'lv1',
+      teamId: null,
+      workAreaId: 'wa1',
+      workSubAreaId: null,
+      employeeType: 'WHITE_COLLAR',
+    });
+    prisma.userRole.findMany.mockResolvedValue([]);
+    prisma.roleRule.findMany.mockResolvedValue([
+      {
+        roleId: 'role-abac',
+        conditionSets: [
+          {
+            conditions: [{ attributeKey: 'COMPANY_ID', operator: 'EQUALS', value: 'acme' }],
+          },
+        ],
+      },
+    ]);
+    prisma.role.findMany.mockResolvedValue([{ id: 'role-abac', code: 'GENEL', name: 'Genel Rol' }]);
+
+    const rows = await resolver.listAbacDerivedRolesForUser('u1');
+
+    expect(rows).toEqual([{ id: 'role-abac', code: 'GENEL', name: 'Genel Rol', source: 'ABAC' }]);
+    expect(prisma.role.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['role-abac'] }, isActive: true },
+      select: { id: true, code: true, name: true },
+    });
   });
 
   it('RBAC + ABAC: izinler birleşir', async () => {

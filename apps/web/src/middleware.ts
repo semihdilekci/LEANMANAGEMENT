@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { isAuthProtectedAppPath } from '@/lib/auth-protected-paths';
 import { SESSION_HINT_COOKIE } from '@/lib/auth-session-hint';
 
 const AUTH_PATHS = ['/login', '/forgot-password', '/reset-password'];
 
 function isAuthPath(pathname: string): boolean {
   return AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
-
-function isProtectedAppPath(pathname: string): boolean {
-  return pathname.startsWith('/dashboard') || pathname.startsWith('/profile');
 }
 
 export function middleware(request: NextRequest): NextResponse {
@@ -25,7 +22,7 @@ export function middleware(request: NextRequest): NextResponse {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  if (!hint && isProtectedAppPath(pathname)) {
+  if (!hint && isAuthProtectedAppPath(pathname)) {
     const login = new URL('/login', request.url);
     login.searchParams.set('redirect', pathname);
     return NextResponse.redirect(login);

@@ -158,6 +158,11 @@ describe('Documents + KTİ start (integration)', () => {
     expect(tasks[0].status).toBe('COMPLETED');
     expect(tasks[1].status).toBe('PENDING');
     expect(tasks[1].id).toBe(json.data.firstTaskId);
+    expect(tasks[1].slaDueAt).not.toBeNull();
+    const nowMs = Date.now();
+    const dueMs = tasks[1].slaDueAt!.getTime();
+    expect(dueMs).toBeGreaterThanOrEqual(nowMs + 72 * 3600 * 1000 - 120_000);
+    expect(dueMs).toBeLessThanOrEqual(nowMs + 72 * 3600 * 1000 + 120_000);
   });
 
   it('POST /processes/kti/start — PENDING_SCAN dokümanda 409', async () => {

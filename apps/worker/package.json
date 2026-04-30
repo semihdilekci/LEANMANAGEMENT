@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "generate:prisma": "pnpm --dir ../api exec prisma generate",
-    "prebuild": "pnpm run generate:prisma",
+    "prebuild": "pnpm --filter @leanmgmt/shared-utils build && pnpm run generate:prisma",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
@@ -34,8 +34,12 @@
   "devDependencies": {
     "@leanmgmt/config": "workspace:*",
     "@nestjs/cli": "^10.4.9",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/node": "catalog:",
     "eslint": "catalog:",
+    "prisma": "^7.8.0",
+    "testcontainers": "^11.14.0",
+    "tsx": "^4.19.2",
     "typescript": "catalog:",
     "typescript-eslint": "^8.21.0",
     "vitest": "catalog:"

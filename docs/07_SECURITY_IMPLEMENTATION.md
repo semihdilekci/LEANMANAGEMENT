@@ -26,7 +26,22 @@ Tam implementasyon detayı birden fazla dokümana yayılır. Bu doküman güvenl
 
 ## 2. Kimlik Doğrulama Akışı
 
-### 2.1 Login — Baştan Sona
+### 2.0 Ortam profile göre birincil giriş (SSO)
+
+**Karar kaynağı:** `docs/mimari-kararlar.md` [A-007], [A-009], `docs/adr/0008-dev-google-oidc-prod-redhat-sso.md`.
+
+| Ortam                   | Birincil IdP                    | Not                                                                                      |
+| ----------------------- | ------------------------------- | ---------------------------------------------------------------------------------------- |
+| Geliştirme (lokal, dev) | **Google** OAuth 2.0 / OIDC     | Authorization Code + PKCE; Google Cloud OAuth istemci kimlikleri env/Secrets Manager’da. |
+| Production (canlı)      | **Red Hat SSO** (Keycloak) OIDC | Holding kurumsal realm; Google IdP devre dışı veya kullanılmaz.                          |
+
+Başarılı OIDC callback sonrası backend, mevcut **session + access JWT + refresh httpOnly cookie + CSRF** modelini (Bölüm 2.2 ve sonrası) **email+şifre login ile aynı şekilde** üretir; fark yalnızca kimlik kanıtının kaynağıdır (IdP `id_token` / userinfo doğrulaması → platform `users` satırı eşleme / JIT provisioning politikası).
+
+**Kullanıcı eşleme:** Üretimde sicil veya kurumsal email ile DB kullanıcısı eşlenir; yalnız email’e dayalı otomatik hesap oluşturma güvenlik politikası ile sınırlıdır (holding onayı). Google `sub` ile Keycloak `sub` birbirinden farklıdır — harici konu **platform `user.id`** ve isteğe bağlı `external_subject` (veya eşdeğer) alanı ile soyutlanır.
+
+### 2.1 Login — email ve şifre (bootstrap, CI, yardımcı yol)
+
+Aşağıdaki sıra diyagramı **POST `/api/v1/auth/login`** yolunu anlatır (seed kullanıcılar, E2E, süperadmin dışı senaryolar). OIDC ile girişte aynı son adımlar (session insert, JWT, cookie set) tekrar kullanılır; ön koşul bcrypt doğrulaması yerine IdP token doğrulamasıdır.
 
 ```mermaid
 sequenceDiagram

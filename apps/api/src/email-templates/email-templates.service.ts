@@ -1,6 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
 import type { NotificationEventType } from '@leanmgmt/prisma-client';
-import type { EmailTemplatePreviewInput, UpdateEmailTemplateInput } from '@leanmgmt/shared-schemas';
+import type {
+  EmailTemplatePreviewInput,
+  EmailTemplateSendTestInput,
+  UpdateEmailTemplateInput,
+} from '@leanmgmt/shared-schemas';
 import Handlebars from 'handlebars';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -99,6 +104,21 @@ function unresolvedVariables(
   }
   return out.sort();
 }
+
+/** send-test önizlemesi için varsayılan Handlebars değişkenleri */
+const DEFAULT_TEST_TEMPLATE_VARS: Record<string, string> = {
+  firstName: 'Test',
+  displayId: 'KTI-000001',
+  taskTitle: 'Örnek görev adımı',
+  processId: '00000000-0000-4000-8000-000000000001',
+  taskId: '00000000-0000-4000-8000-000000000002',
+  resetLink: 'https://example.com/sifre-sifirla?token=demo',
+  loginUrl: 'https://example.com/login',
+  digestDate: '2026-04-25',
+  digestBodyHtml: '<p>Örnek günlük özet içeriği</p>',
+  digestBodyText: 'Örnek günlük özet içeriği',
+  userName: 'Test Kullanıcı',
+};
 
 @Injectable()
 export class EmailTemplatesService {
@@ -216,5 +236,86 @@ export class EmailTemplatesService {
       textBodyRendered: textTpl(vars),
       unresolvedVariables: unresolved,
     };
+  }
+
+  /**
+   * Kayıtlı şablonu örnek değişkenlerle render edip test adresine gönderir.
+   * EMAIL_SENDING_MODE=noop veya SES_FROM_ADDRESS yoksa gönderim yapılmaz (CI/yerel).
+   */
+  async sendTest(
+    eventType: NotificationEventType,
+    dto: EmailTemplateSendTestInput,
+  ): Promise<{ sent: boolean; mode: string }> {
+    const tpl = await this.findByEventType(eventType);
+    const variables: Record<string, string> = { ...DEFAULT_TEST_TEMPLATE_VARS, ...dto.variables };
+    for (const key of tpl.requiredVariables) {
+      if (!(key in variables)) {
+        variables[key] = '';
+      }
+    }
+    const rendered = this.preview({
+      subjectTemplate: tpl.subjectTemplate,
+      htmlBodyTemplate: tpl.htmlBodyTemplate,
+      textBodyTemplate: tpl.textBodyTemplate,
+      variables,
+    });
+    const htmlSafe = DOMPurify.sanitize(rendered.htmlBodyRendered, {
+      ALLOWED_TAGS: [
+        'p',
+        'br',
+        'strong',
+        'em',
+        'ul',
+        'ol',
+        'li',
+        'a',
+        'h1',
+        'h2',
+        'h3',
+        'div',
+        'span',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'th',
+        'td',
+      ],
+      ALLOWED_ATTR: ['href', 'class', 'style'],
+    });
+    const mode = (process.env.EMAIL_SENDING_MODE ?? 'noop').toLowerCase();
+    const from = process.env.SES_FROM_ADDRESS ?? '';
+    if (mode === 'noop' || !from) {
+      return { sent: false, mode: mode === 'noop' ? 'noop' : 'missing_from' };
+    }
+
+    const region = process.env.AWS_REGION ?? 'eu-central-1';
+    const hasKeys = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+    const client = new SESv2Client({
+      region,
+      credentials: hasKeys
+        ? {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
+          }
+        : undefined,
+    });
+
+    await client.send(
+      new SendEmailCommand({
+        FromEmailAddress: from,
+        Destination: { ToAddresses: [dto.toEmail] },
+        Content: {
+          Simple: {
+            Subject: { Data: rendered.subjectRendered, Charset: 'UTF-8' },
+            Body: {
+              Html: { Data: htmlSafe, Charset: 'UTF-8' },
+              Text: { Data: rendered.textBodyRendered, Charset: 'UTF-8' },
+            },
+          },
+        },
+      }),
+    );
+    return { sent: true, mode: 'ses' };
   }
 }

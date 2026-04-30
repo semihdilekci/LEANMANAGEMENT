@@ -5,6 +5,8 @@ export const NOTIFICATION_DOMAIN_EVENT = {
   TASK_COMPLETED: 'task.completed',
   PROCESS_CANCELLED: 'process.cancelled',
   PROCESS_ROLLBACK_PERFORMED: 'process.rollback_performed',
+  ROLE_ASSIGNED: 'role.assigned',
+  CONSENT_VERSION_PUBLISHED: 'consent.version_published',
 } as const;
 
 export type TaskAssignedPayload = {
@@ -35,4 +37,14 @@ export type ProcessRollbackPerformedPayload = {
   newTaskId: string;
   assigneeUserId: string;
   startedByUserId: string;
+};
+
+export type RoleAssignedPayload = {
+  userId: string;
+  roleName: string;
+  roleCode: string;
+};
+
+export type ConsentVersionPublishedPayload = {
+  versionId: string;
 };

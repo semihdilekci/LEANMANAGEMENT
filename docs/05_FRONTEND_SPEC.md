@@ -8,21 +8,21 @@
 
 ### 1.1 Stack
 
-| Bileşen | Versiyon | Not |
-|---|---|---|
-| Next.js | 15.x | App Router zorunlu; Pages Router kullanılmaz |
-| React | 19.x | Server Components varsayılan |
-| TypeScript | 5.4+ | `strict: true`; backend ile aynı tsconfig preset (`packages/config/tsconfig.base.json`) |
-| Node.js (build) | 20 LTS | `.nvmrc` ile pinned |
-| shadcn/ui | kopya model | Radix UI primitives üzerinde; bileşenler `src/components/ui/` altında yaşar |
-| Tailwind CSS | 3.x | shadcn default preset |
-| TanStack Query | v5 | Server state yönetimi |
-| Zustand | v5 | UI transient state + auth state |
-| react-hook-form | v7 | `@hookform/resolvers/zod` ile Zod adaptörü |
-| Zod | 3.x | `packages/shared-schemas` paketiyle aynı sürüm |
-| lucide-react | latest | Icon set |
-| date-fns + date-fns-tz | latest | TR locale |
-| sonner | latest | Toast (shadcn native) |
+| Bileşen                | Versiyon    | Not                                                                                     |
+| ---------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| Next.js                | 15.x        | App Router zorunlu; Pages Router kullanılmaz                                            |
+| React                  | 19.x        | Server Components varsayılan                                                            |
+| TypeScript             | 5.4+        | `strict: true`; backend ile aynı tsconfig preset (`packages/config/tsconfig.base.json`) |
+| Node.js (build)        | 20 LTS      | `.nvmrc` ile pinned                                                                     |
+| shadcn/ui              | kopya model | Radix UI primitives üzerinde; bileşenler `src/components/ui/` altında yaşar             |
+| Tailwind CSS           | 3.x         | shadcn default preset                                                                   |
+| TanStack Query         | v5          | Server state yönetimi                                                                   |
+| Zustand                | v5          | UI transient state + auth state                                                         |
+| react-hook-form        | v7          | `@hookform/resolvers/zod` ile Zod adaptörü                                              |
+| Zod                    | 3.x         | `packages/shared-schemas` paketiyle aynı sürüm                                          |
+| lucide-react           | latest      | Icon set                                                                                |
+| date-fns + date-fns-tz | latest      | TR locale                                                                               |
+| sonner                 | latest      | Toast (shadcn native)                                                                   |
 
 Yeni major kütüphane eklenmesi ADR gerektirir — özellikle bundle bütçesi (200 KB gzipped initial) katıdır.
 
@@ -31,6 +31,7 @@ Yeni major kütüphane eklenmesi ADR gerektirir — özellikle bundle bütçesi 
 **Varsayılan:** React Server Component. Yani `'use client'` direktifi olmayan her bileşen server'da render edilir.
 
 **`'use client'` gerekli yerler:**
+
 - State kullanan bileşenler (`useState`, `useReducer`)
 - Effect kullanan bileşenler (`useEffect`, `useLayoutEffect`)
 - Event handler bağlayan bileşenler (`onClick`, `onChange`, `onSubmit`)
@@ -232,11 +233,11 @@ apps/web/
 
 Next.js App Router'ın parantezli gruplama özelliği ile URL yapısını bozmadan farklı layout'lar uygulanır:
 
-| Grup | Layout | Erişim | Örnek route |
-|---|---|---|---|
-| `(auth)` | AuthLayout — ortada logo + card | Unauth | `/login`, `/forgot-password` |
-| `(app)` | AppLayout — sidebar + topbar | Auth | `/dashboard`, `/processes`, `/tasks` |
-| `(admin)` | AdminLayout — AppLayout + kısıtlı sidebar | Auth + Superadmin | `/admin/audit-logs` |
+| Grup      | Layout                                    | Erişim            | Örnek route                          |
+| --------- | ----------------------------------------- | ----------------- | ------------------------------------ |
+| `(auth)`  | AuthLayout — ortada logo + card           | Unauth            | `/login`, `/forgot-password`         |
+| `(app)`   | AppLayout — sidebar + topbar              | Auth              | `/dashboard`, `/processes`, `/tasks` |
+| `(admin)` | AdminLayout — AppLayout + kısıtlı sidebar | Auth + Superadmin | `/admin/audit-logs`                  |
 
 URL'de grup adı görünmez (parantezli segmentler Next tarafından URL'den çıkarılır): `/admin/audit-logs` gerçek route, `(admin)/admin/` sadece dosya yapısı.
 
@@ -248,7 +249,14 @@ URL'de grup adı görünmez (parantezli segmentler Next tarafından URL'den çı
 // src/middleware.ts
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/403', '/404', '/maintenance'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+  '/403',
+  '/404',
+  '/maintenance',
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -323,21 +331,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 ### 3.4 Redirect Davranışı
 
-| Durum | Davranış |
-|---|---|
-| Unauth + korumalı route | `/login?returnTo=<original>` redirect (middleware) |
-| Auth + token geçersiz | `/auth/me` 401 → auth store clear → `/login` redirect (axios interceptor) |
-| Auth + `consentAccepted=false` | ConsentModal blocking (layout) |
-| Auth + `passwordExpired` response | `/profile/change-password?required=true` redirect (global error handler) |
-| Auth + yetki yok (403) | `/403` redirect (global error handler) |
-| Route bulunamadı | `/404` (Next default) |
-| Login başarılı + `returnTo` var | `returnTo`'ya redirect, yoksa `/dashboard` |
+| Durum                             | Davranış                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| Unauth + korumalı route           | `/login?returnTo=<original>` redirect (middleware)                        |
+| Auth + token geçersiz             | `/auth/me` 401 → auth store clear → `/login` redirect (axios interceptor) |
+| Auth + `consentAccepted=false`    | ConsentModal blocking (layout)                                            |
+| Auth + `passwordExpired` response | `/profile/change-password?required=true` redirect (global error handler)  |
+| Auth + yetki yok (403)            | `/403` redirect (global error handler)                                    |
+| Route bulunamadı                  | `/404` (Next default)                                                     |
+| Login başarılı + `returnTo` var   | `returnTo`'ya redirect, yoksa `/dashboard`                                |
 
 ### 3.5 `loading.tsx` ve `error.tsx`
 
 **`loading.tsx`:** Her route seviyesinde opsiyonel. Next server-rendering sırasında mount olur. Tipik içerik: sayfa-level skeleton. Route transition sırasında anlık görünür.
 
 **`error.tsx`:** Her route grubunda zorunlu. Route seviyesindeki exception'ları yakalar. İçerik:
+
 - Hata mesajı (generic — teknik detay göstermez)
 - "Tekrar Dene" butonu (`reset()` çağrısı)
 - Ana sayfaya dön linki
@@ -374,13 +383,13 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 
 Frontend'de dört farklı state türü vardır. Her biri tek bir tool'la yönetilir; çift yazma yasak.
 
-| State tipi | Tool | Kullanım örneği | Yasak |
-|---|---|---|---|
-| **Server state (API cache)** | TanStack Query | User list, process detail, notifications | Zustand'a yazma; kendi cache'ini tutma |
-| **UI transient** | Zustand | Sidebar collapsed, modal open, drawer state | API data buraya koyma; URL state buraya koyma |
-| **Shareable (URL)** | `useSearchParams` | Liste filtreleri, pagination cursor, aktif tab | Zustand'a çift yazma; stale olma riski |
-| **Form draft** | React Hook Form (local) | Kullanıcı düzenleme formu, KTİ başlatma | Zustand'a kaydırma (dirty state kontrolü için ayrıca global store var — [5.3](#53-unsaved-changes-tracking)) |
-| **Auth state (istisna)** | Zustand | currentUser, permissions, csrfToken, accessToken | TanStack Query'ye kaydırma — aşağıda açıklanıyor |
+| State tipi                   | Tool                    | Kullanım örneği                                  | Yasak                                                                                                        |
+| ---------------------------- | ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Server state (API cache)** | TanStack Query          | User list, process detail, notifications         | Zustand'a yazma; kendi cache'ini tutma                                                                       |
+| **UI transient**             | Zustand                 | Sidebar collapsed, modal open, drawer state      | API data buraya koyma; URL state buraya koyma                                                                |
+| **Shareable (URL)**          | `useSearchParams`       | Liste filtreleri, pagination cursor, aktif tab   | Zustand'a çift yazma; stale olma riski                                                                       |
+| **Form draft**               | React Hook Form (local) | Kullanıcı düzenleme formu, KTİ başlatma          | Zustand'a kaydırma (dirty state kontrolü için ayrıca global store var — [5.3](#53-unsaved-changes-tracking)) |
+| **Auth state (istisna)**     | Zustand                 | currentUser, permissions, csrfToken, accessToken | TanStack Query'ye kaydırma — aşağıda açıklanıyor                                                             |
 
 ### 4.1 Auth State İstisnası
 
@@ -404,8 +413,17 @@ interface AuthState {
   csrfToken: string | null;
   permissions: Set<Permission>;
 
-  setSession: (input: { user: CurrentUser; accessToken: string; accessTokenExpiresAt: Date; csrfToken: string }) => void;
-  updateAccessToken: (input: { accessToken: string; accessTokenExpiresAt: Date; csrfToken: string }) => void;
+  setSession: (input: {
+    user: CurrentUser;
+    accessToken: string;
+    accessTokenExpiresAt: Date;
+    csrfToken: string;
+  }) => void;
+  updateAccessToken: (input: {
+    accessToken: string;
+    accessTokenExpiresAt: Date;
+    csrfToken: string;
+  }) => void;
   updateUser: (user: CurrentUser) => void;
   clear: () => void;
   hasPermission: (p: Permission) => boolean;
@@ -437,7 +455,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clear: () => {
-    set({ user: null, accessToken: null, accessTokenExpiresAt: null, csrfToken: null, permissions: new Set() });
+    set({
+      user: null,
+      accessToken: null,
+      accessTokenExpiresAt: null,
+      csrfToken: null,
+      permissions: new Set(),
+    });
   },
 
   hasPermission: (p) => get().permissions.has(p),
@@ -465,7 +489,7 @@ export function UsersListFilters() {
     const params = new URLSearchParams(searchParams);
     if (value === null || value === '') params.delete(key);
     else params.set(key, value);
-    params.delete('cursor');  // Filtre değişiminde pagination sıfırla
+    params.delete('cursor'); // Filtre değişiminde pagination sıfırla
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -493,13 +517,24 @@ interface UnsavedChangesState {
 
 export const useUnsavedChangesStore = create<UnsavedChangesState>((set, get) => ({
   dirtyFormIds: new Set(),
-  register: (id) => set((s) => { s.dirtyFormIds.delete(id); return { dirtyFormIds: new Set(s.dirtyFormIds) }; }),
-  unregister: (id) => set((s) => { const next = new Set(s.dirtyFormIds); next.delete(id); return { dirtyFormIds: next }; }),
-  setDirty: (id, dirty) => set((s) => {
-    const next = new Set(s.dirtyFormIds);
-    if (dirty) next.add(id); else next.delete(id);
-    return { dirtyFormIds: next };
-  }),
+  register: (id) =>
+    set((s) => {
+      s.dirtyFormIds.delete(id);
+      return { dirtyFormIds: new Set(s.dirtyFormIds) };
+    }),
+  unregister: (id) =>
+    set((s) => {
+      const next = new Set(s.dirtyFormIds);
+      next.delete(id);
+      return { dirtyFormIds: next };
+    }),
+  setDirty: (id, dirty) =>
+    set((s) => {
+      const next = new Set(s.dirtyFormIds);
+      if (dirty) next.add(id);
+      else next.delete(id);
+      return { dirtyFormIds: next };
+    }),
   hasAny: () => get().dirtyFormIds.size > 0,
 }));
 ```
@@ -554,18 +589,18 @@ import { QueryClient } from '@tanstack/react-query';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,                // 30 sn default
-      gcTime: 5 * 60_000,               // 5 dk cache tutma
+      staleTime: 30_000, // 30 sn default
+      gcTime: 5 * 60_000, // 5 dk cache tutma
       retry: (failureCount, error) => {
         const status = (error as any)?.response?.status;
         if (status === 401 || status === 403 || status === 404) return false;
         return failureCount < 2;
       },
-      refetchOnWindowFocus: true,       // Tab focus'ta stale data refetch
+      refetchOnWindowFocus: true, // Tab focus'ta stale data refetch
       refetchOnReconnect: true,
     },
     mutations: {
-      retry: false,  // Mutation'lar idempotent değil — retry yasak
+      retry: false, // Mutation'lar idempotent değil — retry yasak
     },
   },
 });
@@ -610,7 +645,8 @@ export const queryKeys = {
     list: (filters: ProcessListFilters) => [...queryKeys.processes.all, 'list', filters] as const,
     detail: (displayId: string) => [...queryKeys.processes.all, 'detail', displayId] as const,
     history: (displayId: string) => [...queryKeys.processes.detail(displayId), 'history'] as const,
-    documents: (displayId: string) => [...queryKeys.processes.detail(displayId), 'documents'] as const,
+    documents: (displayId: string) =>
+      [...queryKeys.processes.detail(displayId), 'documents'] as const,
   },
 
   tasks: {
@@ -627,14 +663,17 @@ export const queryKeys = {
 
   notifications: {
     all: ['notifications'] as const,
-    list: (filters: NotificationFilters) => [...queryKeys.notifications.all, 'list', filters] as const,
+    list: (filters: NotificationFilters) =>
+      [...queryKeys.notifications.all, 'list', filters] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
   },
 
   masterData: {
-    list: (type: MasterDataType, filters: MasterDataListFilters) => ['master-data', type, 'list', filters] as const,
+    list: (type: MasterDataType, filters: MasterDataListFilters) =>
+      ['master-data', type, 'list', filters] as const,
     detail: (type: MasterDataType, id: string) => ['master-data', type, 'detail', id] as const,
-    users: (type: MasterDataType, id: string) => [...queryKeys.masterData.detail(type, id), 'users'] as const,
+    users: (type: MasterDataType, id: string) =>
+      [...queryKeys.masterData.detail(type, id), 'users'] as const,
   },
 
   admin: {
@@ -652,27 +691,27 @@ Hierarchical yapı invalidation'ı kolaylaştırır: `queryClient.invalidateQuer
 
 ### 5.3 Stale Time Politikası
 
-| Entity | Stale time | Gerekçe |
-|---|---|---|
-| `me` (currentUser) | 60 sn | Sık değişmez; ama role/permission değişikliği canlı yansımalı |
-| User detail | 30 sn | |
-| User list | 10 sn | Filtre değişince refetch olur |
-| Role detail | 60 sn | Role değişiklikleri nadir |
-| Role list | 30 sn | |
-| Permission metadata | 1 saat | Neredeyse statik — release'de değişir |
-| Process detail | 10 sn | Task state değişimi takip edilmeli |
-| Process list | 15 sn | |
-| Task list | 15 sn | |
-| Task detail | 10 sn | Başkası claim ederse hızlı yansıma |
-| Notifications list | 30 sn | |
-| Notifications unread count | 30 sn (polling ile refetchInterval) | Çan ikonu live |
-| Document detail | 5 dk | Metadata değişmez; scan-status ayrı polling |
-| Document scan-status | 5 sn (polling) | Upload sonrası aktif polling |
-| Master data list | 5 dk | Nadir değişir |
-| Audit log list | 30 sn | |
-| System settings | 60 sn | |
-| Email templates | 5 dk | |
-| Consent versions | 5 dk | |
+| Entity                     | Stale time                          | Gerekçe                                                       |
+| -------------------------- | ----------------------------------- | ------------------------------------------------------------- |
+| `me` (currentUser)         | 60 sn                               | Sık değişmez; ama role/permission değişikliği canlı yansımalı |
+| User detail                | 30 sn                               |                                                               |
+| User list                  | 10 sn                               | Filtre değişince refetch olur                                 |
+| Role detail                | 60 sn                               | Role değişiklikleri nadir                                     |
+| Role list                  | 30 sn                               |                                                               |
+| Permission metadata        | 1 saat                              | Neredeyse statik — release'de değişir                         |
+| Process detail             | 10 sn                               | Task state değişimi takip edilmeli                            |
+| Process list               | 15 sn                               |                                                               |
+| Task list                  | 15 sn                               |                                                               |
+| Task detail                | 10 sn                               | Başkası claim ederse hızlı yansıma                            |
+| Notifications list         | 30 sn                               |                                                               |
+| Notifications unread count | 30 sn (polling ile refetchInterval) | Çan ikonu live                                                |
+| Document detail            | 5 dk                                | Metadata değişmez; scan-status ayrı polling                   |
+| Document scan-status       | 5 sn (polling)                      | Upload sonrası aktif polling                                  |
+| Master data list           | 5 dk                                | Nadir değişir                                                 |
+| Audit log list             | 30 sn                               |                                                               |
+| System settings            | 60 sn                               |                                                               |
+| Email templates            | 5 dk                                |                                                               |
+| Consent versions           | 5 dk                                |                                                               |
 
 ### 5.4 Mutation + Invalidation
 
@@ -689,7 +728,8 @@ export function useCreateUserMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateUserInput) => apiClient.post('/api/v1/users', input).then((r) => r.data.data),
+    mutationFn: (input: CreateUserInput) =>
+      apiClient.post('/api/v1/users', input).then((r) => r.data.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
       toast.success('Kullanıcı oluşturuldu');
@@ -701,7 +741,8 @@ export function useUpdateUserMutation(userId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: UpdateUserInput) => apiClient.patch(`/api/v1/users/${userId}`, input).then((r) => r.data.data),
+    mutationFn: (input: UpdateUserInput) =>
+      apiClient.patch(`/api/v1/users/${userId}`, input).then((r) => r.data.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(userId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.users.lists() });
@@ -728,14 +769,17 @@ export function useMarkNotificationReadMutation() {
     mutationFn: (id: string) => apiClient.post(`/api/v1/notifications/${id}/mark-read`),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.notifications.unreadCount });
-      const prev = queryClient.getQueryData<{ inAppUnreadCount: number }>(queryKeys.notifications.unreadCount);
+      const prev = queryClient.getQueryData<{ inAppUnreadCount: number }>(
+        queryKeys.notifications.unreadCount,
+      );
       queryClient.setQueryData(queryKeys.notifications.unreadCount, (old: any) => ({
         inAppUnreadCount: Math.max(0, (old?.inAppUnreadCount ?? 1) - 1),
       }));
       return { prev };
     },
     onError: (_err, _id, context) => {
-      if (context?.prev) queryClient.setQueryData(queryKeys.notifications.unreadCount, context.prev);
+      if (context?.prev)
+        queryClient.setQueryData(queryKeys.notifications.unreadCount, context.prev);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
@@ -765,7 +809,10 @@ apiClient.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
-  if (['post', 'patch', 'delete', 'put'].includes(config.method?.toLowerCase() ?? '') && csrfToken) {
+  if (
+    ['post', 'patch', 'delete', 'put'].includes(config.method?.toLowerCase() ?? '') &&
+    csrfToken
+  ) {
     config.headers['X-CSRF-Token'] = csrfToken;
   }
   return config;
@@ -778,10 +825,15 @@ async function refreshAccessToken(): Promise<void> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
-      const res = await axios.post<{ data: { accessToken: string; accessTokenExpiresAt: string; csrfToken: string } }>(
+      const res = await axios.post<{
+        data: { accessToken: string; accessTokenExpiresAt: string; csrfToken: string };
+      }>(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/refresh`,
         {},
-        { withCredentials: true, headers: { 'X-CSRF-Token': useAuthStore.getState().csrfToken ?? '' } },
+        {
+          withCredentials: true,
+          headers: { 'X-CSRF-Token': useAuthStore.getState().csrfToken ?? '' },
+        },
       );
       useAuthStore.getState().updateAccessToken({
         accessToken: res.data.data.accessToken,
@@ -1095,17 +1147,18 @@ export function UserForm() {
 
 ### 7.1 Skeleton vs Spinner
 
-| Durum | Component | Örnek |
-|---|---|---|
-| Liste / kart grid yüklemesi | `<Skeleton>` satırları (5 adet default) | Kullanıcı listesi, süreç listesi |
-| Sayfa içi detay yüklemesi | `<Skeleton>` form-shaped | Kullanıcı detay, süreç detay |
-| Button submit aksiyonu | `<Loader2 className="animate-spin">` | Form submit, onay butonu |
-| Inline action (mark-read, claim) | Text → inline spinner → text | Bildirim tıklama |
-| Full-page ilk yükleme | Centered spinner | Auth layout mount |
+| Durum                            | Component                               | Örnek                            |
+| -------------------------------- | --------------------------------------- | -------------------------------- |
+| Liste / kart grid yüklemesi      | `<Skeleton>` satırları (5 adet default) | Kullanıcı listesi, süreç listesi |
+| Sayfa içi detay yüklemesi        | `<Skeleton>` form-shaped                | Kullanıcı detay, süreç detay     |
+| Button submit aksiyonu           | `<Loader2 className="animate-spin">`    | Form submit, onay butonu         |
+| Inline action (mark-read, claim) | Text → inline spinner → text            | Bildirim tıklama                 |
+| Full-page ilk yükleme            | Centered spinner                        | Auth layout mount                |
 
 ### 7.2 Toast
 
 shadcn `sonner` entegrasyonu. Kullanım:
+
 - **Success:** Başarılı mutation'lar ("Kullanıcı oluşturuldu", "Değişiklikler kaydedildi")
 - **Error:** Recoverable hatalar, rate limit, system error — field-spesifik olmayan
 - **Warning:** Password expiry yaklaşıyor, SLA breach yakın
@@ -1152,12 +1205,14 @@ export class ErrorBoundary extends Component<Props, { error: Error | null }> {
 ### 7.4 Empty State
 
 Liste boş olduğunda `<EmptyState>` bileşeni:
+
 - Icon (lucide, 48px, muted renk)
 - Başlık — durum açıklaması
 - Açıklama metni (opsiyonel)
 - CTA butonu (varsa)
 
 İki varyant:
+
 - **İlk yüklemede boş:** "Henüz kullanıcı eklenmedi" + "Yeni Kullanıcı Ekle" CTA
 - **Filtre sonrası boş:** "Filtreye uyan sonuç bulunamadı" + "Filtreleri Temizle" linki
 
@@ -1192,12 +1247,14 @@ export function EmptyState({ icon: Icon, title, description, action }: Props) {
 ### 8.1 Routing-Modal vs State-Modal
 
 **Routing-modal yok.** Yeni kullanıcı oluşturma, rol düzenleme gibi kalıcı state içeren formlar **ayrı route** olarak çözülür (`/users/new`, `/roles/:id/edit`). Nedeni:
+
 - Kullanıcı URL'i paylaşabilir
 - Geri butonu mantıklı çalışır
 - Browser history düzgün
 - Form state route değişikliğine dirençli
 
 **State-modal yalnız geçici aksiyonlar için:**
+
 - Confirmation (silme, iptal)
 - Inline edit (küçük alan değişiklikleri)
 - Bilgi gösterme (örn. permission detayı tooltip büyütmesi)
@@ -1247,6 +1304,7 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmL
 ### 8.3 Destructive Confirmation Pattern
 
 Geri dönülemez aksiyonlar (süreç iptal, rol silme, süreç rollback) için **"evet" yazmayı şart koşan** özel pattern:
+
 - Başlık: aksiyon tanımı
 - Açıklama: neyin olacağı + geri alınamayacağı bilgisi
 - Text input: kullanıcı "ONAYLIYORUM" (veya "SİL", "İPTAL ET") yazmalı
@@ -1271,6 +1329,7 @@ Herhangi bir anda en fazla **bir** modal açık olabilir. Modal içinden başka 
 ### 9.2 Klavye Navigasyonu
 
 Tüm etkileşimli element'ler klavye ile erişilebilir olmalı:
+
 - `Tab` — sıralı focus; focus ring görünür (Tailwind default)
 - `Shift+Tab` — geri
 - `Enter` / `Space` — button aktivasyonu
@@ -1317,14 +1376,14 @@ Manuel test: NVDA (Windows) + VoiceOver (macOS) — her release öncesi kritik a
 
 ### 10.1 Metrik Hedefleri
 
-| Metric | Hedef | Ne zaman ölçülür |
-|---|---|---|
-| **LCP** (Largest Contentful Paint) | < 2.5s | Kritik ekranlarda (dashboard, liste sayfaları, login) |
-| **CLS** (Cumulative Layout Shift) | < 0.1 | Tüm sayfalarda |
-| **INP** (Interaction to Next Paint) | < 200ms | Tüm etkileşimlerde |
-| **TTFB** (Time to First Byte) | < 500ms | Dynamic route'larda |
-| **Initial JS bundle (gzipped)** | < 200 KB | Ana entry chunk |
-| **Route-level chunk** | < 100 KB | Her route için kod splitting |
+| Metric                              | Hedef    | Ne zaman ölçülür                                      |
+| ----------------------------------- | -------- | ----------------------------------------------------- |
+| **LCP** (Largest Contentful Paint)  | < 2.5s   | Kritik ekranlarda (dashboard, liste sayfaları, login) |
+| **CLS** (Cumulative Layout Shift)   | < 0.1    | Tüm sayfalarda                                        |
+| **INP** (Interaction to Next Paint) | < 200ms  | Tüm etkileşimlerde                                    |
+| **TTFB** (Time to First Byte)       | < 500ms  | Dynamic route'larda                                   |
+| **Initial JS bundle (gzipped)**     | < 200 KB | Ana entry chunk                                       |
+| **Route-level chunk**               | < 100 KB | Her route için kod splitting                          |
 
 ### 10.2 Monitoring
 
@@ -1345,6 +1404,7 @@ Manuel test: NVDA (Windows) + VoiceOver (macOS) — her release öncesi kritik a
 200 KB gzipped initial bundle bütçesi **sert sınırdır.** Şu andaki minimum kurulumla (Next + React + shadcn + Tailwind + TanStack Query + Zustand + RHF + Zod + date-fns + lucide-react + sonner) ~150-180 KB civarı.
 
 Yeni major library eklenmesi bu bütçeyi zorlar — her yeni library için ADR zorunlu. Alternatifler:
+
 - Chart: `recharts` (büyük) yerine `chart.js` core + gerekli adapter
 - Rich text: `tiptap` yerine basit `<textarea>` (MVP'de rich text yok)
 - Date picker: shadcn `<Calendar>` + `<Popover>` yerine native `<input type="date">` (mümkünse)
@@ -1353,13 +1413,13 @@ Yeni major library eklenmesi bu bütçeyi zorlar — her yeni library için ADR 
 
 ## 11. Tarayıcı Desteği
 
-| Tarayıcı | Desteklenen versiyonlar |
-|---|---|
-| Chrome | Son 2 major |
-| Edge (Chromium) | Son 2 major |
-| Firefox | Son 2 major |
-| Safari (macOS) | Son 2 major |
-| Safari (iOS) | Son 2 major |
+| Tarayıcı        | Desteklenen versiyonlar |
+| --------------- | ----------------------- |
+| Chrome          | Son 2 major             |
+| Edge (Chromium) | Son 2 major             |
+| Firefox         | Son 2 major             |
+| Safari (macOS)  | Son 2 major             |
+| Safari (iOS)    | Son 2 major             |
 
 **Desteklenmeyenler:** Internet Explorer (tüm versiyonlar), Opera Mini, Safari < 15, eski Android WebView (< Android 10).
 
@@ -1390,6 +1450,7 @@ Next.js bu konfigürasyona göre polyfill ve transpile stratejisini otomatik bel
 MVP tek dil: Türkçe (`tr-TR`). Multi-language framework (next-intl, next-i18next) **kullanılmaz** — over-engineering. Ancak:
 
 UI string'leri **JSX'e hardcoded yazılmaz**; merkezi `src/i18n/tr.ts` dosyasında tutulur. İleride multi-language geçişi gerektiğinde:
+
 - String'lerin bulunup çıkarılması zaten yapılmış
 - Library eklenir, import yolu değiştirilir
 - Tek iterasyonda çoklu dil desteği
@@ -1477,8 +1538,9 @@ Bu ekran kullanıcı deneyimi açısından özel gereksinime sahip: permission'l
 export function usePermissionMetadata() {
   return useQuery({
     queryKey: queryKeys.permissions.metadata,
-    queryFn: () => apiClient.get('/api/v1/permissions').then((r) => r.data.data as PermissionMetadata[]),
-    staleTime: 60 * 60 * 1000,  // 1 saat
+    queryFn: () =>
+      apiClient.get('/api/v1/permissions').then((r) => r.data.data as PermissionMetadata[]),
+    staleTime: 60 * 60 * 1000, // 1 saat
     gcTime: 2 * 60 * 60 * 1000,
   });
 }
@@ -1594,6 +1656,7 @@ export function NotificationBell() {
 ### 14.2 Dropdown İçeriği
 
 Son 10 bildirim liste — her satırda:
+
 - Okunmamış → mavi nokta
 - İkon (event_type'a göre — `TASK_ASSIGNED` için `CheckSquare`, `SLA_WARNING` için `AlarmClock` vs.)
 - Title + body (truncate 2 satır)
@@ -1662,9 +1725,12 @@ Kullanım:
 
 ### 16.1 Login Akışı
 
+**Ortam:** Geliştirmede birincil giriş **Google OIDC** (redirect); production’da **Red Hat SSO**. Başarılı IdP dönüşünde backend aynı session response’unu üretir. Aşağıdaki adımlar **email+şifre** yolu için geçerlidir (`mimari-kararlar.md` [A-007], ADR 0008).
+
 ```
-1. Kullanıcı /login'e gelir
-2. Form submit → POST /api/v1/auth/login
+1. Kullanıcı /login'e gelir (OIDC: "Google ile giriş" → redirect; veya email/şifre formu)
+2a. OIDC: callback tamamlanır → session cookie + access token (detay backend)
+2b. Email/şifre: Form submit → POST /api/v1/auth/login
 3. 200 response → useAuthStore.setSession(...)
 4. Response'da consentAccepted:false → /dashboard'a redirect, layout ConsentModal açar
 5. Response'da consentAccepted:true → returnTo veya /dashboard'a redirect

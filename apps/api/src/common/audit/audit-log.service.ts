@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
-
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@leanmgmt/prisma-client';
+
+import { nextAuditChainHash } from '@leanmgmt/shared-utils';
 
 import { PrismaService } from '../../prisma/prisma.service.js';
 
@@ -26,11 +26,11 @@ export class AuditLogService {
 
   async append(input: AppendAuditInput): Promise<void> {
     const last = await this.prisma.auditLog.findFirst({
-      orderBy: { timestamp: 'desc' },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       select: { chainHash: true },
     });
     const prev = last?.chainHash ?? 'GENESIS';
-    const canonical = JSON.stringify({
+    const chainHash = nextAuditChainHash(prev, {
       action: input.action,
       entity: input.entity,
       entityId: input.entityId ?? null,
@@ -39,9 +39,6 @@ export class AuditLogService {
       metadata: input.metadata ?? null,
       ipHash: input.ipHash,
     });
-    const chainHash = createHash('sha256')
-      .update(prev + canonical)
-      .digest('hex');
 
     await this.prisma.auditLog.create({
       data: {

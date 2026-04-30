@@ -4,11 +4,14 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { CommonModule } from '../common/common.module.js';
 import type { Env } from '../config/env.schema.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { RedisModule } from '../redis/redis.module.js';
+import { RolesModule } from '../roles/roles.module.js';
 
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
+import { OidcGoogleAuthService } from './oidc-google-auth.service.js';
 import { ConsentPolicyService } from './consent-policy.service.js';
 import { ConsentGuard } from './guards/consent.guard.js';
 import { CsrfGuard } from './guards/csrf.guard.js';
@@ -20,6 +23,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
     PrismaModule,
     RedisModule,
     CommonModule,
+    RolesModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       global: true,
       imports: [ConfigModule],
@@ -31,7 +36,14 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, ConsentPolicyService, JwtAuthGuard, CsrfGuard, ConsentGuard],
+  providers: [
+    AuthService,
+    OidcGoogleAuthService,
+    ConsentPolicyService,
+    JwtAuthGuard,
+    CsrfGuard,
+    ConsentGuard,
+  ],
   exports: [AuthService, ConsentPolicyService, JwtModule, JwtAuthGuard, CsrfGuard, ConsentGuard],
 })
 export class AuthModule {}

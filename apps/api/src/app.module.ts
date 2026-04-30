@@ -15,11 +15,14 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor.js';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
 import { validateEnv } from './config/env.schema.js';
 import { ConsentVersionsModule } from './consent-versions/consent-versions.module.js';
+import { AdminSummaryModule } from './admin-summary/admin-summary.module.js';
+import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { EmailTemplatesModule } from './email-templates/email-templates.module.js';
 import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
 import { MasterDataModule } from './master-data/master-data.module.js';
+import { SystemSettingsModule } from './system-settings/system-settings.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ProcessesModule } from './processes/processes.module.js';
 import { TasksModule } from './tasks/tasks.module.js';
@@ -47,6 +50,9 @@ import { UsersModule } from './users/users.module.js';
     TasksModule,
     NotificationsModule,
     EmailTemplatesModule,
+    SystemSettingsModule,
+    AdminSummaryModule,
+    AuditLogsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },

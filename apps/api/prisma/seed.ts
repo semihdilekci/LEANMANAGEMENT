@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 
 import bcrypt from 'bcrypt';
 
+import { nextAuditChainHash } from '@leanmgmt/shared-utils';
 import { createPrismaClient } from '../src/prisma/prisma-factory.js';
 
 import {
@@ -44,6 +45,7 @@ const ALL_PERMISSION_KEYS: string[] = [
   'PROCESS_VIEW_ALL',
   'MASTER_DATA_MANAGE',
   'AUDIT_LOG_VIEW',
+  'SYSTEM_SETTINGS_VIEW',
   'SYSTEM_SETTINGS_EDIT',
   'DOCUMENT_UPLOAD',
   'USER_SESSION_VIEW',
@@ -52,6 +54,9 @@ const ALL_PERMISSION_KEYS: string[] = [
   'NOTIFICATION_READ',
   'EMAIL_TEMPLATE_VIEW',
   'EMAIL_TEMPLATE_EDIT',
+  'CONSENT_VERSION_VIEW',
+  'CONSENT_VERSION_EDIT',
+  'CONSENT_VERSION_PUBLISH',
   'USER_PROFILE_VIEW',
   'MASTER_DATA_VIEW',
 ];
@@ -62,12 +67,6 @@ function requireEnv32Hex(name: string): Buffer {
     throw new Error(`${name} zorunlu: 64 hex karakter (32 byte), örn. openssl rand -hex 32`);
   }
   return Buffer.from(v, 'hex');
-}
-
-function chainHashPlaceholder(prev: string, rowJson: string): string {
-  return createHash('sha256')
-    .update(prev + rowJson)
-    .digest('hex');
 }
 
 async function main(): Promise<void> {
@@ -502,6 +501,11 @@ async function main(): Promise<void> {
     { key: 'LOCKOUT_THRESHOLD', value: 5, description: null },
     { key: 'LOCKOUT_DURATION_MINUTES', value: 30, description: null },
     { key: 'PASSWORD_EXPIRY_DAYS', value: 180, description: null },
+    {
+      key: 'IN_APP_NOTIFICATION_RETENTION_DAYS',
+      value: 90,
+      description: 'In-app bildirimler kaç gün saklanır (worker retention)',
+    },
     { key: 'SUPERADMIN_IP_WHITELIST', value: [], description: null },
     {
       key: 'ACTIVE_CONSENT_VERSION_ID',
@@ -538,8 +542,11 @@ async function main(): Promise<void> {
       | 'ROLLBACK_PERFORMED'
       | 'PASSWORD_RESET_REQUESTED'
       | 'PASSWORD_CHANGED'
+      | 'PASSWORD_EXPIRY_WARNING'
       | 'USER_LOGIN_WELCOME'
-      | 'DAILY_DIGEST';
+      | 'DAILY_DIGEST'
+      | 'CONSENT_VERSION_PUBLISHED'
+      | 'ROLE_ASSIGNED';
     subjectTemplate: string;
     htmlBodyTemplate: string;
     textBodyTemplate: string;
@@ -624,6 +631,31 @@ async function main(): Promise<void> {
       requiredVariables: ['firstName'],
     },
     {
+      eventType: 'PASSWORD_EXPIRY_WARNING',
+      subjectTemplate: 'Şifre süresi uyarısı',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>Şifrenizin süresi yakında dolacak ({{daysRemaining}} gün).</p>',
+      textBodyTemplate:
+        'Merhaba {{firstName}}, şifre süresi uyarısı. Kalan: {{daysRemaining}} gün.',
+      requiredVariables: ['firstName', 'daysRemaining'],
+    },
+    {
+      eventType: 'CONSENT_VERSION_PUBLISHED',
+      subjectTemplate: 'Yeni rıza metni — sürüm {{version}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>Platform rıza metni güncellendi (sürüm {{version}}). Lütfen girişte onaylayın.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, rıza metni sürüm {{version}} yayımlandı.',
+      requiredVariables: ['firstName', 'version'],
+    },
+    {
+      eventType: 'ROLE_ASSIGNED',
+      subjectTemplate: 'Yeni rol: {{roleName}}',
+      htmlBodyTemplate:
+        '<p>Merhaba {{firstName}},</p><p>Size <strong>{{roleName}}</strong> ({{roleCode}}) rolü atandı.</p>',
+      textBodyTemplate: 'Merhaba {{firstName}}, {{roleName}} ({{roleCode}}) rolü atandı.',
+      requiredVariables: ['firstName', 'roleName', 'roleCode'],
+    },
+    {
       eventType: 'USER_LOGIN_WELCOME',
       subjectTemplate: 'Lean Management’a hoş geldiniz',
       htmlBodyTemplate:
@@ -656,18 +688,24 @@ async function main(): Promise<void> {
     });
   }
 
-  const genesisHash = chainHashPlaceholder(
-    'GENESIS',
-    JSON.stringify({ event: 'seed', at: new Date().toISOString() }),
-  );
+  const seedIpHash = createHash('sha256').update('seed').digest('hex');
+  const firstChainHash = nextAuditChainHash('GENESIS', {
+    action: 'SEED_COMPLETED',
+    entity: 'system',
+    entityId: 'bootstrap',
+    userId: superadmin.id,
+    sessionId: null,
+    metadata: null,
+    ipHash: seedIpHash,
+  });
   await prisma.auditLog.create({
     data: {
       userId: superadmin.id,
       action: 'SEED_COMPLETED',
       entity: 'system',
       entityId: 'bootstrap',
-      ipHash: createHash('sha256').update('seed').digest('hex'),
-      chainHash: genesisHash,
+      ipHash: seedIpHash,
+      chainHash: firstChainHash,
     },
   });
 

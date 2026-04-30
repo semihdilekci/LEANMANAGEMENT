@@ -323,4 +323,31 @@ describe('Notifications (integration)', () => {
     expect(body.data.subjectTemplate.length).toBeGreaterThan(0);
     expect(body.data.requiredVariables).toContain('firstName');
   });
+
+  it('POST /admin/email-templates/TASK_ASSIGNED/send-test — noop modunda sent false', async () => {
+    const prevMode = process.env.EMAIL_SENDING_MODE;
+    process.env.EMAIL_SENDING_MODE = 'noop';
+    const auth = await loginSuperadmin();
+    const srv = app.getHttpAdapter().getInstance();
+    const res = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/admin/email-templates/TASK_ASSIGNED/send-test',
+      headers: {
+        authorization: `Bearer ${auth.accessToken}`,
+        'content-type': 'application/json',
+        'x-csrf-token': auth.csrfToken,
+        cookie: auth.cookie,
+      },
+      payload: JSON.stringify({ toEmail: 'test@example.com' }),
+    });
+    process.env.EMAIL_SENDING_MODE = prevMode;
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body) as {
+      success: boolean;
+      data: { sent: boolean; mode: string };
+    };
+    expect(body.success).toBe(true);
+    expect(body.data.sent).toBe(false);
+    expect(body.data.mode).toBe('noop');
+  });
 });

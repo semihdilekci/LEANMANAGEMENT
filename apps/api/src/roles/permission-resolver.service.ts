@@ -36,6 +36,52 @@ export class PermissionResolverService {
     return permissions;
   }
 
+  /**
+   * Yalnızca attribute kuralı ile eşleşen roller (`user_roles` satırı olmadan).
+   * `GET /auth/me` içindeki `roles` alanında doğrudan atamalarla birleştirmek için.
+   */
+  async listAbacDerivedRolesForUser(
+    userId: string,
+  ): Promise<Array<{ id: string; code: string; name: string; source: 'ABAC' }>> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        isActive: true,
+        anonymizedAt: true,
+        companyId: true,
+        locationId: true,
+        departmentId: true,
+        positionId: true,
+        levelId: true,
+        teamId: true,
+        workAreaId: true,
+        workSubAreaId: true,
+        employeeType: true,
+      },
+    });
+    if (!user) return [];
+
+    const directRows = await this.prisma.userRole.findMany({
+      where: { userId },
+      select: { roleId: true },
+    });
+    const directSet = new Set(directRows.map((r) => r.roleId));
+
+    const abacInputs = await this.loadActiveAbacRules();
+    const matchedRoleIds = this.attributeRuleEvaluator.matchingRoleIds(
+      this.toSnapshot(user),
+      abacInputs,
+    );
+    const abacOnlyIds = matchedRoleIds.filter((id) => !directSet.has(id));
+    if (abacOnlyIds.length === 0) return [];
+
+    const roles = await this.prisma.role.findMany({
+      where: { id: { in: abacOnlyIds }, isActive: true },
+      select: { id: true, code: true, name: true },
+    });
+    return roles.map((r) => ({ id: r.id, code: r.code, name: r.name, source: 'ABAC' as const }));
+  }
+
   private cacheKey(userId: string): string {
     return `user_permissions:${userId}`;
   }

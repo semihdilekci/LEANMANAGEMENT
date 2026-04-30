@@ -3,15 +3,10 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { isAuthProtectedAppPath } from '@/lib/auth-protected-paths';
 import { readCookie } from '@/lib/auth-session-hint';
 import { refreshAccessToken } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-
-const PROTECTED_PREFIXES = ['/dashboard', '/profile'];
-
-function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
 
 export function AuthHydrator({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -23,7 +18,7 @@ export function AuthHydrator({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     async function run(): Promise<void> {
-      if (!isProtectedPath(pathname)) {
+      if (!isAuthProtectedAppPath(pathname)) {
         if (!cancelled) setHydrated(true);
         return;
       }
@@ -54,7 +49,7 @@ export function AuthHydrator({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, accessToken, router]);
 
-  if (isProtectedPath(pathname) && !hydrated) {
+  if (isAuthProtectedAppPath(pathname) && !hydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center" role="status">
         <span className="sr-only">Oturum yükleniyor</span>

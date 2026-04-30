@@ -30,6 +30,7 @@ export type * from './models/ConsentVersion';
 export type * from './models/UserConsent';
 export type * from './models/AuditLog';
 export type * from './models/SystemSetting';
+export type * from './models/AuditChainIntegrityCheck';
 export type * from './models/Process';
 export type * from './models/Task';
 export type * from './models/TaskAssignment';

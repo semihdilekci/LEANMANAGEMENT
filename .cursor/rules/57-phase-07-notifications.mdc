@@ -20,7 +20,7 @@ Notification modülü — in-app + email. Event-driven generation (task.created,
 
 **Bu iterasyonda yok:** SES e-posta gönderimi, digest cron (İter 2).
 
-**Stop:** [ ] Event→DB integration test; [ ] preferences respected (email kapalıysa queue’ya düşmeme veya no-op). PR/onay.
+**Stop:** [x] Event→DB integration test; [x] preferences respected (email kapalıysa queue’ya düşmeme veya no-op). PR/onay.
 
 ### İterasyon 2 — Email queue + templates + SES + digest/cleanup worker
 
@@ -28,20 +28,20 @@ Notification modülü — in-app + email. Event-driven generation (task.created,
 
 **Bu iterasyonda yok:** Admin template editör UI (İter 3).
 
-**Stop:** [ ] SES sandbox testi; [ ] queue retry davranışı. PR/onay.
+**Stop:** [ ] SES sandbox testi; [ ] queue retry davranışı. PR/onay. (prod doğrulama — CI noop)
 
 ### İterasyon 3 — UI (bell, center, preferences) + admin template editor
 
 **Hedef:** Notification bell/dropdown/full page, preferences formu, admin email template sayfaları; E2E/smoke.
 
-**Stop:** Faz 7 Done Definition; roadmap işareti.
+**Stop:** Faz 7 Done Definition (aşağıda); roadmap Human Gate işaretleri.
 
 ## Required Context
 
-- `docs/01_DOMAIN_MODEL.md` Bölüm 6 (Notifications)
-- `docs/02_DATABASE_SCHEMA.md` Bölüm 12-13 (notifications, email_templates)
-- `docs/03_API_CONTRACTS.md` Bölüm 9.8 (Notifications)
-- `docs/06_SCREEN_CATALOG.md` — S-NOTIFICATION-CENTER, S-NOTIFICATION-PREFERENCES, S-EMAIL-TEMPLATE-*
+- `docs/01_DOMAIN_MODEL.md` §2.13 (notification_preferences) + §2.14 (audit)
+- `docs/02_DATABASE_SCHEMA.md` §6.6 (`notifications`, `notification_preferences`, `email_templates`)
+- `docs/03_API_CONTRACTS.md` Bölüm 9.8 (Notifications + notification-preferences + admin email-templates/send-test)
+- `docs/06_SCREEN_CATALOG.md` — S-NOTIF-LIST (`/notifications`), S-NOTIF-PREFERENCES (`/settings/notifications`), S-ADMIN-EMAIL-LIST / S-ADMIN-EMAIL-EDIT (`/admin/email-templates`, `/admin/email-templates/[eventType]/edit`)
 
 ## Scope
 
@@ -63,10 +63,10 @@ apps/api/src/email-templates/
 ├── email-templates.service.ts
 └── dto/*.ts
 
-apps/api/src/worker/src/notifications/
-├── email-sender.consumer.ts                 # BullMQ
-├── digest-cron.ts                           # Daily digest
-└── notification-cleanup-cron.ts             # 90 gün eski sil
+apps/worker/src/
+├── notification-email.processor.ts          # BullMQ — transactional e-posta
+├── digest-cron.ts                           # Daily digest (varsa)
+└── notification-cleanup-cron.ts             # 90 gün eski sil (varsa)
 ```
 
 ### Frontend
@@ -77,8 +77,8 @@ apps/web/src/app/(app)/
 └── settings/notifications/page.tsx           # S-NOTIFICATION-PREFERENCES
 
 apps/web/src/app/(admin)/admin/email-templates/
-├── page.tsx                                  # S-EMAIL-TEMPLATE-LIST
-└── [id]/edit/page.tsx                        # S-EMAIL-TEMPLATE-EDIT
+├── page.tsx                                  # S-ADMIN-EMAIL-LIST
+└── [eventType]/edit/page.tsx                 # S-ADMIN-EMAIL-EDIT
 
 apps/web/src/components/notifications/
 ├── NotificationBell.tsx                      # Header icon + badge
@@ -101,16 +101,16 @@ apps/web/src/components/notifications/
 
 ## Done Definition
 
-- [ ] 8+ notification event type generate edilir (task.created, task.claimed, task.completed, sla.approaching, sla.overdue, process.cancelled, process.completed, role.assigned)
-- [ ] Email SES integration working (SES sandbox'ta test)
-- [ ] Email templates: login-welcome, password-reset, task-assigned, sla-approaching, sla-overdue, daily-digest
-- [ ] Preferences endpoint: GET + PUT
-- [ ] Notification center: list, mark-read, unread-count
-- [ ] Notification bell badge: unread count visible
-- [ ] Admin email template editor with preview
-- [ ] Integration test: event emit → notification DB + email queue
-- [ ] Preferences respected: user disabled email → no email sent
-- [ ] Cleanup cron test (90 day old notifications purged)
+- [x] Çoklu `NotificationEventType` üretimi (TASK_*, SLA_*, PROCESS_*, PASSWORD_*, CONSENT_*, ROLE_ASSIGNED, … — `notification-generator` + `TaskSlaService` + auth)
+- [ ] Email SES integration working (SES sandbox'ta manuel test — CI `noop`)
+- [x] Email templates: seed’de kritik event’ler (login-welcome, password-reset, task-assigned, SLA, digest, şifre süresi, rıza, rol, …)
+- [x] Preferences endpoint: GET + PUT
+- [x] Notification center: list, mark-read, unread-count (`/notifications`)
+- [x] Notification bell badge: unread count visible (polling)
+- [x] Admin email template editor with preview (`PUT` + preview + send-test)
+- [x] Integration test: event emit → notification DB + email queue job (BullMQ)
+- [x] Preferences respected: user disabled email → no email sent
+- [ ] Cleanup cron test (90 day old notifications purged) — **Wave 1** veya nightly job netleşince
 
 ## Explicit Don'ts
 

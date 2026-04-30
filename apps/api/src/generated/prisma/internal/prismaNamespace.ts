@@ -398,6 +398,7 @@ export const ModelName = {
   UserConsent: 'UserConsent',
   AuditLog: 'AuditLog',
   SystemSetting: 'SystemSetting',
+  AuditChainIntegrityCheck: 'AuditChainIntegrityCheck',
   Process: 'Process',
   Task: 'Task',
   TaskAssignment: 'TaskAssignment',
@@ -448,6 +449,7 @@ export type TypeMap<
       | 'userConsent'
       | 'auditLog'
       | 'systemSetting'
+      | 'auditChainIntegrityCheck'
       | 'process'
       | 'task'
       | 'taskAssignment'
@@ -2176,6 +2178,82 @@ export type TypeMap<
         };
       };
     };
+    AuditChainIntegrityCheck: {
+      payload: Prisma.$AuditChainIntegrityCheckPayload<ExtArgs>;
+      fields: Prisma.AuditChainIntegrityCheckFieldRefs;
+      operations: {
+        findUnique: {
+          args: Prisma.AuditChainIntegrityCheckFindUniqueArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload> | null;
+        };
+        findUniqueOrThrow: {
+          args: Prisma.AuditChainIntegrityCheckFindUniqueOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>;
+        };
+        findFirst: {
+          args: Prisma.AuditChainIntegrityCheckFindFirstArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload> | null;
+        };
+        findFirstOrThrow: {
+          args: Prisma.AuditChainIntegrityCheckFindFirstOrThrowArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>;
+        };
+        findMany: {
+          args: Prisma.AuditChainIntegrityCheckFindManyArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>[];
+        };
+        create: {
+          args: Prisma.AuditChainIntegrityCheckCreateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>;
+        };
+        createMany: {
+          args: Prisma.AuditChainIntegrityCheckCreateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        createManyAndReturn: {
+          args: Prisma.AuditChainIntegrityCheckCreateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>[];
+        };
+        delete: {
+          args: Prisma.AuditChainIntegrityCheckDeleteArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>;
+        };
+        update: {
+          args: Prisma.AuditChainIntegrityCheckUpdateArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>;
+        };
+        deleteMany: {
+          args: Prisma.AuditChainIntegrityCheckDeleteManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateMany: {
+          args: Prisma.AuditChainIntegrityCheckUpdateManyArgs<ExtArgs>;
+          result: BatchPayload;
+        };
+        updateManyAndReturn: {
+          args: Prisma.AuditChainIntegrityCheckUpdateManyAndReturnArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>[];
+        };
+        upsert: {
+          args: Prisma.AuditChainIntegrityCheckUpsertArgs<ExtArgs>;
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AuditChainIntegrityCheckPayload>;
+        };
+        aggregate: {
+          args: Prisma.AuditChainIntegrityCheckAggregateArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuditChainIntegrityCheck>;
+        };
+        groupBy: {
+          args: Prisma.AuditChainIntegrityCheckGroupByArgs<ExtArgs>;
+          result: runtime.Types.Utils.Optional<Prisma.AuditChainIntegrityCheckGroupByOutputType>[];
+        };
+        count: {
+          args: Prisma.AuditChainIntegrityCheckCountArgs<ExtArgs>;
+          result:
+            | runtime.Types.Utils.Optional<Prisma.AuditChainIntegrityCheckCountAggregateOutputType>
+            | number;
+        };
+      };
+    };
     Process: {
       payload: Prisma.$ProcessPayload<ExtArgs>;
       fields: Prisma.ProcessFieldRefs;
@@ -2873,9 +2951,11 @@ export const UserScalarFieldEnum = {
   anonymizedAt: 'anonymizedAt',
   anonymizationReason: 'anonymizationReason',
   passwordChangedAt: 'passwordChangedAt',
+  passwordExpiryWarningStage: 'passwordExpiryWarningStage',
   failedLoginCount: 'failedLoginCount',
   lockedUntil: 'lockedUntil',
   lastLoginAt: 'lastLoginAt',
+  externalSubject: 'externalSubject',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   createdByUserId: 'createdByUserId',
@@ -3076,6 +3156,19 @@ export const SystemSettingScalarFieldEnum = {
 
 export type SystemSettingScalarFieldEnum =
   (typeof SystemSettingScalarFieldEnum)[keyof typeof SystemSettingScalarFieldEnum];
+
+export const AuditChainIntegrityCheckScalarFieldEnum = {
+  id: 'id',
+  checkedAt: 'checkedAt',
+  chainIntact: 'chainIntact',
+  firstBrokenAt: 'firstBrokenAt',
+  firstBrokenRecordId: 'firstBrokenRecordId',
+  totalRecordsChecked: 'totalRecordsChecked',
+  durationMs: 'durationMs',
+} as const;
+
+export type AuditChainIntegrityCheckScalarFieldEnum =
+  (typeof AuditChainIntegrityCheckScalarFieldEnum)[keyof typeof AuditChainIntegrityCheckScalarFieldEnum];
 
 export const ProcessScalarFieldEnum = {
   id: 'id',
@@ -3754,6 +3847,7 @@ export type GlobalOmitConfig = {
   userConsent?: Prisma.UserConsentOmit;
   auditLog?: Prisma.AuditLogOmit;
   systemSetting?: Prisma.SystemSettingOmit;
+  auditChainIntegrityCheck?: Prisma.AuditChainIntegrityCheckOmit;
   process?: Prisma.ProcessOmit;
   task?: Prisma.TaskOmit;
   taskAssignment?: Prisma.TaskAssignmentOmit;

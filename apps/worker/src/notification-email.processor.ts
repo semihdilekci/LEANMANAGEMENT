@@ -97,6 +97,10 @@ export async function runNotificationEmailJob(
     digestDate: metaString(meta, 'digestDate'),
     digestBodyHtml: metaString(meta, 'digestBodyHtml'),
     digestBodyText: metaString(meta, 'digestBodyText'),
+    daysRemaining: metaString(meta, 'daysRemaining'),
+    version: metaString(meta, 'version'),
+    roleName: metaString(meta, 'roleName'),
+    roleCode: metaString(meta, 'roleCode'),
   };
 
   const subject = Handlebars.compile(template.subjectTemplate, { noEscape: true })(vars);

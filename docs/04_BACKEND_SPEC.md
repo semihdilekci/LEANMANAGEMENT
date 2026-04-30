@@ -161,7 +161,8 @@ apps/api/
 │   │   │   ├── login-attempts.service.ts
 │   │   │   ├── consent.service.ts
 │   │   │   ├── strategies/
-│   │   │   │   └── jwt.strategy.ts                # Passport strategy wrapper
+│   │   │   │   ├── jwt.strategy.ts                # Passport strategy wrapper
+│   │   │   │   └── oidc.strategy.ts               # OpenID Connect — dev: Google, prod: Keycloak (ADR 0008)
 │   │   │   ├── events/
 │   │   │   │   ├── user-logged-in.event.ts
 │   │   │   │   └── user-logged-out.event.ts

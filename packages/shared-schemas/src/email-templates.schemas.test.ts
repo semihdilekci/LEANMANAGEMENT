@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EmailTemplateEventTypeParamSchema,
   EmailTemplatePreviewSchema,
+  EmailTemplateSendTestSchema,
   UpdateEmailTemplateSchema,
 } from './email-templates.schemas.js';
 
@@ -38,6 +39,17 @@ describe('EmailTemplatePreviewSchema', () => {
       textBodyTemplate: 't',
     });
     expect(v.variables).toEqual({});
+  });
+});
+
+describe('EmailTemplateSendTestSchema', () => {
+  it('geçerli e-posta kabul eder', () => {
+    const v = EmailTemplateSendTestSchema.parse({ toEmail: 'a@b.co' });
+    expect(v.toEmail).toBe('a@b.co');
+  });
+
+  it('bilinmeyen alan reddeder', () => {
+    expect(() => EmailTemplateSendTestSchema.parse({ toEmail: 'a@b.co', x: 1 })).toThrow();
   });
 });
 

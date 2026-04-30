@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Permission } from '@leanmgmt/shared-types';
 
 import { ConsentBlockingDialog } from '@/components/auth/consent-blocking-dialog';
+import { PasswordExpiryBanner } from '@/components/layout/PasswordExpiryBanner';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { PermissionGate } from '@/components/shared/PermissionGate';
 import { logoutRequest } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
@@ -15,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-neutral-50)]">
+      {user && !needConsent ? <PasswordExpiryBanner expiresAt={user.passwordExpiresAt} /> : null}
       <header className="border-b border-[var(--color-neutral-200)] bg-[var(--color-neutral-0)] px-[var(--space-6)] py-[var(--space-4)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-[var(--space-4)]">
           <div className="flex items-center gap-[var(--space-6)]">
@@ -73,10 +76,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     Roller
                   </Link>
                 </PermissionGate>
+                <PermissionGate permission={Permission.NOTIFICATION_READ}>
+                  <Link
+                    href="/settings/notifications"
+                    className="text-sm text-[var(--color-neutral-600)] hover:text-[var(--color-primary-600)]"
+                  >
+                    Bildirim ayarları
+                  </Link>
+                </PermissionGate>
+                <PermissionGate
+                  anyOf={[
+                    Permission.AUDIT_LOG_VIEW,
+                    Permission.SYSTEM_SETTINGS_VIEW,
+                    Permission.SYSTEM_SETTINGS_EDIT,
+                    Permission.CONSENT_VERSION_VIEW,
+                    Permission.CONSENT_VERSION_EDIT,
+                    Permission.CONSENT_VERSION_PUBLISH,
+                    Permission.EMAIL_TEMPLATE_VIEW,
+                  ]}
+                >
+                  <Link
+                    href="/admin"
+                    className="text-sm text-[var(--color-neutral-600)] hover:text-[var(--color-primary-600)]"
+                  >
+                    Yönetim
+                  </Link>
+                </PermissionGate>
               </nav>
             ) : null}
           </div>
           <div className="flex items-center gap-[var(--space-4)]">
+            {user && !needConsent ? (
+              <PermissionGate permission={Permission.NOTIFICATION_READ}>
+                <NotificationBell />
+              </PermissionGate>
+            ) : null}
             {user && !needConsent ? (
               <span className="text-sm text-[var(--color-neutral-700)]">
                 {user.firstName} {user.lastName}

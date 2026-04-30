@@ -1,4 +1,9 @@
-import type { MasterDataType, TaskListQuery } from '@leanmgmt/shared-schemas';
+import type {
+  AuditLogListQuery,
+  MasterDataType,
+  NotificationListQuery,
+  TaskListQuery,
+} from '@leanmgmt/shared-schemas';
 
 interface UserListFilters {
   cursor?: string;
@@ -96,5 +101,45 @@ export const queryKeys = {
       [...queryKeys.masterData.details(type), id] as const,
     users: (type: MasterDataType, id: string) =>
       [...queryKeys.masterData.detail(type, id), 'users'] as const,
+  },
+  notifications: {
+    all: () => ['notifications'] as const,
+    lists: () => [...queryKeys.notifications.all(), 'list'] as const,
+    list: (filters: NotificationListQuery) =>
+      [...queryKeys.notifications.lists(), filters] as const,
+    listInfinite: (filters: Omit<NotificationListQuery, 'cursor'>) =>
+      [...queryKeys.notifications.lists(), 'infinite', filters] as const,
+    unreadCount: () => [...queryKeys.notifications.all(), 'unread-count'] as const,
+  },
+  notificationPreferences: {
+    all: () => ['notification-preferences'] as const,
+    me: () => [...queryKeys.notificationPreferences.all(), 'me'] as const,
+  },
+  admin: {
+    summary: () => ['admin', 'summary'] as const,
+    emailTemplates: {
+      all: () => ['admin', 'email-templates'] as const,
+      list: () => [...queryKeys.admin.emailTemplates.all(), 'list'] as const,
+      detail: (eventType: string) =>
+        [...queryKeys.admin.emailTemplates.all(), 'detail', eventType] as const,
+    },
+    auditLogs: {
+      all: () => ['admin', 'audit-logs'] as const,
+      lists: () => [...queryKeys.admin.auditLogs.all(), 'list'] as const,
+      list: (filters: AuditLogListQuery) =>
+        [...queryKeys.admin.auditLogs.lists(), filters] as const,
+    },
+    auditChainIntegrity: {
+      all: () => ['admin', 'audit-chain-integrity'] as const,
+      summary: () => [...queryKeys.admin.auditChainIntegrity.all(), 'summary'] as const,
+    },
+    systemSettings: {
+      all: () => ['admin', 'system-settings'] as const,
+    },
+    consentVersions: {
+      all: () => ['admin', 'consent-versions'] as const,
+      list: () => [...queryKeys.admin.consentVersions.all(), 'list'] as const,
+      detail: (id: string) => [...queryKeys.admin.consentVersions.all(), 'detail', id] as const,
+    },
   },
 } as const;

@@ -87,21 +87,10 @@ export async function runDailyDigest(prisma: PrismaClient): Promise<{ enqueued: 
   return { enqueued };
 }
 
-/** docs/02 — in-app bildirimler 90 günden eski silinir */
-export async function purgeStaleInAppNotifications(
-  prisma: PrismaClient,
-): Promise<{ deleted: number }> {
-  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const r = await prisma.notification.deleteMany({
-    where: { channel: 'IN_APP', createdAt: { lt: cutoff } },
-  });
-  return { deleted: r.count };
-}
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Günlük digest + 90 gün temizlik — interval varsayılan 24 saat (test için env ile kısaltılabilir).
+ * Günlük digest — interval varsayılan 24 saat (in-app retention: `data-retention-cleanup.cron`).
  */
 export function startNotificationDigestAndCleanup(prisma: PrismaClient): () => Promise<void> {
   const intervalMs = Number(process.env.NOTIFICATION_CRON_INTERVAL_MS ?? DAY_MS);
@@ -110,9 +99,6 @@ export function startNotificationDigestAndCleanup(prisma: PrismaClient): () => P
   const tick = (): void => {
     void runDailyDigest(prisma).then((r) => {
       console.log({ event: 'digest_run', enqueued: r.enqueued });
-    });
-    void purgeStaleInAppNotifications(prisma).then((r) => {
-      console.log({ event: 'notification_cleanup', deleted: r.deleted });
     });
   };
 

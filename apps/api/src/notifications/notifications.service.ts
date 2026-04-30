@@ -198,4 +198,48 @@ export class NotificationsService {
     });
     return { markedCount: res.count };
   }
+
+  /**
+   * Yayımlanmış rıza sürümü için tüm aktif kullanıcılara bildirim (tercih + e-posta kuyruğu).
+   * `consent.version_published` event dinleyicisinden çağrılır; admin publish UI geldiğinde aynı event emit edilir.
+   */
+  async broadcastConsentVersionPublished(versionId: string): Promise<{ notifiedUsers: number }> {
+    const cv = await this.prisma.consentVersion.findFirst({
+      where: { id: versionId, status: 'PUBLISHED' },
+      select: { version: true },
+    });
+    if (!cv) return { notifiedUsers: 0 };
+
+    const pageSize = 200;
+    let cursor: string | undefined;
+    let notified = 0;
+
+    for (;;) {
+      const batch = await this.prisma.user.findMany({
+        where: { isActive: true, anonymizedAt: null },
+        take: pageSize,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      if (batch.length === 0) break;
+
+      for (const u of batch) {
+        await this.createInAppAndEmailIfEnabled({
+          userId: u.id,
+          eventType: 'CONSENT_VERSION_PUBLISHED',
+          title: 'Yeni rıza metni yayımlandı',
+          body: `Platform rıza metni güncellendi (sürüm ${cv.version}). Oturum açtığınızda onay ekranı gösterilir.`,
+          linkUrl: '/dashboard',
+          metadata: { consentVersionId: versionId, version: String(cv.version) },
+        });
+        notified += 1;
+      }
+
+      cursor = batch[batch.length - 1]!.id;
+      if (batch.length < pageSize) break;
+    }
+
+    return { notifiedUsers: notified };
+  }
 }

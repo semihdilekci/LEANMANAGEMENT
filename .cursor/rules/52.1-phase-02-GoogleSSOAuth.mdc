@@ -1,0 +1,142 @@
+---
+description: "[Faz 2.1] Google OIDC (dev) + Red Hat SSO hazırlığı (prod) — OIDC entegrasyonu; 4 iterasyon/chat. Mesajda “Faz 2.1 — İterasyon N” belirt. Ön hazırlık checklist kod öncesi tamamlanır."
+---
+
+# Faz 2.1: Google OpenID Connect (geliştirme) + kurumsal SSO yolu (production)
+
+Bu faz, **Faz 2**’de kurulan email+şifre + JWT oturum modelinin üzerine **harici IdP** ile giriş ekler. Hedef: geliştirme ortamlarında **Google OAuth 2.0 / OIDC** ile birincil login; production’da **Red Hat SSO (Keycloak)** aynı kod yoluna issuer/client env ile bağlanır. Oturum çıktısı (access JWT + refresh httpOnly cookie + CSRF) Faz 2 ile **aynı** kalır.
+
+**Tek doğruluk kaynakları:** `docs/adr/0008-dev-google-oidc-prod-redhat-sso.md`, `docs/mimari-kararlar.md` [A-007], [A-009], [TS-009], `docs/07_SECURITY_IMPLEMENTATION.md` Bölüm 2.0, `docs/03_API_CONTRACTS.md` (Auth bölümü).
+
+---
+
+## Geliştirme öncesi — son hazırlık (kod yazılmadan)
+
+**Operasyon adımları (Google Console senin hesabında):** `docs/OIDC_GOOGLE_DEV_PREFLIGHT.md` — tıklama sırası, callback URL, `.env` tablosu, JIT/e-posta kararı şablonu.
+
+Aşağıdakiler **İterasyon 1’e başlamadan** kapanmalıdır (operasyon / güvenlik / hukuk onayı holding süreçlerine göre):
+
+- [ ] **Google Cloud** — proje seçimi; **OAuth 2.0 Client ID** (Web uygulaması) oluşturuldu.
+- [ ] **Yönlendirme URI’leri** — lokal (`http://localhost:3000/...` veya API callback domain’i), dev/staging URL’leri Google konsolunda tanımlı; production Google client **kullanılmayacaksa** prod redirect yok.
+- [ ] **Authorized JavaScript origins** — yalnızca güvenilir origin’ler (Next.js origin + gerekirse API).
+- [ ] **Client secret** — Secrets Manager / `.env.local` (asla repo); rotation sorumlusu net.
+- [ ] **OAuth consent screen** — internal test kullanıcıları veya Workspace domain kısıtı; test kullanıcı listesi güncel.
+- [ ] **Kullanıcı eşleme politikası** — IdP `email` (verified) → `users` eşlemesi mi, yoksa sicil özel claim mi? JIT oluşturma **kapalı** mı (yalnız önceden provision edilmiş kullanıcı)? Karar yazılı (ADR 0008 “Sonuçlar” ile uyumlu).
+- [ ] **Red Hat SSO (staging/prod)** — realm/client id placeholder veya erken realm; issuer URL ve JWKS URI notu (İterasyon 4 öncesi prod cutover planı).
+- [ ] **Public route listesi** — OIDC `start` + `callback` path’leri `@Public()` + rate limit stratejisi (`docs/GAP_analysis.md` uyarısı ile uyumlu).
+- [ ] **Threat model kısa not** — `state` + PKCE zorunlu; nonce/id_token aud/iss doğrulaması; open redirect yasağı (`returnTo` whitelist Faz 2 ile aynı disiplin).
+
+**Çıktı:** Yukarıdaki maddeler için tek satırlık “hazır” onayı + env şablonunda hangi değişkenlerin dolacağı tablosu (`apps/api/.env.example`, `apps/web/.env.example` güncellemesi İterasyon 1’de kodlanır).
+
+---
+
+## Bu fazın çalışma modeli (iterasyonlar)
+
+**Tek sohbette tamamlanmaz.** `@52.1-phase-02-GoogleSSOAuth` + **“Faz 2.1 — İterasyon N”**. Her iterasyonda yalnızca aşağıdaki scope; bitişte test/lint/typecheck; el onayı → yeni chat.
+
+### İterasyon 1 — Sözleşme + konfigürasyon + güvenlik iskeleti
+
+**Hedef:** `shared-schemas` (gerekirse minimal DTO), `03_API_CONTRACTS` ile uyumlu **kesin path isimleri** (ör. `GET /api/v1/auth/oauth/google`, `GET /api/v1/auth/oauth/google/callback` — isimler implementasyonda bu dokümanda sabitlenenle aynı olmalı), `ConfigModule` / env validation (issuer, client id/secret, redirect URI), `.env.example` güncellemesi. DB’de harici konu için alan gerekiyorsa **tek migration** (örn. `external_subject` nullable) — alternatif: yalnızca email eşlemesi ile başla; ADR 0008’e aykırı olmayacak şekilde dokümante et.
+
+**Minimum bağlam:** ADR 0008; `docs/03_API_CONTRACTS.md` Auth; `docs/07_SECURITY_IMPLEMENTATION.md` §2.0–2.1.
+
+**Scope:** `packages/shared-schemas/**` (gerekirse), `apps/api` config + boş veya stub controller route imzaları **isteğe bağlı** (tercih: sadece config + şema bu iterasyonda). **Web UI yok.**
+
+**Doğrulama:** `pnpm typecheck`; env validation testi veya unit test (eksik env’de fail-fast).
+
+**Stop:** [ ] Path + env isimleri net; migration kararı (var/yok) PR’da gerekçeli. Onay → İterasyon 2.
+
+### İterasyon 2 — NestJS OIDC akışı (Google)
+
+**Hedef:** Passport veya `@nestjs/passport` + `openid-client` (veya proje standardına uygun OIDC kütüphanesi) ile **authorization code + PKCE**; `state` cookie (httpOnly, SameSite); callback’te token exchange; `id_token` / userinfo doğrulama; mevcut `AuthService` oturum oluşturma ile **birleştirme** (refresh cookie + access JWT + CSRF — Faz 2 ile aynı).
+
+**Kullanıcı eşleme:** Politikaya göre DB `users` satırı bulma; bulunamazsa **403 veya 401** (JIT kapalıysa açık mesaj kodu: holding onayıyla taxonomy’ye ekle).
+
+**Minimum bağlam:** `docs/04_BACKEND_SPEC.md` auth `strategies/`; `03` rate limit; `03-security-baseline.mdc` public + throttle.
+
+**Scope:** `apps/api/src/auth/**` (controller, service, strategy, guard muafiyetleri). **Frontend yok** (callback tarayıcıdan API’ye gelebilir — URL tasarımı İter 3 ile uyumlu planlanır).
+
+**Doğrulama:** Integration test: mock IdP veya testcontainers değilse **http mocking** ile callback happy path + invalid `state` + token aud mismatch.
+
+**Stop:** [ ] Lokal Google ile manuel smoke: start → Google → callback → session. PR/onay.
+
+### İterasyon 3 — Next.js `/login` + OIDC UX
+
+**Hedef:** `S-AUTH-LOGIN` uyumu: **“Google ile giriş”** butonu → API start URL’e yönlendirme veya doğrudan Google authorize URL (tercihen backend start ile state üretimi). Callback sonrası frontend’de `returnTo` / dashboard; mevcut email+şifre formu **feature flag veya env** ile göster/gizle (bootstrap).
+
+**Minimum bağlam:** `docs/06_SCREEN_CATALOG.md` S-AUTH-LOGIN; `docs/05_FRONTEND_SPEC.md` §16.1.
+
+**Scope:** `apps/web/src/app/(auth)/**`, ilgili components, `middleware.ts` gerekirse sadece callback path public.
+
+**Doğrulama:** `pnpm lint`, typecheck; manuel: login → dashboard; consent/password expiry davranışı OIDC sonrası değişmediyse regresyon yok.
+
+**Stop:** [ ] UX gözden geçirme; PR/onay.
+
+### İterasyon 4 — E2E + Red Hat hazırlığı + doküman senkron
+
+**Hedef:** Playwright: OIDC yolunu **mock** veya **test kullanıcı** ile stabil senaryo (Google gerçek login CI’da kırılgan olabilir — öneri: API integration ağır; E2E’de bypass token veya mock IdP kararı ADR notu). **Production Keycloak** için env şablonu: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, aynı callback path pattern. `docs/03_API_CONTRACTS.md` ve OpenAPI (varsa) **gerçek path** ile güncel.
+
+**Minimum bağlam:** `docs/10_IMPLEMENTATION_ROADMAP.md` Faz 2.1 notu; `08_TESTING_STRATEGY.md`.
+
+**Scope:** `apps/web/e2e/**`, `apps/api/test/**`, doküman küçük düzeltmeler.
+
+**Doğrulama:** CI yeşil; en az bir E2E “authenticated app” yolu OIDC sonrası çalışır.
+
+**Stop:** Faz 2.1 checklist tamam; roadmap / mimari dokümana “implementasyon tamam” notu (isteğe bağlı tek cümle PR açıklaması).
+
+---
+
+## Scope özeti
+
+| Alan | Dahil | Hariç |
+| --- | --- | --- |
+| Google OIDC (dev) | Evet | — |
+| Red Hat Keycloak (prod) | Env + issuer değişimi ile aynı kod yolu | Prod realm’in holding tarafında kurulumu (IaC bu fazda zorunlu değil) |
+| Email + şifre | Korunur (seed, E2E, bootstrap) | Kaldırma |
+| MFA | Hayır | Wave 1 |
+| SAML federation (çoklu partner IdP) | Hayır | roadmap Wave 5 genişlemesi |
+
+---
+
+## Done Definition (faz sonu)
+
+### Backend
+
+- [ ] OIDC start + callback (Google) çalışıyor; `state` + PKCE doğrulanıyor.
+- [ ] Başarılı callback sonrası Faz 2 ile aynı refresh/access/CSRF modeli.
+- [ ] `@Public()` + throttle uygun path’lerde.
+- [ ] Kullanıcı bulunamadı / email doğrulanmamış için typed exception + Türkçe mesaj.
+- [ ] Integration testleri yeşil (auth modülü risk hedefi: mevcut proje eşiği).
+
+### Frontend
+
+- [ ] `/login` üzerinde Google ile giriş; callback sonrası oturum hydrate.
+- [ ] Token güvenliği değişmedi (memory access token, httpOnly refresh).
+
+### Doküman / operasyon
+
+- [ ] `apps/api/.env.example` + `apps/web/.env.example` OIDC değişkenleri açıklamalı.
+- [ ] `docs/03_API_CONTRACTS.md` gerçek endpoint path’leri ile uyumlu (İter 4).
+
+---
+
+## Explicit Don'ts
+
+- Google `id_token` içeriğini loglama (PII + güvenlik).
+- `state` veya `code_verifier`’ı URL query’de client-side saklama (çalınabilir); server-side veya httpOnly cookie disiplini.
+- `localStorage` access token (mevcut kural aynı).
+- Prod’da Google client secret’ı zorunlu kılma (prod = Keycloak).
+- Auth0/Clerk gibi üçüncü parti BaaS (mimari karar [TS-009]).
+
+---
+
+## İlgili kurallar ve ADR
+
+- `@00-project-identity.mdc` — ortam bazlı IdP özeti
+- `@40-add-new-endpoint.mdc` — yeni auth route’ları
+- `@03-security-baseline.mdc` — permission, throttle, validation
+- **ADR:** `docs/adr/0008-dev-google-oidc-prod-redhat-sso.md`
+
+---
+
+**Faz bittiğinde:** `docs/10_IMPLEMENTATION_ROADMAP.md` içinde ilgili maddeyi işaretle (veya “Faz 2.1 tamam” notu ekle). Sonraki büyük iş: staging/prod’da Keycloak realm cutover (ayrı release planı).

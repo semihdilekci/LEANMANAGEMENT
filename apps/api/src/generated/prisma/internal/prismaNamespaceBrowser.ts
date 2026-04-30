@@ -71,6 +71,7 @@ export const ModelName = {
   UserConsent: 'UserConsent',
   AuditLog: 'AuditLog',
   SystemSetting: 'SystemSetting',
+  AuditChainIntegrityCheck: 'AuditChainIntegrityCheck',
   Process: 'Process',
   Task: 'Task',
   TaskAssignment: 'TaskAssignment',
@@ -228,9 +229,11 @@ export const UserScalarFieldEnum = {
   anonymizedAt: 'anonymizedAt',
   anonymizationReason: 'anonymizationReason',
   passwordChangedAt: 'passwordChangedAt',
+  passwordExpiryWarningStage: 'passwordExpiryWarningStage',
   failedLoginCount: 'failedLoginCount',
   lockedUntil: 'lockedUntil',
   lastLoginAt: 'lastLoginAt',
+  externalSubject: 'externalSubject',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   createdByUserId: 'createdByUserId',
@@ -431,6 +434,19 @@ export const SystemSettingScalarFieldEnum = {
 
 export type SystemSettingScalarFieldEnum =
   (typeof SystemSettingScalarFieldEnum)[keyof typeof SystemSettingScalarFieldEnum];
+
+export const AuditChainIntegrityCheckScalarFieldEnum = {
+  id: 'id',
+  checkedAt: 'checkedAt',
+  chainIntact: 'chainIntact',
+  firstBrokenAt: 'firstBrokenAt',
+  firstBrokenRecordId: 'firstBrokenRecordId',
+  totalRecordsChecked: 'totalRecordsChecked',
+  durationMs: 'durationMs',
+} as const;
+
+export type AuditChainIntegrityCheckScalarFieldEnum =
+  (typeof AuditChainIntegrityCheckScalarFieldEnum)[keyof typeof AuditChainIntegrityCheckScalarFieldEnum];
 
 export const ProcessScalarFieldEnum = {
   id: 'id',

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -7,6 +8,8 @@ import { GenericContainer, type StartedTestContainer } from 'testcontainers';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+
+import { PrismaService } from '../src/prisma/prisma.service.js';
 
 const PII_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const PII_PEPPER = 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
@@ -24,6 +27,29 @@ function parseSetCookie(setCookie: string | string[] | undefined): Record<string
     out[name] = val;
   }
   return out;
+}
+
+async function ensureManagerConsent(prisma: PrismaService): Promise<{ id: string }> {
+  const mgr = await prisma.user.findFirst({ where: { firstName: 'Seed', lastName: 'Manager' } });
+  if (!mgr) throw new Error('seed manager yok');
+  const cv = await prisma.consentVersion.findFirst({ where: { status: 'PUBLISHED' } });
+  if (!cv) throw new Error('rıza yok');
+  const ex = await prisma.userConsent.findUnique({
+    where: { userId_consentVersionId: { userId: mgr.id, consentVersionId: cv.id } },
+  });
+  if (!ex) {
+    const sig = createHash('sha256').update(`${mgr.id}:${cv.id}:${PII_PEPPER}`).digest('hex');
+    await prisma.userConsent.create({
+      data: {
+        userId: mgr.id,
+        consentVersionId: cv.id,
+        ipHash: createHash('sha256').update('auth-pwd-expiry-test').digest('hex'),
+        userAgent: 'integration-test',
+        signature: sig,
+      },
+    });
+  }
+  return mgr;
 }
 
 describe('Auth integration', () => {
@@ -48,6 +74,7 @@ describe('Auth integration', () => {
       APP_PII_PEPPER: PII_PEPPER,
       JWT_ACCESS_SECRET_CURRENT: JWT_SECRET,
       AUTH_EXPOSE_RESET_TOKEN: 'false',
+      OIDC_ENABLED: 'false',
     };
 
     execSync('pnpm exec prisma migrate deploy', { cwd: apiDir, stdio: 'inherit', env });
@@ -141,6 +168,55 @@ describe('Auth integration', () => {
     expect(logout.statusCode).toBe(204);
   });
 
+  it('login — 14 gün içinde şifre süresi bitiyorsa PASSWORD_EXPIRY_WARNING (tek sefer)', async () => {
+    const srv = app.getHttpAdapter().getInstance();
+    const prisma = app.get(PrismaService);
+    const mgr = await ensureManagerConsent(prisma);
+    const changed = new Date();
+    changed.setUTCDate(changed.getUTCDate() - 170);
+    await prisma.user.update({
+      where: { id: mgr.id },
+      data: { passwordChangedAt: changed, passwordExpiryWarningStage: 0 },
+    });
+
+    const login1 = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        email: 'seed.manager@leanmgmt.local',
+        password: 'ManagerPass123!@#',
+      }),
+    });
+    expect(login1.statusCode).toBe(200);
+
+    const row = await prisma.notification.findFirst({
+      where: { userId: mgr.id, eventType: 'PASSWORD_EXPIRY_WARNING', channel: 'IN_APP' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(row).not.toBeNull();
+    const after1 = await prisma.user.findUnique({ where: { id: mgr.id } });
+    expect(after1?.passwordExpiryWarningStage).toBe(1);
+
+    const beforeCount = await prisma.notification.count({
+      where: { userId: mgr.id, eventType: 'PASSWORD_EXPIRY_WARNING' },
+    });
+    const login2 = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        email: 'seed.manager@leanmgmt.local',
+        password: 'ManagerPass123!@#',
+      }),
+    });
+    expect(login2.statusCode).toBe(200);
+    const afterCount = await prisma.notification.count({
+      where: { userId: mgr.id, eventType: 'PASSWORD_EXPIRY_WARNING' },
+    });
+    expect(afterCount).toBe(beforeCount);
+  });
+
   it('GET consent-versions — aktif sürüm metni dönner', async () => {
     const srv = app.getHttpAdapter().getInstance();
 
@@ -195,5 +271,25 @@ describe('Auth integration', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.statusCode).toBe(200);
+  });
+
+  it('OIDC kapalıyken GET /api/v1/auth/oauth/google → 404 AUTH_OIDC_DISABLED', async () => {
+    const srv = app.getHttpAdapter().getInstance();
+    const res = await srv.inject({ method: 'GET', url: '/api/v1/auth/oauth/google' });
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.body) as { success: boolean; error: { code: string } };
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('AUTH_OIDC_DISABLED');
+  });
+
+  it('OIDC kapalıyken GET /api/v1/auth/oauth/google/callback → 404 AUTH_OIDC_DISABLED', async () => {
+    const srv = app.getHttpAdapter().getInstance();
+    const res = await srv.inject({
+      method: 'GET',
+      url: '/api/v1/auth/oauth/google/callback?code=x&state=y',
+    });
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.body) as { success: boolean; error: { code: string } };
+    expect(body.error.code).toBe('AUTH_OIDC_DISABLED');
   });
 });

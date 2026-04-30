@@ -19,8 +19,12 @@ import { AuditLogService } from '../common/audit/audit-log.service.js';
 import { AppException } from '../common/exceptions/app.exception.js';
 import { EncryptionService } from '../common/encryption/encryption.service.js';
 import type { Env } from '../config/env.schema.js';
+import { calendarDaysUntilPasswordExpiry } from '@leanmgmt/shared-utils';
+
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RedisService } from '../redis/redis.service.js';
+import { PermissionResolverService } from '../roles/permission-resolver.service.js';
 
 import {
   AuthAccountLockedException,
@@ -58,6 +62,9 @@ function timingSafeEqualString(a: string, b: string): boolean {
   return timingSafeEqual(ab, bb);
 }
 
+/** OIDC ve email+şifre başarılı oturumda audit metadata için. */
+export type IssueSessionLoginMethod = 'PASSWORD' | 'OIDC';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -70,7 +77,61 @@ export class AuthService {
     @Inject(ConfigService) private readonly config: ConfigService<Env, true>,
     @Inject(AuditLogService) private readonly audit: AuditLogService,
     @Inject(ConsentPolicyService) private readonly consentPolicy: ConsentPolicyService,
+    @Inject(NotificationsService) private readonly notifications: NotificationsService,
+    @Inject(PermissionResolverService)
+    private readonly permissionResolver: PermissionResolverService,
   ) {}
+
+  /** Giriş sonrası 14/3/0 gün eşiklerinde bir kez PASSWORD_EXPIRY_WARNING (aşama alanı ile idempotent). */
+  private async maybeNotifyPasswordExpiryAfterLogin(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordChangedAt: true, passwordExpiryWarningStage: true },
+    });
+    if (!user?.passwordChangedAt) return;
+
+    const full = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const expIso = await this.passwordExpiresAtIso(full);
+    if (!expIso) return;
+
+    const days = calendarDaysUntilPasswordExpiry(expIso, new Date());
+    let nextStage = user.passwordExpiryWarningStage;
+    let shouldSend = false;
+    let title = '';
+    let body = '';
+
+    if (days <= 0 && user.passwordExpiryWarningStage < 3) {
+      shouldSend = true;
+      nextStage = 3;
+      title = 'Şifre süresi doldu';
+      body = 'Şifre son kullanma tarihiniz geçti. Lütfen şifrenizi değiştirin.';
+    } else if (days > 0 && days <= 3 && user.passwordExpiryWarningStage < 2) {
+      shouldSend = true;
+      nextStage = Math.max(nextStage, 2);
+      title = 'Şifre süresi uyarısı';
+      body = `Şifreniz ${days} gün içinde sona erecek.`;
+    } else if (days > 3 && days <= 14 && user.passwordExpiryWarningStage < 1) {
+      shouldSend = true;
+      nextStage = Math.max(nextStage, 1);
+      title = 'Şifre süresi uyarısı';
+      body = `Şifreniz ${days} gün içinde sona erecek.`;
+    }
+
+    if (!shouldSend) return;
+
+    await this.notifications.createInAppAndEmailIfEnabled({
+      userId,
+      eventType: 'PASSWORD_EXPIRY_WARNING',
+      title,
+      body,
+      linkUrl: '/profile/change-password',
+      metadata: { daysRemaining: String(days) },
+    });
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordExpiryWarningStage: nextStage },
+    });
+  }
 
   private ipHash(ip: string): string {
     return sha256Hex(ip);
@@ -113,15 +174,6 @@ export class AuthService {
     }
   }
 
-  private async loadPermissionKeys(userId: string): Promise<string[]> {
-    const rows = await this.prisma.rolePermission.findMany({
-      where: { role: { userRoles: { some: { userId } } } },
-      select: { permissionKey: true },
-      distinct: ['permissionKey'],
-    });
-    return rows.map((r) => r.permissionKey).sort();
-  }
-
   private async consentState(userId: string): Promise<{
     activeConsentVersionId: string | null;
     consentAccepted: boolean;
@@ -155,6 +207,7 @@ export class AuthService {
   }
 
   private async assertLoginRateLimits(ip: string, emailBlindIndex: string): Promise<void> {
+    if (this.config.get('NODE_ENV', { infer: true }) === 'test') return;
     const ipH = this.ipHash(ip);
     const ipCount = await this.rlIncr(`rl:login:ip:${ipH}`, 60);
     if (ipCount > 10) throw new RateLimitIpException();
@@ -186,6 +239,171 @@ export class AuthService {
   private async assertResetConfirmIpRateLimit(ip: string): Promise<void> {
     const n = await this.rlIncr(`rl:pwdresetcfm:ip:${this.ipHash(ip)}`, 3600);
     if (n > 10) throw new RateLimitIpException();
+  }
+
+  /**
+   * Şifre veya IdP kanıtı sonrası ortak kontroller (loginAttempt kayıtları ile).
+   * OIDC ve `login` tarafından paylaşılır.
+   */
+  async assertUserEligibleForLogin(
+    user: User,
+    ip: string,
+    emailBlind: string,
+    userAgent: string,
+  ): Promise<void> {
+    const ua = userAgent.slice(0, 512);
+    const ipH = this.ipHash(ip);
+
+    if (user.anonymizedAt) {
+      await this.prisma.loginAttempt.create({
+        data: {
+          emailBlindIndex: emailBlind,
+          userId: user.id,
+          ipHash: ipH,
+          userAgent: ua,
+          outcome: 'FAILURE',
+          failureReason: 'USER_ANONYMIZED',
+        },
+      });
+      throw new UserAnonymizedException();
+    }
+
+    if (!user.isActive) {
+      await this.prisma.loginAttempt.create({
+        data: {
+          emailBlindIndex: emailBlind,
+          userId: user.id,
+          ipHash: ipH,
+          userAgent: ua,
+          outcome: 'FAILURE',
+          failureReason: 'USER_PASSIVE',
+        },
+      });
+      throw new AuthAccountPassiveException();
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      await this.prisma.loginAttempt.create({
+        data: {
+          emailBlindIndex: emailBlind,
+          userId: user.id,
+          ipHash: ipH,
+          userAgent: ua,
+          outcome: 'BLOCKED',
+          blockedBy: 'ACCOUNT_LOCKED',
+          lockoutTriggered: true,
+        },
+      });
+      throw new AuthAccountLockedException(user.lockedUntil);
+    }
+
+    await this.assertSuperadminIpAllowed(user.id, ip);
+  }
+
+  /**
+   * Kimlik kanıtı tamamlandıktan sonra session + JWT + cookie + getMe.
+   * Email+şifre ve OIDC callback aynı çıktıyı üretir.
+   */
+  async issueSessionForUser(params: {
+    userId: string;
+    emailBlindIndexForAttempt: string;
+    ip: string;
+    userAgent: string;
+    reply: FastifyReply;
+    auditLoginMethod: IssueSessionLoginMethod;
+  }): Promise<{
+    accessToken: string;
+    accessTokenExpiresAt: string;
+    csrfToken: string;
+    user: Record<string, unknown>;
+  }> {
+    const { userId, emailBlindIndexForAttempt, ip, userAgent, reply, auditLoginMethod } = params;
+    const ua = userAgent.slice(0, 512);
+    const ipH = this.ipHash(ip);
+
+    const rawRefresh = randomBytes(32).toString('base64url');
+    const refreshHash = sha256Hex(rawRefresh);
+    const csrf = randomBytes(32).toString('base64url');
+    const expiresAt = addDaysUtc(new Date(), 14);
+
+    const session = await this.prisma.session.create({
+      data: {
+        userId,
+        refreshTokenHash: refreshHash,
+        ipHash: ipH,
+        userAgent: ua,
+        expiresAt,
+      },
+    });
+
+    await this.redis.raw.set(`csrf:${session.id}`, csrf, 'EX', 14 * 24 * 3600);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
+    });
+
+    await this.prisma.loginAttempt.create({
+      data: {
+        emailBlindIndex: emailBlindIndexForAttempt,
+        userId,
+        ipHash: ipH,
+        userAgent: ua,
+        outcome: 'SUCCESS',
+        sessionId: session.id,
+      },
+    });
+
+    await this.audit.append({
+      userId,
+      action: 'USER_LOGIN',
+      entity: 'user',
+      entityId: userId,
+      ipHash: ipH,
+      userAgent: ua,
+      sessionId: session.id,
+      metadata: { sessionId: session.id, loginMethod: auditLoginMethod },
+    });
+
+    const jti = randomBytes(16).toString('hex');
+    const accessToken = await this.jwt.signAsync<AccessTokenPayload>(
+      { sub: userId, sid: session.id, jti },
+      {
+        secret: this.config.get('JWT_ACCESS_SECRET_CURRENT', { infer: true }),
+        algorithm: 'HS256',
+        expiresIn: '15m',
+      },
+    );
+
+    const decoded = this.jwt.decode(accessToken) as { exp?: number } | null;
+    const accessTokenExpiresAt = new Date((decoded?.exp ?? 0) * 1000).toISOString();
+
+    const secure = this.config.get('NODE_ENV', { infer: true }) !== 'development';
+    reply.setCookie('refresh_token', rawRefresh, {
+      httpOnly: true,
+      secure,
+      sameSite: 'strict',
+      path: '/api/v1/auth',
+      maxAge: 14 * 24 * 3600,
+    });
+    reply.setCookie('csrf_token', csrf, {
+      httpOnly: false,
+      secure,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 14 * 24 * 3600,
+    });
+
+    const userPayload = await this.getMe(userId);
+
+    await this.maybeNotifyPasswordExpiryAfterLogin(userId);
+
+    return {
+      accessToken,
+      accessTokenExpiresAt,
+      csrfToken: csrf,
+      user: userPayload,
+    };
   }
 
   async login(
@@ -244,133 +462,16 @@ export class AuthService {
       throw new AuthInvalidCredentialsException();
     }
 
-    if (user.anonymizedAt) {
-      await this.prisma.loginAttempt.create({
-        data: {
-          emailBlindIndex: emailBlind,
-          userId: user.id,
-          ipHash: ipH,
-          userAgent: ua,
-          outcome: 'FAILURE',
-          failureReason: 'USER_ANONYMIZED',
-        },
-      });
-      throw new UserAnonymizedException();
-    }
+    await this.assertUserEligibleForLogin(user, ip, emailBlind, userAgent);
 
-    if (!user.isActive) {
-      await this.prisma.loginAttempt.create({
-        data: {
-          emailBlindIndex: emailBlind,
-          userId: user.id,
-          ipHash: ipH,
-          userAgent: ua,
-          outcome: 'FAILURE',
-          failureReason: 'USER_PASSIVE',
-        },
-      });
-      throw new AuthAccountPassiveException();
-    }
-
-    if (user.lockedUntil && user.lockedUntil > new Date()) {
-      await this.prisma.loginAttempt.create({
-        data: {
-          emailBlindIndex: emailBlind,
-          userId: user.id,
-          ipHash: ipH,
-          userAgent: ua,
-          outcome: 'BLOCKED',
-          blockedBy: 'ACCOUNT_LOCKED',
-          lockoutTriggered: true,
-        },
-      });
-      throw new AuthAccountLockedException(user.lockedUntil);
-    }
-
-    await this.assertSuperadminIpAllowed(user.id, ip);
-
-    const rawRefresh = randomBytes(32).toString('base64url');
-    const refreshHash = sha256Hex(rawRefresh);
-    const csrf = randomBytes(32).toString('base64url');
-    const expiresAt = addDaysUtc(new Date(), 14);
-
-    const session = await this.prisma.session.create({
-      data: {
-        userId: user.id,
-        refreshTokenHash: refreshHash,
-        ipHash: ipH,
-        userAgent: ua,
-        expiresAt,
-      },
-    });
-
-    await this.redis.raw.set(`csrf:${session.id}`, csrf, 'EX', 14 * 24 * 3600);
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
-    });
-
-    await this.prisma.loginAttempt.create({
-      data: {
-        emailBlindIndex: emailBlind,
-        userId: user.id,
-        ipHash: ipH,
-        userAgent: ua,
-        outcome: 'SUCCESS',
-        sessionId: session.id,
-      },
-    });
-
-    await this.audit.append({
+    return this.issueSessionForUser({
       userId: user.id,
-      action: 'USER_LOGIN',
-      entity: 'user',
-      entityId: user.id,
-      ipHash: ipH,
-      userAgent: ua,
-      sessionId: session.id,
-      metadata: { sessionId: session.id },
+      emailBlindIndexForAttempt: emailBlind,
+      ip,
+      userAgent,
+      reply,
+      auditLoginMethod: 'PASSWORD',
     });
-
-    const jti = randomBytes(16).toString('hex');
-    const accessToken = await this.jwt.signAsync<AccessTokenPayload>(
-      { sub: user.id, sid: session.id, jti },
-      {
-        secret: this.config.get('JWT_ACCESS_SECRET_CURRENT', { infer: true }),
-        algorithm: 'HS256',
-        expiresIn: '15m',
-      },
-    );
-
-    const decoded = this.jwt.decode(accessToken) as { exp?: number } | null;
-    const accessTokenExpiresAt = new Date((decoded?.exp ?? 0) * 1000).toISOString();
-
-    const secure = this.config.get('NODE_ENV', { infer: true }) !== 'development';
-    reply.setCookie('refresh_token', rawRefresh, {
-      httpOnly: true,
-      secure,
-      sameSite: 'strict',
-      path: '/api/v1/auth',
-      maxAge: 14 * 24 * 3600,
-    });
-    reply.setCookie('csrf_token', csrf, {
-      httpOnly: false,
-      secure,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 14 * 24 * 3600,
-    });
-
-    // Login yanıtındaki kullanıcı yükü — getMe ile tek kaynak (company, manager, vb. KTİ formu için)
-    const userPayload = await this.getMe(user.id);
-
-    return {
-      accessToken,
-      accessTokenExpiresAt,
-      csrfToken: csrf,
-      user: userPayload,
-    };
   }
 
   async refresh(
@@ -651,7 +752,11 @@ export class AuthService {
       });
       await tx.user.update({
         where: { id: user.id },
-        data: { passwordHash: newHash, passwordChangedAt: new Date() },
+        data: {
+          passwordHash: newHash,
+          passwordChangedAt: new Date(),
+          passwordExpiryWarningStage: 0,
+        },
       });
       await tx.passwordHistory.create({
         data: { userId: user.id, passwordHash: newHash },
@@ -734,7 +839,11 @@ export class AuthService {
       });
       await tx.user.update({
         where: { id: user.id },
-        data: { passwordHash: newHash, passwordChangedAt: new Date() },
+        data: {
+          passwordHash: newHash,
+          passwordChangedAt: new Date(),
+          passwordExpiryWarningStage: 0,
+        },
       });
       await tx.passwordHistory.create({
         data: { userId: user.id, passwordHash: newHash },
@@ -869,7 +978,9 @@ export class AuthService {
       },
     });
 
-    const permissions = await this.loadPermissionKeys(userId);
+    const permSet = await this.permissionResolver.getUserPermissions(userId);
+    const permissions = [...permSet].sort();
+    const abacRoles = await this.permissionResolver.listAbacDerivedRolesForUser(userId);
     const { activeConsentVersionId, consentAccepted } = await this.consentState(userId);
     const passwordExpiresAt = await this.passwordExpiresAtIso(user);
 
@@ -911,12 +1022,15 @@ export class AuthService {
         ? { id: user.workSubArea.id, code: user.workSubArea.code, name: user.workSubArea.name }
         : null,
       manager: managerPayload,
-      roles: user.userRoles.map((ur) => ({
-        id: ur.role.id,
-        code: ur.role.code,
-        name: ur.role.name,
-        source: 'DIRECT' as const,
-      })),
+      roles: [
+        ...user.userRoles.map((ur) => ({
+          id: ur.role.id,
+          code: ur.role.code,
+          name: ur.role.name,
+          source: 'DIRECT' as const,
+        })),
+        ...abacRoles,
+      ],
       permissions,
       activeConsentVersionId,
       consentAccepted,

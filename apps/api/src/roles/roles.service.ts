@@ -14,6 +14,7 @@ import { AuditLogService } from '../common/audit/audit-log.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { EncryptionService } from '../common/encryption/encryption.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NOTIFICATION_DOMAIN_EVENT } from '../notifications/notification-domain.events.js';
 import { UserNotFoundException } from '../users/users.exceptions.js';
 
 import {
@@ -235,6 +236,12 @@ export class RolesService {
         roleId,
         assignedByUserId: actor.id,
       },
+    });
+
+    this.events.emit(NOTIFICATION_DOMAIN_EVENT.ROLE_ASSIGNED, {
+      userId: input.userId,
+      roleName: role.name,
+      roleCode: role.code,
     });
 
     this.events.emit(PERMISSION_CACHE_EVENT.USER_INVALIDATE, {

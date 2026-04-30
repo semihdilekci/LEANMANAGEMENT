@@ -128,10 +128,35 @@ export {
 export {
   EmailTemplateEventTypeParamSchema,
   EmailTemplatePreviewSchema,
+  EmailTemplateSendTestSchema,
   UpdateEmailTemplateSchema,
   type EmailTemplatePreviewInput,
+  type EmailTemplateSendTestInput,
   type UpdateEmailTemplateInput,
 } from './email-templates.schemas.js';
+
+export {
+  SYSTEM_SETTING_KEYS,
+  SystemSettingKeyParamSchema,
+  SystemSettingPutBodySchema,
+  AuditLogListQuerySchema,
+  AuditLogExportQuerySchema,
+  AdminConsentVersionCreateBodySchema,
+  AdminConsentVersionPatchBodySchema,
+  AdminConsentVersionPublishBodySchema,
+  AuditChainIntegrityVerifyBodySchema,
+  AdminOrganizationSummaryResponseSchema,
+  parseSystemSettingValue,
+  type SystemSettingKey,
+  type SystemSettingPutBody,
+  type AuditLogListQuery,
+  type AuditLogExportQuery,
+  type AdminConsentVersionCreateBody,
+  type AdminConsentVersionPatchBody,
+  type AdminConsentVersionPublishBody,
+  type AuditChainIntegrityVerifyBody,
+  type AdminOrganizationSummary,
+} from './admin.schemas.js';
 
 /** Ortak Zod şemaları */
 export const EmptyObjectSchema = z.object({}).strict();

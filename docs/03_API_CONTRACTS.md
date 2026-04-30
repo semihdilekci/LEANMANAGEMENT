@@ -8,11 +8,11 @@
 
 **Base URL:**
 
-| Ortam | Base URL |
-|---|---|
-| Development | `http://localhost:3001` |
-| Staging | `https://api-staging.leanmgmt.<domain>` |
-| Production | `https://api.leanmgmt.<domain>` |
+| Ortam       | Base URL                                |
+| ----------- | --------------------------------------- |
+| Development | `http://localhost:3001`                 |
+| Staging     | `https://api-staging.leanmgmt.<domain>` |
+| Production  | `https://api.leanmgmt.<domain>`         |
 
 **Versiyonlama:** URL path üzerinden — tüm endpoint'ler `/api/v1/...` ile başlar. Major değişikliklerde yeni sürüm path'i açılır (`/api/v2/`); minor değişiklikler backward-compatible kalır.
 
@@ -25,6 +25,7 @@
 **JSON field naming:** `camelCase` — örn. `firstName`, `companyId`, `createdAt`.
 
 **HTTP methods:**
+
 - `GET` — okuma (idempotent, cache'lenebilir)
 - `POST` — yaratma veya non-idempotent aksiyonlar (claim, complete, cancel, logout vb.)
 - `PATCH` — kısmi güncelleme
@@ -112,122 +113,122 @@ Tüm JSON response'lar üç formattan birindedir:
 
 ### Tam Error Code Listesi
 
-| Code | HTTP | Koşul | User message |
-|---|---|---|---|
-| **AUTH** | | | |
-| `AUTH_INVALID_CREDENTIALS` | 401 | Login'de yanlış email/şifre veya kullanıcı yok (enumeration önlemi — aynı mesaj) | "Email veya şifre hatalı." |
-| `AUTH_TOKEN_EXPIRED` | 401 | Access token süresi dolmuş | "Oturumunuz sona erdi, lütfen yeniden giriş yapın." |
-| `AUTH_TOKEN_INVALID` | 401 | Geçersiz, bozuk veya imzası yanlış JWT | "Oturumunuz geçersiz, lütfen yeniden giriş yapın." |
-| `AUTH_SESSION_REVOKED` | 401 | Session blacklist'te veya REVOKED | "Oturumunuz kapatıldı, lütfen yeniden giriş yapın." |
-| `AUTH_ACCOUNT_LOCKED` | 423 | Hesap başarısız giriş nedeniyle kilitli | "Çok fazla başarısız deneme. Hesabınız X dakika kilitli." |
-| `AUTH_ACCOUNT_PASSIVE` | 403 | Kullanıcı `is_active=false` | "Hesabınız pasif durumdadır, sistem yöneticinize başvurun." |
-| `AUTH_CONSENT_REQUIRED` | 403 | Aktif rıza versiyonu onaylanmamış | "Devam etmek için KVKK rıza metnini onaylamanız gerekmektedir." |
-| `AUTH_PASSWORD_EXPIRED` | 403 | Şifre süresi dolmuş, değiştirmek zorunlu | "Şifrenizin süresi doldu, yeni şifre belirleyin." |
-| `AUTH_IP_NOT_WHITELISTED` | 403 | Superadmin whitelist dışı IP'den login | "Bu IP adresinden Superadmin girişi yetkisiz." |
-| **CSRF** | | | |
-| `CSRF_TOKEN_INVALID` | 403 | X-CSRF-Token header eksik veya eşleşmiyor | "Güvenlik doğrulaması başarısız, sayfayı yenileyip tekrar deneyin." |
-| **VALIDATION** | | | |
-| `VALIDATION_FAILED` | 400 | Zod input validation başarısız | "Formu kontrol edin." (details: alan bazlı hata listesi) |
-| `VALIDATION_UNSUPPORTED_FORMAT` | 400 | Content-Type veya body formatı geçersiz | "İstek formatı geçersiz." |
-| **PERMISSION** | | | |
-| `PERMISSION_DENIED` | 403 | Yetki yok | "Bu işlem için yetkiniz bulunmuyor." |
-| **USER** | | | |
-| `USER_NOT_FOUND` | 404 | Kullanıcı bulunamadı | "Kullanıcı bulunamadı." |
-| `USER_SICIL_DUPLICATE` | 409 | Sicil çakışması | "Bu sicil numarası zaten kayıtlı." |
-| `USER_EMAIL_DUPLICATE` | 409 | Email çakışması | "Bu email adresi zaten kayıtlı." |
-| `USER_SELF_EDIT_FORBIDDEN` | 403 | Kullanıcı kendi attribute'unu düzenlemeye kalkıştı | "Kendi bilgilerinizi düzenleme yetkiniz bulunmuyor." |
-| `USER_MANAGER_CYCLE` | 422 | Yönetici atamasında cycle | "Bu atama yönetici zincirinde döngü oluşturur." |
-| `USER_ALREADY_PASSIVE` | 409 | Zaten pasif kullanıcıyı pasifleştirme girişimi | "Kullanıcı zaten pasif durumda." |
-| `USER_ALREADY_ACTIVE` | 409 | Zaten aktif kullanıcıyı aktifleştirme girişimi | "Kullanıcı zaten aktif durumda." |
-| `USER_ANONYMIZED` | 403 | Anonimleştirilmiş kullanıcı login denemesi | "Bu hesaba erişim kapatılmıştır." |
-| **ROLE** | | | |
-| `ROLE_NOT_FOUND` | 404 | Rol bulunamadı | "Rol bulunamadı." |
-| `ROLE_CODE_DUPLICATE` | 409 | Rol kodu çakışması | "Bu rol kodu zaten kullanımda." |
-| `ROLE_SYSTEM_CANNOT_DELETE` | 403 | Sistem rolünü silme girişimi | "Sistem rolleri silinemez." |
-| `ROLE_SYSTEM_CANNOT_EDIT_CODE` | 403 | Sistem rolü `code` değiştirme girişimi | "Sistem rolü kodu değiştirilemez." |
-| `ROLE_SELF_EDIT_FORBIDDEN` | 403 | Rol ve Yetki Yöneticisi kendi rolünü değiştirmeye kalkıştı | "Kendi rolünüzü değiştirme yetkiniz bulunmuyor." |
-| `ROLE_RULE_INVALID_STRUCTURE` | 422 | Boş condition set veya geçersiz kural yapısı | "Kural yapısı geçersiz — en az bir koşul zorunlu." |
-| **MASTER_DATA** | | | |
-| `MASTER_DATA_NOT_FOUND` | 404 | Master data kaydı yok | "Kayıt bulunamadı." |
-| `MASTER_DATA_CODE_DUPLICATE` | 409 | Kod çakışması | "Bu kod zaten kullanımda." |
-| `MASTER_DATA_CODE_IMMUTABLE` | 403 | `code` değiştirme girişimi | "Kod değiştirilemez." |
-| `MASTER_DATA_IN_USE` | 422 | Aktif kullanıcısı olan master data'yı pasifleştirme | "Bu kayıt aktif kullanıcılar tarafından kullanılıyor, önce kullanıcıları taşıyın." |
-| `MASTER_DATA_PARENT_INACTIVE` | 422 | Pasif parent altına child ekleme | "Üst kayıt pasif durumda, önce aktifleştirin." |
-| **PROCESS** | | | |
-| `PROCESS_NOT_FOUND` | 404 | Süreç bulunamadı | "Süreç bulunamadı." |
-| `PROCESS_ACCESS_DENIED` | 403 | Süreç kullanıcının değil + yetki yok | "Bu sürece erişim yetkiniz bulunmuyor." |
-| `PROCESS_INVALID_STATE` | 409 | Geçersiz state transition (örn. tamamlanmış süreci iptal) | "Bu işlem mevcut süreç durumunda yapılamaz." |
-| `PROCESS_CANCEL_REASON_REQUIRED` | 400 | İptal gerekçesi eksik | "İptal gerekçesi zorunludur." |
-| `PROCESS_ROLLBACK_INVALID_TARGET` | 422 | Geçersiz rollback hedef adımı | "Bu adıma geri dönüş mümkün değil." |
-| `PROCESS_TYPE_UNKNOWN` | 400 | Bilinmeyen süreç tipi | "Bu süreç tipi desteklenmiyor." |
-| `PROCESS_START_FORBIDDEN` | 403 | Başlatma yetkisi yok | "Bu süreci başlatma yetkiniz bulunmuyor." |
-| **TASK** | | | |
-| `TASK_NOT_FOUND` | 404 | Görev bulunamadı | "Görev bulunamadı." |
-| `TASK_ACCESS_DENIED` | 403 | Görev kullanıcıya atanmamış | "Bu göreve erişim yetkiniz bulunmuyor." |
-| `TASK_ALREADY_COMPLETED` | 409 | Tamamlanmış görevde aksiyon | "Bu görev zaten tamamlanmış." |
-| `TASK_CLAIM_LOST` | 409 | Başka bir aday claim etti | "Bu görev başka bir kullanıcı tarafından üstlenildi." |
-| `TASK_COMPLETION_ACTION_INVALID` | 422 | Süreç tanımının izin vermediği action | "Bu aksiyon bu adım için geçersiz." |
-| `TASK_REASON_REQUIRED` | 400 | Red veya Revize için gerekçe eksik | "Gerekçe alanı zorunludur." |
-| `TASK_NOT_CLAIMABLE` | 422 | SINGLE veya ALL_REQUIRED mode'da claim girişimi | "Bu görev üstlenme modunda değil." |
-| **DOCUMENT** | | | |
-| `DOCUMENT_NOT_FOUND` | 404 | Doküman bulunamadı | "Doküman bulunamadı." |
-| `DOCUMENT_SCAN_PENDING` | 409 | Tarama devam ediyor, erişilemez | "Doküman hâlâ güvenlik taramasından geçiyor." |
-| `DOCUMENT_INFECTED` | 403 | Enfekte doküman erişim girişimi | "Doküman güvenlik taramasında zararlı tespit edildiği için erişilemiyor." |
-| `DOCUMENT_SIZE_EXCEEDED` | 413 | Dosya boyutu limiti aşıldı | "Dosya boyutu 10 MB'ı aşamaz." |
-| `DOCUMENT_CONTENT_TYPE_INVALID` | 415 | İzin verilmeyen format | "Bu dosya formatı desteklenmiyor." |
-| `DOCUMENT_URL_EXPIRED` | 410 | Signed URL süresi doldu | "Erişim bağlantısının süresi doldu, yeniden yükleyin." |
-| `DOCUMENT_UPLOAD_FORBIDDEN` | 403 | Upload yetkisi yok (sürece bağlı değil) | "Dosya yükleme yetkiniz bulunmuyor." |
-| **CONSENT** | | | |
-| `CONSENT_VERSION_NOT_FOUND` | 404 | Rıza versiyonu yok | "Rıza versiyonu bulunamadı." |
-| `CONSENT_ALREADY_PUBLISHED` | 409 | PUBLISHED versiyon düzenleme | "Yayınlanmış rıza metni düzenlenemez." |
-| **RATE_LIMIT** | | | |
-| `RATE_LIMIT_IP` | 429 | IP rate limit aşımı | "Çok fazla istek. Lütfen bir süre sonra tekrar deneyin." |
-| `RATE_LIMIT_USER` | 429 | Kullanıcı rate limit aşımı | "Çok fazla istek. Lütfen biraz bekleyin." |
-| `RATE_LIMIT_LOGIN` | 429 | Login progressive delay / lockout | "Çok fazla başarısız deneme. X saniye sonra tekrar deneyin." |
-| **SYSTEM** | | | |
-| `SYSTEM_MAINTENANCE` | 503 | Planlı bakım | "Sistem bakımda, lütfen daha sonra tekrar deneyin." |
-| `SYSTEM_INTERNAL_ERROR` | 500 | Unhandled exception | "Beklenmeyen bir hata oluştu, ekibimize bildirildi." |
-| `SYSTEM_DEPENDENCY_DOWN` | 503 | DB/Redis/KMS erişilemez | "Sistem geçici olarak erişilemiyor." |
-| `SYSTEM_SETTING_INVALID` | 400 | System setting value şema uyumsuz | "Ayar değeri geçersiz." |
+| Code                              | HTTP | Koşul                                                                            | User message                                                                       |
+| --------------------------------- | ---- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **AUTH**                          |      |                                                                                  |                                                                                    |
+| `AUTH_INVALID_CREDENTIALS`        | 401  | Login'de yanlış email/şifre veya kullanıcı yok (enumeration önlemi — aynı mesaj) | "Email veya şifre hatalı."                                                         |
+| `AUTH_TOKEN_EXPIRED`              | 401  | Access token süresi dolmuş                                                       | "Oturumunuz sona erdi, lütfen yeniden giriş yapın."                                |
+| `AUTH_TOKEN_INVALID`              | 401  | Geçersiz, bozuk veya imzası yanlış JWT                                           | "Oturumunuz geçersiz, lütfen yeniden giriş yapın."                                 |
+| `AUTH_SESSION_REVOKED`            | 401  | Session blacklist'te veya REVOKED                                                | "Oturumunuz kapatıldı, lütfen yeniden giriş yapın."                                |
+| `AUTH_ACCOUNT_LOCKED`             | 423  | Hesap başarısız giriş nedeniyle kilitli                                          | "Çok fazla başarısız deneme. Hesabınız X dakika kilitli."                          |
+| `AUTH_ACCOUNT_PASSIVE`            | 403  | Kullanıcı `is_active=false`                                                      | "Hesabınız pasif durumdadır, sistem yöneticinize başvurun."                        |
+| `AUTH_CONSENT_REQUIRED`           | 403  | Aktif rıza versiyonu onaylanmamış                                                | "Devam etmek için KVKK rıza metnini onaylamanız gerekmektedir."                    |
+| `AUTH_PASSWORD_EXPIRED`           | 403  | Şifre süresi dolmuş, değiştirmek zorunlu                                         | "Şifrenizin süresi doldu, yeni şifre belirleyin."                                  |
+| `AUTH_IP_NOT_WHITELISTED`         | 403  | Superadmin whitelist dışı IP'den login                                           | "Bu IP adresinden Superadmin girişi yetkisiz."                                     |
+| **CSRF**                          |      |                                                                                  |                                                                                    |
+| `CSRF_TOKEN_INVALID`              | 403  | X-CSRF-Token header eksik veya eşleşmiyor                                        | "Güvenlik doğrulaması başarısız, sayfayı yenileyip tekrar deneyin."                |
+| **VALIDATION**                    |      |                                                                                  |                                                                                    |
+| `VALIDATION_FAILED`               | 400  | Zod input validation başarısız                                                   | "Formu kontrol edin." (details: alan bazlı hata listesi)                           |
+| `VALIDATION_UNSUPPORTED_FORMAT`   | 400  | Content-Type veya body formatı geçersiz                                          | "İstek formatı geçersiz."                                                          |
+| **PERMISSION**                    |      |                                                                                  |                                                                                    |
+| `PERMISSION_DENIED`               | 403  | Yetki yok                                                                        | "Bu işlem için yetkiniz bulunmuyor."                                               |
+| **USER**                          |      |                                                                                  |                                                                                    |
+| `USER_NOT_FOUND`                  | 404  | Kullanıcı bulunamadı                                                             | "Kullanıcı bulunamadı."                                                            |
+| `USER_SICIL_DUPLICATE`            | 409  | Sicil çakışması                                                                  | "Bu sicil numarası zaten kayıtlı."                                                 |
+| `USER_EMAIL_DUPLICATE`            | 409  | Email çakışması                                                                  | "Bu email adresi zaten kayıtlı."                                                   |
+| `USER_SELF_EDIT_FORBIDDEN`        | 403  | Kullanıcı kendi attribute'unu düzenlemeye kalkıştı                               | "Kendi bilgilerinizi düzenleme yetkiniz bulunmuyor."                               |
+| `USER_MANAGER_CYCLE`              | 422  | Yönetici atamasında cycle                                                        | "Bu atama yönetici zincirinde döngü oluşturur."                                    |
+| `USER_ALREADY_PASSIVE`            | 409  | Zaten pasif kullanıcıyı pasifleştirme girişimi                                   | "Kullanıcı zaten pasif durumda."                                                   |
+| `USER_ALREADY_ACTIVE`             | 409  | Zaten aktif kullanıcıyı aktifleştirme girişimi                                   | "Kullanıcı zaten aktif durumda."                                                   |
+| `USER_ANONYMIZED`                 | 403  | Anonimleştirilmiş kullanıcı login denemesi                                       | "Bu hesaba erişim kapatılmıştır."                                                  |
+| **ROLE**                          |      |                                                                                  |                                                                                    |
+| `ROLE_NOT_FOUND`                  | 404  | Rol bulunamadı                                                                   | "Rol bulunamadı."                                                                  |
+| `ROLE_CODE_DUPLICATE`             | 409  | Rol kodu çakışması                                                               | "Bu rol kodu zaten kullanımda."                                                    |
+| `ROLE_SYSTEM_CANNOT_DELETE`       | 403  | Sistem rolünü silme girişimi                                                     | "Sistem rolleri silinemez."                                                        |
+| `ROLE_SYSTEM_CANNOT_EDIT_CODE`    | 403  | Sistem rolü `code` değiştirme girişimi                                           | "Sistem rolü kodu değiştirilemez."                                                 |
+| `ROLE_SELF_EDIT_FORBIDDEN`        | 403  | Rol ve Yetki Yöneticisi kendi rolünü değiştirmeye kalkıştı                       | "Kendi rolünüzü değiştirme yetkiniz bulunmuyor."                                   |
+| `ROLE_RULE_INVALID_STRUCTURE`     | 422  | Boş condition set veya geçersiz kural yapısı                                     | "Kural yapısı geçersiz — en az bir koşul zorunlu."                                 |
+| **MASTER_DATA**                   |      |                                                                                  |                                                                                    |
+| `MASTER_DATA_NOT_FOUND`           | 404  | Master data kaydı yok                                                            | "Kayıt bulunamadı."                                                                |
+| `MASTER_DATA_CODE_DUPLICATE`      | 409  | Kod çakışması                                                                    | "Bu kod zaten kullanımda."                                                         |
+| `MASTER_DATA_CODE_IMMUTABLE`      | 403  | `code` değiştirme girişimi                                                       | "Kod değiştirilemez."                                                              |
+| `MASTER_DATA_IN_USE`              | 422  | Aktif kullanıcısı olan master data'yı pasifleştirme                              | "Bu kayıt aktif kullanıcılar tarafından kullanılıyor, önce kullanıcıları taşıyın." |
+| `MASTER_DATA_PARENT_INACTIVE`     | 422  | Pasif parent altına child ekleme                                                 | "Üst kayıt pasif durumda, önce aktifleştirin."                                     |
+| **PROCESS**                       |      |                                                                                  |                                                                                    |
+| `PROCESS_NOT_FOUND`               | 404  | Süreç bulunamadı                                                                 | "Süreç bulunamadı."                                                                |
+| `PROCESS_ACCESS_DENIED`           | 403  | Süreç kullanıcının değil + yetki yok                                             | "Bu sürece erişim yetkiniz bulunmuyor."                                            |
+| `PROCESS_INVALID_STATE`           | 409  | Geçersiz state transition (örn. tamamlanmış süreci iptal)                        | "Bu işlem mevcut süreç durumunda yapılamaz."                                       |
+| `PROCESS_CANCEL_REASON_REQUIRED`  | 400  | İptal gerekçesi eksik                                                            | "İptal gerekçesi zorunludur."                                                      |
+| `PROCESS_ROLLBACK_INVALID_TARGET` | 422  | Geçersiz rollback hedef adımı                                                    | "Bu adıma geri dönüş mümkün değil."                                                |
+| `PROCESS_TYPE_UNKNOWN`            | 400  | Bilinmeyen süreç tipi                                                            | "Bu süreç tipi desteklenmiyor."                                                    |
+| `PROCESS_START_FORBIDDEN`         | 403  | Başlatma yetkisi yok                                                             | "Bu süreci başlatma yetkiniz bulunmuyor."                                          |
+| **TASK**                          |      |                                                                                  |                                                                                    |
+| `TASK_NOT_FOUND`                  | 404  | Görev bulunamadı                                                                 | "Görev bulunamadı."                                                                |
+| `TASK_ACCESS_DENIED`              | 403  | Görev kullanıcıya atanmamış                                                      | "Bu göreve erişim yetkiniz bulunmuyor."                                            |
+| `TASK_ALREADY_COMPLETED`          | 409  | Tamamlanmış görevde aksiyon                                                      | "Bu görev zaten tamamlanmış."                                                      |
+| `TASK_CLAIM_LOST`                 | 409  | Başka bir aday claim etti                                                        | "Bu görev başka bir kullanıcı tarafından üstlenildi."                              |
+| `TASK_COMPLETION_ACTION_INVALID`  | 422  | Süreç tanımının izin vermediği action                                            | "Bu aksiyon bu adım için geçersiz."                                                |
+| `TASK_REASON_REQUIRED`            | 400  | Red veya Revize için gerekçe eksik                                               | "Gerekçe alanı zorunludur."                                                        |
+| `TASK_NOT_CLAIMABLE`              | 422  | SINGLE veya ALL_REQUIRED mode'da claim girişimi                                  | "Bu görev üstlenme modunda değil."                                                 |
+| **DOCUMENT**                      |      |                                                                                  |                                                                                    |
+| `DOCUMENT_NOT_FOUND`              | 404  | Doküman bulunamadı                                                               | "Doküman bulunamadı."                                                              |
+| `DOCUMENT_SCAN_PENDING`           | 409  | Tarama devam ediyor, erişilemez                                                  | "Doküman hâlâ güvenlik taramasından geçiyor."                                      |
+| `DOCUMENT_INFECTED`               | 403  | Enfekte doküman erişim girişimi                                                  | "Doküman güvenlik taramasında zararlı tespit edildiği için erişilemiyor."          |
+| `DOCUMENT_SIZE_EXCEEDED`          | 413  | Dosya boyutu limiti aşıldı                                                       | "Dosya boyutu 10 MB'ı aşamaz."                                                     |
+| `DOCUMENT_CONTENT_TYPE_INVALID`   | 415  | İzin verilmeyen format                                                           | "Bu dosya formatı desteklenmiyor."                                                 |
+| `DOCUMENT_URL_EXPIRED`            | 410  | Signed URL süresi doldu                                                          | "Erişim bağlantısının süresi doldu, yeniden yükleyin."                             |
+| `DOCUMENT_UPLOAD_FORBIDDEN`       | 403  | Upload yetkisi yok (sürece bağlı değil)                                          | "Dosya yükleme yetkiniz bulunmuyor."                                               |
+| **CONSENT**                       |      |                                                                                  |                                                                                    |
+| `CONSENT_VERSION_NOT_FOUND`       | 404  | Rıza versiyonu yok                                                               | "Rıza versiyonu bulunamadı."                                                       |
+| `CONSENT_ALREADY_PUBLISHED`       | 409  | PUBLISHED versiyon düzenleme                                                     | "Yayınlanmış rıza metni düzenlenemez."                                             |
+| **RATE_LIMIT**                    |      |                                                                                  |                                                                                    |
+| `RATE_LIMIT_IP`                   | 429  | IP rate limit aşımı                                                              | "Çok fazla istek. Lütfen bir süre sonra tekrar deneyin."                           |
+| `RATE_LIMIT_USER`                 | 429  | Kullanıcı rate limit aşımı                                                       | "Çok fazla istek. Lütfen biraz bekleyin."                                          |
+| `RATE_LIMIT_LOGIN`                | 429  | Login progressive delay / lockout                                                | "Çok fazla başarısız deneme. X saniye sonra tekrar deneyin."                       |
+| **SYSTEM**                        |      |                                                                                  |                                                                                    |
+| `SYSTEM_MAINTENANCE`              | 503  | Planlı bakım                                                                     | "Sistem bakımda, lütfen daha sonra tekrar deneyin."                                |
+| `SYSTEM_INTERNAL_ERROR`           | 500  | Unhandled exception                                                              | "Beklenmeyen bir hata oluştu, ekibimize bildirildi."                               |
+| `SYSTEM_DEPENDENCY_DOWN`          | 503  | DB/Redis/KMS erişilemez                                                          | "Sistem geçici olarak erişilemiyor."                                               |
+| `SYSTEM_SETTING_INVALID`          | 400  | System setting value şema uyumsuz                                                | "Ayar değeri geçersiz."                                                            |
 
 ### HTTP Status Mapping Özeti
 
-| Status | Anlamı | Ne zaman |
-|---|---|---|
-| `200 OK` | Başarılı okuma veya idempotent aksiyon | GET, mark-read, re-publish |
-| `201 Created` | Yeni kayıt oluşturuldu | POST /users, POST /processes/kti/start |
-| `204 No Content` | Başarılı, dönecek içerik yok | DELETE rol, logout |
-| `400 Bad Request` | Validation veya format hatası | VALIDATION_FAILED, eksik zorunlu alan |
-| `401 Unauthorized` | Auth başarısız | AUTH_* kodları |
-| `403 Forbidden` | Yetki yok veya durumsal yasak | PERMISSION_DENIED, ROLE_SYSTEM_*, DOCUMENT_INFECTED |
-| `404 Not Found` | Kaynak yok | *_NOT_FOUND |
-| `409 Conflict` | State conflict, duplicate | *_DUPLICATE, *_ALREADY_* |
-| `410 Gone` | Kaynak vardı, artık yok | DOCUMENT_URL_EXPIRED |
-| `413 Payload Too Large` | Dosya/body boyutu aşımı | DOCUMENT_SIZE_EXCEEDED |
-| `415 Unsupported Media Type` | Content-Type izin verilmiyor | DOCUMENT_CONTENT_TYPE_INVALID |
-| `422 Unprocessable Entity` | Syntax doğru ama business rule fail | USER_MANAGER_CYCLE, MASTER_DATA_IN_USE |
-| `423 Locked` | Kaynak geçici kilitli | AUTH_ACCOUNT_LOCKED |
-| `429 Too Many Requests` | Rate limit | RATE_LIMIT_* (Retry-After header) |
-| `500 Internal Server Error` | Unhandled | SYSTEM_INTERNAL_ERROR |
-| `503 Service Unavailable` | Dependency/maintenance | SYSTEM_MAINTENANCE, SYSTEM_DEPENDENCY_DOWN (Retry-After header) |
+| Status                       | Anlamı                                 | Ne zaman                                                        |
+| ---------------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| `200 OK`                     | Başarılı okuma veya idempotent aksiyon | GET, mark-read, re-publish                                      |
+| `201 Created`                | Yeni kayıt oluşturuldu                 | POST /users, POST /processes/kti/start                          |
+| `204 No Content`             | Başarılı, dönecek içerik yok           | DELETE rol, logout                                              |
+| `400 Bad Request`            | Validation veya format hatası          | VALIDATION_FAILED, eksik zorunlu alan                           |
+| `401 Unauthorized`           | Auth başarısız                         | AUTH\_\* kodları                                                |
+| `403 Forbidden`              | Yetki yok veya durumsal yasak          | PERMISSION*DENIED, ROLE_SYSTEM*\*, DOCUMENT_INFECTED            |
+| `404 Not Found`              | Kaynak yok                             | \*\_NOT_FOUND                                                   |
+| `409 Conflict`               | State conflict, duplicate              | _\_DUPLICATE, \_\_ALREADY_\*                                    |
+| `410 Gone`                   | Kaynak vardı, artık yok                | DOCUMENT_URL_EXPIRED                                            |
+| `413 Payload Too Large`      | Dosya/body boyutu aşımı                | DOCUMENT_SIZE_EXCEEDED                                          |
+| `415 Unsupported Media Type` | Content-Type izin verilmiyor           | DOCUMENT_CONTENT_TYPE_INVALID                                   |
+| `422 Unprocessable Entity`   | Syntax doğru ama business rule fail    | USER_MANAGER_CYCLE, MASTER_DATA_IN_USE                          |
+| `423 Locked`                 | Kaynak geçici kilitli                  | AUTH_ACCOUNT_LOCKED                                             |
+| `429 Too Many Requests`      | Rate limit                             | RATE*LIMIT*\* (Retry-After header)                              |
+| `500 Internal Server Error`  | Unhandled                              | SYSTEM_INTERNAL_ERROR                                           |
+| `503 Service Unavailable`    | Dependency/maintenance                 | SYSTEM_MAINTENANCE, SYSTEM_DEPENDENCY_DOWN (Retry-After header) |
 
 ### Frontend Davranış Matrisi
 
-| Error kategori | Frontend davranışı |
-|---|---|
-| `AUTH_TOKEN_*`, `AUTH_SESSION_REVOKED` | Toast + otomatik login sayfasına redirect |
-| `AUTH_CONSENT_REQUIRED` | Rıza modal'ına redirect (diğer sayfaları açmaz) |
-| `AUTH_PASSWORD_EXPIRED` | Zorunlu şifre değiştirme ekranına redirect |
-| `AUTH_ACCOUNT_LOCKED`, `AUTH_ACCOUNT_PASSIVE` | Login ekranında inline mesaj; retry devre dışı |
-| `VALIDATION_FAILED` | Form alanlarında inline error (details.fields üzerinden) |
-| `PERMISSION_DENIED` | Toast + route guard ile dashboard'a redirect |
-| `*_NOT_FOUND` | Sayfa-level empty state veya 404 sayfası |
-| `*_DUPLICATE`, `*_ALREADY_*`, `*_IN_USE` | Modal/form içinde inline error mesajı |
-| `RATE_LIMIT_*` | Toast + Retry-After'a göre countdown |
-| `DOCUMENT_SCAN_PENDING` | Dosya UI'da "Taranıyor..." rozeti; polling devam |
-| `DOCUMENT_INFECTED` | Dosya yerine kırmızı etiket + mesaj |
-| `SYSTEM_MAINTENANCE`, `SYSTEM_DEPENDENCY_DOWN` | Full-page maintenance ekranı |
-| `SYSTEM_INTERNAL_ERROR` | Toast: "Beklenmeyen hata" + Sentry'ye yakala (frontend side) |
+| Error kategori                                 | Frontend davranışı                                           |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| `AUTH_TOKEN_*`, `AUTH_SESSION_REVOKED`         | Toast + otomatik login sayfasına redirect                    |
+| `AUTH_CONSENT_REQUIRED`                        | Rıza modal'ına redirect (diğer sayfaları açmaz)              |
+| `AUTH_PASSWORD_EXPIRED`                        | Zorunlu şifre değiştirme ekranına redirect                   |
+| `AUTH_ACCOUNT_LOCKED`, `AUTH_ACCOUNT_PASSIVE`  | Login ekranında inline mesaj; retry devre dışı               |
+| `VALIDATION_FAILED`                            | Form alanlarında inline error (details.fields üzerinden)     |
+| `PERMISSION_DENIED`                            | Toast + route guard ile dashboard'a redirect                 |
+| `*_NOT_FOUND`                                  | Sayfa-level empty state veya 404 sayfası                     |
+| `*_DUPLICATE`, `*_ALREADY_*`, `*_IN_USE`       | Modal/form içinde inline error mesajı                        |
+| `RATE_LIMIT_*`                                 | Toast + Retry-After'a göre countdown                         |
+| `DOCUMENT_SCAN_PENDING`                        | Dosya UI'da "Taranıyor..." rozeti; polling devam             |
+| `DOCUMENT_INFECTED`                            | Dosya yerine kırmızı etiket + mesaj                          |
+| `SYSTEM_MAINTENANCE`, `SYSTEM_DEPENDENCY_DOWN` | Full-page maintenance ekranı                                 |
+| `SYSTEM_INTERNAL_ERROR`                        | Toast: "Beklenmeyen hata" + Sentry'ye yakala (frontend side) |
 
 ---
 
@@ -235,14 +236,14 @@ Tüm JSON response'lar üç formattan birindedir:
 
 Rate limit iki katmanda uygulanır: **WAF (CloudFront)** tarafında edge-level, **backend (API gateway tier)** tarafında application-level. Aşağıdaki tablo backend limitlerini gösterir; WAF limitleri `07_SECURITY_IMPLEMENTATION`'da.
 
-| Kapsam | Endpoint grubu | Limit | Pencere |
-|---|---|---|---|
-| **Anonim (auth'suz)** | Global | 100 | 1 dakika |
-| **Authenticated kullanıcı** | Global | 300 | 1 dakika |
-| **Login endpoint** | `POST /api/v1/auth/login` | 5 başarısız | 15 dakika (email + IP bazlı) |
-| **Password reset request** | `POST /api/v1/auth/password-reset-request` | 3 | 1 saat (email bazlı) |
-| **Document download URL** | `GET /api/v1/documents/:id/download-url` | 50 | 5 dakika (kullanıcı bazlı) |
-| **Data export endpoint'leri** | `GET /api/v1/admin/audit-logs/export` | 10 | 1 saat (kullanıcı bazlı) |
+| Kapsam                        | Endpoint grubu                             | Limit       | Pencere                      |
+| ----------------------------- | ------------------------------------------ | ----------- | ---------------------------- |
+| **Anonim (auth'suz)**         | Global                                     | 100         | 1 dakika                     |
+| **Authenticated kullanıcı**   | Global                                     | 300         | 1 dakika                     |
+| **Login endpoint**            | `POST /api/v1/auth/login`                  | 5 başarısız | 15 dakika (email + IP bazlı) |
+| **Password reset request**    | `POST /api/v1/auth/password-reset-request` | 3           | 1 saat (email bazlı)         |
+| **Document download URL**     | `GET /api/v1/documents/:id/download-url`   | 50          | 5 dakika (kullanıcı bazlı)   |
+| **Data export endpoint'leri** | `GET /api/v1/admin/audit-logs/export`      | 10          | 1 saat (kullanıcı bazlı)     |
 
 **429 response örneği:**
 
@@ -279,6 +280,7 @@ Content-Type: application/json
 **Cursor:** Opaque base64 string. Client cursor'ın içeriğini parse etmeye çalışmaz; sadece bir sonraki çağrıda aynen gönderir.
 
 **Query parametreleri:**
+
 - `limit` — 1-200 arası integer, default 50
 - `cursor` — opsiyonel; ilk sayfada boş, sonraki sayfalarda önceki response'tan alınan `nextCursor`
 
@@ -310,15 +312,42 @@ GET /api/v1/processes?limit=50&cursor=eyJpZCI6ImNseDFhMmIzIn0%3D
 ## 6. Authentication
 
 **Token modeli:**
+
 - **Access token (JWT, 15 dk, RS256):** Her authenticated request'e `Authorization: Bearer <jwt>` header'ı ile eklenir. Client memory'sinde tutulur (localStorage yasak).
 - **Refresh token (opaque, 7 gün, single-use):** `refresh_token` adlı `HttpOnly + Secure + SameSite=Strict` cookie olarak set edilir. JavaScript erişimi yoktur; sadece tarayıcı otomatik iliştirir.
 
 **CSRF koruması (double-submit cookie pattern):**
+
 - Login sonrası backend iki değer set eder: `csrf_token` (cookie) + response body'deki `csrfToken` (frontend memory).
 - Her mutating request'te (`POST`, `PATCH`, `DELETE`) frontend `X-CSRF-Token` header'ı gönderir; backend header değeri ile cookie değerini karşılaştırır. Uyumsuz → `403 CSRF_TOKEN_INVALID`.
 - `GET` istekleri CSRF kontrolünden muaf (idempotent, body mutation yok).
 
-### Login Akışı
+### Ortam profile göre birincil giriş (OIDC)
+
+**Mimari:** Geliştirmede **Google OpenID Connect**, production’da **Red Hat SSO (Keycloak)** — `docs/mimari-kararlar.md` [A-007], ADR 0008. Aşağıdaki path’ler API kontratının parçasıdır; OpenAPI / implementasyon bu isimlerle senkron tutulur.
+
+| #      | Method | Path                                 | Açıklama                                                                                                   |
+| ------ | ------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| OIDC-1 | `GET`  | `/api/v1/auth/oauth/google`          | Yetkilendirme başlangıcı; sunucu `state` + PKCE üretir, IdP authorize URL’sine yönlendirir (İterasyon 2+). |
+| OIDC-2 | `GET`  | `/api/v1/auth/oauth/google/callback` | IdP dönüşü; query’de `code`, `state` (ve IdP’nin döndürdüğü diğer parametreler).                           |
+
+**Callback query (OAuth 2.0 / OIDC — uygulama tarafından doğrulanır):**
+
+| Parametre | Zorunluluk           | Not                                                                 |
+| --------- | -------------------- | ------------------------------------------------------------------- |
+| `code`    | IdP başarılı dönüşte | Authorization code; sunucu token endpoint ile takas eder.           |
+| `state`   | Zorunlu              | CSRF / oturum bağlama; start adımında üretilen değer ile eşleşmeli. |
+| `scope`   | IdP’ye bağlı         | İstenen scope’ların yansıması; doğrulama İterasyon 2+.              |
+
+**Akış özeti:**
+
+1. Tarayıcı `OIDC-1` ile yetkilendirme URL’sine yönlendirilir (`state` + PKCE `code_challenge`).
+2. IdP kullanıcıyı doğrular; `OIDC-2` üzerinde `code` alınır.
+3. Backend kodu token’a çevirir, `id_token` / userinfo ile kullanıcıyı eşler, ardından **aşağıdaki login response ile özdeş** oturum çıktısı üretir (access JWT, refresh + csrf cookie).
+
+**Email + şifre** yolu aşağıda tanımlıdır; OIDC birincil olduğunda bu endpoint isteğe bağlı veya yalnız bootstrap ortamlarında açıktır.
+
+### Login — email ve şifre
 
 **1. Login isteği:**
 
@@ -382,6 +411,7 @@ X-CSRF-Token: <random>
 ```
 
 **200 response:**
+
 - Yeni `accessToken` body'de
 - Yeni `refresh_token` cookie'de (rotation — eski token tek kullanımlık, bir daha geçerli değil)
 - Yeni `csrf_token` cookie + body
@@ -397,6 +427,7 @@ X-CSRF-Token: <random>
 ```
 
 **204 response:**
+
 - `refresh_token` cookie silinir (`Max-Age=0`)
 - `csrf_token` cookie silinir
 - Backend session kaydını `REVOKED` yapar, access token JWT'yi blacklist'e ekler (TTL=15dk — token doğal expire'ına kadar)
@@ -442,6 +473,7 @@ sequenceDiagram
 ## 7. Audit Annotation Disiplini
 
 Her mutating endpoint'in (POST, PATCH, DELETE) şablonunda zorunlu `**Audit:**` satırı vardır. Bu satır:
+
 - Hangi `action` enum değerinin audit_logs'a yazılacağı
 - Hangi `entity` ve `entity_id` bağlanacağı
 - `old_value` ve `new_value`'nun hangi alanları içereceği (hassas field maskelemesi notuyla)
@@ -480,6 +512,7 @@ Bu bölüm platformdaki tüm endpoint'leri modül bazlı gruplayarak detaylandı
 **Rate limit:** 5 başarısız deneme / 15 dk (email + IP bazlı); progressive delay (1-2-4-8 sn); 30 dk lockout.
 
 **Request body:**
+
 ```json
 {
   "email": "ali.yilmaz@holding.com",
@@ -488,10 +521,12 @@ Bu bölüm platformdaki tüm endpoint'leri modül bazlı gruplayarak detaylandı
 ```
 
 **Field kuralları:**
+
 - `email`: RFC 5322, lowercase'e normalize edilir, max 254 karakter
 - `password`: min 1 karakter (doğrulama için — ama backend policy min 12)
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -539,6 +574,7 @@ Cookie'ler: `refresh_token` (HttpOnly, Secure, SameSite=Strict, Path=/api/v1/aut
 **Request:** Body yok; cookie ve header ile.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -601,6 +637,7 @@ Yeni `refresh_token` ve `csrf_token` cookie'leri set edilir (rotation).
 **Rate limit:** 3 / saat / email (+ 10 / saat / IP).
 
 **Request body:**
+
 ```json
 {
   "email": "ali.yilmaz@holding.com"
@@ -608,6 +645,7 @@ Yeni `refresh_token` ve `csrf_token` cookie'leri set edilir (rotation).
 ```
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -635,6 +673,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Rate limit:** 10 / saat / IP.
 
 **Request body:**
+
 ```json
 {
   "token": "<32-byte base64url>",
@@ -643,10 +682,12 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 ```
 
 **Field kuralları:**
+
 - `token`: 32 byte base64url (43 karakter)
 - `newPassword`: min 12 karakter, şifre policy (uppercase/lowercase/digit/special), HIBP k-anonymity kontrolü, platform-specific yasak kelimeler, son 5 şifreden farklı
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -672,6 +713,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Rate limit:** 5 / saat / kullanıcı.
 
 **Request body:**
+
 ```json
 {
   "currentPassword": "S3cure!Passw0rd1234",
@@ -680,6 +722,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 ```
 
 **Field kuralları:**
+
 - `currentPassword`: mevcut şifre doğrulaması için; bcrypt compare
 - `newPassword`: reset akışıyla aynı policy
 
@@ -702,6 +745,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** Access token.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -745,6 +789,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** Access token.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -789,6 +834,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** Access token + `X-CSRF-Token`. Kullanıcı oturum açmış olmalı ama `consentAccepted:false` durumunda bile bu endpoint erişilebilir (diğerleri 403 dönerken bu çalışır).
 
 **Request body:**
+
 ```json
 {
   "consentVersionId": "clx..."
@@ -796,9 +842,11 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 ```
 
 **Field kuralları:**
+
 - `consentVersionId`: Sistem'in aktif versiyonuyla eşleşmeli; farklıysa `VALIDATION_FAILED`
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -824,6 +872,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** `USER_LIST_VIEW` yetkisi (Superadmin, Kullanıcı Yöneticisi).
 
 **Query params:**
+
 - `limit`, `cursor` (pagination)
 - `search` — sicil, ad, soyad, email üzerinde arama (email → blind index lookup)
 - `companyId`, `locationId`, `departmentId`, `positionId`, `levelId`, `employeeType` — filtreler
@@ -831,6 +880,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 - `sort` — whitelist: `sicil_asc`, `last_name_asc`, `created_at_desc` (default `last_name_asc`)
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -863,6 +913,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Rate limit:** 20 / dakika / kullanıcı.
 
 **Request body:**
+
 ```json
 {
   "sicil": "12345678",
@@ -885,6 +936,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 ```
 
 **Field kuralları:**
+
 - `sicil`: 8 haneli numerik (`^\d{8}$`), unique
 - `email`: RFC 5322, max 254 karakter, unique (lowercase normalized)
 - `phone`: TR mobil format (`^(\+90|0)?5\d{9}$`), opsiyonel
@@ -894,6 +946,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 - Şifre **atanmaz** — kullanıcı ilk login'inde "şifre belirle" akışı kullanır (reset token)
 
 **Response 201:**
+
 ```json
 {
   "data": {
@@ -956,6 +1009,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 ```
 
 **Field kuralları:**
+
 - `sicil` güncellenemez — request body'de gönderilirse `VALIDATION_FAILED`
 - Cycle check: `managerUserId` güncellenirse A → ... → :id zincirinde :id'nin kendisi olmamalı
 
@@ -982,6 +1036,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** `USER_DEACTIVATE` (Superadmin, Kullanıcı Yöneticisi).
 
 **Request body:**
+
 ```json
 {
   "reason": "İşten ayrılış — 2026-04-30"
@@ -1007,6 +1062,7 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** `USER_REACTIVATE` (Superadmin, Kullanıcı Yöneticisi).
 
 **Request body:**
+
 ```json
 {
   "reason": "Yeniden işe alım — 2026-06-01"
@@ -1032,17 +1088,16 @@ Enumeration önlemi — email var veya yok her ikisinde aynı 200 + aynı mesaj.
 **Auth:** Access token (kendi verisine erişim).
 
 **Response 200:**
+
 ```json
 {
   "data": {
     "profile": { "...": "tüm kullanıcı attribute'ları — /auth/me benzeri" },
-    "roles": [ { "id": "...", "name": "...", "source": "DIRECT | ATTRIBUTE_RULE" } ],
+    "roles": [{ "id": "...", "name": "...", "source": "DIRECT | ATTRIBUTE_RULE" }],
     "sessionHistory": [
       { "createdAt": "...", "lastActiveAt": "...", "ipCity": "...", "userAgent": "..." }
     ],
-    "consentHistory": [
-      { "consentVersionId": "...", "version": 2, "acceptedAt": "..." }
-    ],
+    "consentHistory": [{ "consentVersionId": "...", "version": 2, "acceptedAt": "..." }],
     "processCounts": {
       "initiated": 12,
       "pendingApproval": 3,
@@ -1067,6 +1122,7 @@ Kullanıcıya kendi verilerini şeffaf olarak sunar. Export/indirme özelliği M
 **Auth:** `USER_LIST_VIEW`.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1111,15 +1167,15 @@ Kullanıcıya kendi verilerini şeffaf olarak sunar. Export/indirme özelliği M
 
 Master data endpoint'leri 8 type için aynı iskelete sahiptir. Path parametresi `{type}`, 8 değerden biri olabilir:
 
-| Type value | Tablo | Türkçe ad |
-|---|---|---|
-| `companies` | companies | Şirketler |
-| `locations` | locations | Lokasyonlar |
-| `departments` | departments | Departmanlar |
-| `levels` | levels | Kademeler |
-| `positions` | positions | Pozisyonlar |
-| `teams` | teams | Ekipler |
-| `work-areas` | work_areas | Çalışma Alanları |
+| Type value       | Tablo          | Türkçe ad                                  |
+| ---------------- | -------------- | ------------------------------------------ |
+| `companies`      | companies      | Şirketler                                  |
+| `locations`      | locations      | Lokasyonlar                                |
+| `departments`    | departments    | Departmanlar                               |
+| `levels`         | levels         | Kademeler                                  |
+| `positions`      | positions      | Pozisyonlar                                |
+| `teams`          | teams          | Ekipler                                    |
+| `work-areas`     | work_areas     | Çalışma Alanları                           |
 | `work-sub-areas` | work_sub_areas | Çalışma Alt Alanları (parent FK istisnası) |
 
 Bilinmeyen `{type}` değeri → 404 `MASTER_DATA_NOT_FOUND`.
@@ -1133,11 +1189,13 @@ Tüm master data endpoint'leri `MASTER_DATA_MANAGE` yetkisi gerektirir (Superadm
 **Purpose:** Master data listesi (sayfasız — tipik olarak <500 kayıt).
 
 **Query params:**
+
 - `isActive` — `true` / `false` / `all` (default `all` — yönetim ekranı için)
 - `usageFilter` — `all` / `in-use` / `unused` (unused = `users_count = 0`)
 - `search` — code veya name üzerinde
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1164,6 +1222,7 @@ Tüm master data endpoint'leri `MASTER_DATA_MANAGE` yetkisi gerektirir (Superadm
 **Purpose:** Yeni master data kaydı oluşturma.
 
 **Request body:**
+
 ```json
 {
   "code": "XYZ",
@@ -1172,6 +1231,7 @@ Tüm master data endpoint'leri `MASTER_DATA_MANAGE` yetkisi gerektirir (Superadm
 ```
 
 `work-sub-areas` için:
+
 ```json
 {
   "code": "LINE_3",
@@ -1181,11 +1241,13 @@ Tüm master data endpoint'leri `MASTER_DATA_MANAGE` yetkisi gerektirir (Superadm
 ```
 
 **Field kuralları:**
-- `code`: 2-32 karakter, UPPER_SNAKE_CASE önerisi ama kısıt yok (`^[A-Z0-9_]+$` recommended; regex zorlanmaz — escape için yine de alphanumeric + underscore önerilir)
+
+- `code`: 2-32 karakter, UPPER*SNAKE_CASE önerisi ama kısıt yok (`^[A-Z0-9*]+$` recommended; regex zorlanmaz — escape için yine de alphanumeric + underscore önerilir)
 - `name`: 1-200 karakter
 - `work-sub-areas.parentWorkAreaCode`: aktif bir `work_areas.code`'a referans
 
 **Response 201:**
+
 ```json
 {
   "data": {
@@ -1226,6 +1288,7 @@ Tüm master data endpoint'leri `MASTER_DATA_MANAGE` yetkisi gerektirir (Superadm
 **Purpose:** Master data güncelleme.
 
 **Request body:**
+
 ```json
 {
   "name": "ABC Holding (güncel)"
@@ -1233,6 +1296,7 @@ Tüm master data endpoint'leri `MASTER_DATA_MANAGE` yetkisi gerektirir (Superadm
 ```
 
 **Field kuralları:**
+
 - Yalnız `name` güncellenebilir. `code` request body'de gelirse `MASTER_DATA_CODE_IMMUTABLE`.
 - `is_active` doğrudan PATCH ile değiştirilemez — `/deactivate` ve `/reactivate` endpoint'leri kullanılır.
 
@@ -1292,6 +1356,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Query params:** `limit`, `cursor` (pagination).
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1320,6 +1385,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Query params:** `isActive`, `isSystem`, `search`.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1348,6 +1414,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Auth:** `ROLE_CREATE` (Superadmin, Rol ve Yetki Yöneticisi).
 
 **Request body:**
+
 ```json
 {
   "code": "KTI_INITIATOR",
@@ -1357,10 +1424,12 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 ```
 
 **Field kuralları:**
+
 - `code`: 2-64 karakter, `^[A-Z][A-Z0-9_]+$`, unique (sistem rolü code'ları da dahil rezerve edilir)
 - `name`: 1-200 karakter
 
 **Response 201:**
+
 ```json
 {
   "data": {
@@ -1404,6 +1473,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Auth:** `ROLE_UPDATE`.
 
 **Request body:**
+
 ```json
 {
   "name": "KTİ Başlatıcı (Güncel)",
@@ -1412,6 +1482,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 ```
 
 **Field kuralları:**
+
 - Sistem rolünün `code`'u, `isSystem` flag'i, direkt `isActive` değiştirilmez.
 - `code` güncellenemez.
 
@@ -1452,6 +1523,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Auth:** `ROLE_VIEW`.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1473,6 +1545,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 > Not: PUT burada bilinçli bir istisnadır — "tam set replace" semantiği PATCH'in kısmi güncelleme semantiğiyle karışır, bu yüzden REST disiplin dışı istisnai kullanım.
 
 **Request body:**
+
 ```json
 {
   "permissionKeys": ["USER_CREATE", "USER_UPDATE_ATTRIBUTE", "USER_DEACTIVATE"]
@@ -1480,6 +1553,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 ```
 
 **Field kuralları:**
+
 - `permissionKeys`: array; her değer backend Permission enum'unda geçerli olmalı (bilinmeyen key → `VALIDATION_FAILED`)
 - Transaction: mevcut role_permissions silinir, yeni set INSERT edilir.
 
@@ -1504,6 +1578,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Query params:** `source` — `direct` / `attribute_rule` / `all` (default `all`).
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1537,6 +1612,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Auth:** `ROLE_ASSIGN`.
 
 **Request body:**
+
 ```json
 {
   "userId": "clx..."
@@ -1544,6 +1620,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 ```
 
 **Response 201:**
+
 ```json
 {
   "data": {
@@ -1588,6 +1665,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Auth:** `ROLE_VIEW`.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1600,8 +1678,18 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
           "id": "clx-set",
           "order": 1,
           "conditions": [
-            { "id": "clx-cond", "attributeKey": "COMPANY_ID", "operator": "EQUALS", "value": "clx-abc" },
-            { "id": "clx-cond", "attributeKey": "POSITION_ID", "operator": "EQUALS", "value": "clx-mgr" }
+            {
+              "id": "clx-cond",
+              "attributeKey": "COMPANY_ID",
+              "operator": "EQUALS",
+              "value": "clx-abc"
+            },
+            {
+              "id": "clx-cond",
+              "attributeKey": "POSITION_ID",
+              "operator": "EQUALS",
+              "value": "clx-mgr"
+            }
           ]
         },
         {
@@ -1628,6 +1716,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Auth:** `ROLE_RULE_MANAGE`.
 
 **Request body:**
+
 ```json
 {
   "order": 1,
@@ -1644,6 +1733,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 ```
 
 **Field kuralları:**
+
 - `conditionSets`: en az 1 set
 - Her set: en az 1 condition
 - `attributeKey` enum: `COMPANY_ID`, `LOCATION_ID`, `DEPARTMENT_ID`, `POSITION_ID`, `LEVEL_ID`, `TEAM_ID`, `WORK_AREA_ID`, `WORK_SUB_AREA_ID`, `EMPLOYEE_TYPE`
@@ -1697,12 +1787,20 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Request body:** Bir kuralın `conditionSets` yapısı (henüz kaydedilmemiş taslak).
 
 **Response 200:**
+
 ```json
 {
   "data": {
     "matchingUserCount": 42,
     "sampleUsers": [
-      { "id": "clx...", "sicil": "...", "firstName": "...", "lastName": "...", "company": {}, "position": {} }
+      {
+        "id": "clx...",
+        "sicil": "...",
+        "firstName": "...",
+        "lastName": "...",
+        "company": {},
+        "position": {}
+      }
     ]
   }
 }
@@ -1723,6 +1821,7 @@ Yan etki: `work-areas` pasifleştirilirse altındaki aktif `work-sub-areas` casc
 **Cache:** HTTP response `Cache-Control: public, max-age=3600` (1 saat); release ile cache doğal yenilenir.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1754,10 +1853,12 @@ Kaynak: `packages/shared-types/src/permissions.ts` içindeki `PERMISSION_METADAT
 
 **Purpose:** Süreç listesi. İki ana mod: `scope=my-started` (kullanıcının kendi başlattıkları) ve `scope=admin` (tüm süreçler — admin paneli).
 **Auth:**
+
 - `scope=my-started` — access token yeterli
 - `scope=admin` — `PROCESS_VIEW_ALL` yetkisi (Superadmin, Süreç Yöneticisi)
 
 **Query params:**
+
 - `scope` — `my-started` (default) / `admin`
 - `status` — filtre: `INITIATED` / `IN_PROGRESS` / `COMPLETED` / `REJECTED` / `CANCELLED` / `all` (default `all`)
 - `processType` — filtre (MVP'de sadece `BEFORE_AFTER_KAIZEN`)
@@ -1769,6 +1870,7 @@ Kaynak: `packages/shared-types/src/permissions.ts` içindeki `PERMISSION_METADAT
 - `sort` — `started_at_desc` (default) / `started_at_asc`
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -1800,6 +1902,7 @@ Kaynak: `packages/shared-types/src/permissions.ts` içindeki `PERMISSION_METADAT
 **Rate limit:** 10 / dakika / kullanıcı.
 
 **Request body:**
+
 ```json
 {
   "companyId": "clx-abc",
@@ -1811,12 +1914,14 @@ Kaynak: `packages/shared-types/src/permissions.ts` içindeki `PERMISSION_METADAT
 ```
 
 **Field kuralları:**
+
 - `companyId`: kullanıcının şirketi veya form tanımının izin verdiği şirket listesi içinde
-- `beforePhotoDocumentIds`, `afterPhotoDocumentIds`: en az 1'er tane; Document'ler `scan_status='CLEAN'` olmalı, `content_type` image/*, upload eden kullanıcı === currentUser
+- `beforePhotoDocumentIds`, `afterPhotoDocumentIds`: en az 1'er tane; Document'ler `scan_status='CLEAN'` olmalı, `content_type` image/\*, upload eden kullanıcı === currentUser
 - `savingAmount`: number, ≥ 0, TL birimi (uygulama tarafında integer TL cent'e çevirebilir; MVP'de düz integer)
 - `description`: 10-5000 karakter
 
 **Response 201:**
+
 ```json
 {
   "data": {
@@ -1850,6 +1955,7 @@ Backend transaction: Process INSERT → Task (Yönetici Onay) INSERT (atanan: cu
 
 **Purpose:** Süreç detayı — tüm task'lar, form verileri, dokümanlar.
 **Auth:** Görünürlük kuralı:
+
 - Kullanıcı sürecin başlatıcısı ise — tüm detaylar
 - Kullanıcı bu sürecin herhangi bir task'ına atanmış ise — atandığı task'ın detayları + önceki tamamlanmış task'ların özet bilgileri
 - `PROCESS_VIEW_ALL` yetkisi varsa — tüm detaylar
@@ -1858,6 +1964,7 @@ Backend transaction: Process INSERT → Task (Yönetici Onay) INSERT (atanan: cu
 **Path param:** `:displayId` — örn. `KTI-000042`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -1897,7 +2004,7 @@ Backend transaction: Process INSERT → Task (Yönetici Onay) INSERT (atanan: cu
         "slaDueAt": "2026-04-26T10:00:00.000Z"
       }
     ],
-    "documents": [ { "id": "...", "filename": "...", "scanStatus": "CLEAN", "thumbnailUrl": "..." } ]
+    "documents": [{ "id": "...", "filename": "...", "scanStatus": "CLEAN", "thumbnailUrl": "..." }]
   }
 }
 ```
@@ -1918,6 +2025,7 @@ Görünürlük kısıtı atanmış task'ları olan ama başlatıcı olmayan kull
 **Auth:** `PROCESS_CANCEL` (Superadmin, Süreç Yöneticisi).
 
 **Request body:**
+
 ```json
 {
   "reason": "Yanlış süreç tipi başlatıldı, doğru süreç açılacak."
@@ -1925,11 +2033,13 @@ Görünürlük kısıtı atanmış task'ları olan ama başlatıcı olmayan kull
 ```
 
 **Field kuralları:**
+
 - `reason`: 10-1000 karakter, zorunlu
 
 **Response 204:** No content.
 
 Backend yan etkileri:
+
 - Process `status = CANCELLED`, `cancelled_at = now`, `cancel_reason` dolu, `cancelled_by_user_id = currentUser.id`
 - Tüm aktif task'lar `status = SKIPPED_BY_ROLLBACK`
 - Bildirim: başlatıcı + aktif task sahiplerine `PROCESS_CANCELLED` (kullanıcıya **gerekçe gösterilmez**)
@@ -1951,6 +2061,7 @@ Backend yan etkileri:
 **Auth:** `PROCESS_ROLLBACK` (Superadmin, Süreç Yöneticisi).
 
 **Request body:**
+
 ```json
 {
   "targetStepOrder": 1,
@@ -1959,10 +2070,12 @@ Backend yan etkileri:
 ```
 
 **Field kuralları:**
+
 - `targetStepOrder`: mevcut adımdan küçük bir pozitif integer (geri gitmek — ileri atlatma yasak)
 - `reason`: 10-1000 karakter, zorunlu
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -1974,6 +2087,7 @@ Backend yan etkileri:
 ```
 
 Backend yan etkileri:
+
 - Mevcut aktif task(lar) `SKIPPED_BY_ROLLBACK`
 - Hedef adım task'ı yeniden oluşturulur (süreç tanımının atama kuralı uygulanır — eski sahibine otomatik dönmez)
 - `process.rollback_history` JSONB'sine kayıt eklenir
@@ -1997,6 +2111,7 @@ Backend yan etkileri:
 **Auth:** `PROCESS_VIEW_ALL` (yalnız Superadmin, Süreç Yöneticisi). Başlatıcıya bile açık değil — idari detay.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2004,10 +2119,37 @@ Backend yan etkileri:
     "displayId": "KTI-000042",
     "timeline": [
       { "type": "PROCESS_STARTED", "at": "...", "userId": "...", "metadata": {} },
-      { "type": "TASK_CREATED", "at": "...", "taskId": "...", "stepKey": "KTI_INITIATION", "assignedTo": [] },
-      { "type": "TASK_COMPLETED", "at": "...", "taskId": "...", "stepKey": "KTI_INITIATION", "completedBy": "...", "action": null },
-      { "type": "ROLLBACK", "at": "...", "byUserId": "...", "fromStepOrder": 2, "toStepOrder": 1, "reason": "..." },
-      { "type": "TASK_COMPLETED", "at": "...", "taskId": "...", "stepKey": "KTI_MANAGER_APPROVAL", "action": "REJECT", "reason": "..." }
+      {
+        "type": "TASK_CREATED",
+        "at": "...",
+        "taskId": "...",
+        "stepKey": "KTI_INITIATION",
+        "assignedTo": []
+      },
+      {
+        "type": "TASK_COMPLETED",
+        "at": "...",
+        "taskId": "...",
+        "stepKey": "KTI_INITIATION",
+        "completedBy": "...",
+        "action": null
+      },
+      {
+        "type": "ROLLBACK",
+        "at": "...",
+        "byUserId": "...",
+        "fromStepOrder": 2,
+        "toStepOrder": 1,
+        "reason": "..."
+      },
+      {
+        "type": "TASK_COMPLETED",
+        "at": "...",
+        "taskId": "...",
+        "stepKey": "KTI_MANAGER_APPROVAL",
+        "action": "REJECT",
+        "reason": "..."
+      }
     ]
   }
 }
@@ -2023,6 +2165,7 @@ Backend yan etkileri:
 **Auth:** Süreç detayı ile aynı görünürlük kuralı (başlatıcı / atanmış / admin).
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2054,6 +2197,7 @@ Backend yan etkileri:
 **Auth:** Access token.
 
 **Query params:**
+
 - `tab` — `started` / `pending` / `completed` (default `pending`)
   - `started` → kullanıcının başlattığı süreçlerdeki **aktif** task'lar (aslında süreç bazlı; döndüğü şey "Başlattığım Süreçler" listesi için aktif task özetleri)
   - `pending` → kullanıcıya atanmış PENDING / CLAIMED / IN_PROGRESS durumundaki task'lar (bkz. "Onayda Bekleyen")
@@ -2064,6 +2208,7 @@ Backend yan etkileri:
 - `limit`, `cursor`
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2100,6 +2245,7 @@ Backend yan etkileri:
 **Auth:** Görev'e atanmış kullanıcı **veya** sürecin başlatıcısı **veya** `PROCESS_VIEW_ALL`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2153,6 +2299,7 @@ Backend yan etkileri:
 **Request:** Body yok.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2163,6 +2310,7 @@ Backend yan etkileri:
 ```
 
 Backend yan etkileri (transaction):
+
 - Task `status = CLAIMED`; `completed_by_user_id` önceden atanır (completion'da aynı kullanıcı olmalı)
 - Claim eden kullanıcının TaskAssignment kaydı aktif kalır
 - Diğer adayların TaskAssignment kayıtları `status = SKIPPED`
@@ -2187,6 +2335,7 @@ Backend yan etkileri (transaction):
 **Auth:** Task'a atanmış kullanıcı (claim tipinde: claim eden; all-required tipinde: atanmış kullanıcılardan biri; single: atanmış kullanıcı).
 
 **Request body (KTİ_MANAGER_APPROVAL örnek):**
+
 ```json
 {
   "action": "REJECT",
@@ -2198,6 +2347,7 @@ Backend yan etkileri (transaction):
 ```
 
 **Request body (KTİ_INITIATION örnek — action'sız):**
+
 ```json
 {
   "formData": {
@@ -2211,11 +2361,13 @@ Backend yan etkileri (transaction):
 ```
 
 **Field kuralları:**
+
 - `action`: süreç tanımının izin verdiği enum içinde (`allowedActions` — önceki detay endpoint'inden alınır). Null ise adım "submit-only" (action'sız, Başlatma ve Revize gibi).
 - `reason`: süreç tanımı bu action için `reasonRequiredFor` listesinde ise zorunlu (KTİ: REJECT + REQUEST_REVISION → reason zorunlu, min 10 karakter)
 - `formData`: süreç modülünün Zod şemasına uymalı
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2231,6 +2383,7 @@ Backend yan etkileri (transaction):
 `nextTaskId` null ise süreç terminal duruma geçti (COMPLETED / REJECTED). `processStatus` güncel süreç durumunu verir.
 
 **KTİ özel davranışlar (action bazlı):**
+
 - `APPROVE` → Process COMPLETED, `nextTaskId: null`
 - `REJECT` → Process REJECTED, `nextTaskId: null`
 - `REQUEST_REVISION` → Başlatıcıya yeni "Revize Task" açılır, `nextTaskId` o task'ın id'si, Process IN_PROGRESS kalır
@@ -2258,6 +2411,7 @@ Backend yan etkileri (transaction):
 **Auth:** Kullanıcı sürece doküman yükleyebilen bir bağlamda olmalı (süreç başlatma formu veya kendi atandığı task). `DOCUMENT_UPLOAD` yetkisi + context check.
 
 **Request body:**
+
 ```json
 {
   "filename": "before-foto-1.jpg",
@@ -2271,6 +2425,7 @@ Backend yan etkileri (transaction):
 ```
 
 veya mevcut task'a ek:
+
 ```json
 {
   "filename": "revised.pdf",
@@ -2284,12 +2439,14 @@ veya mevcut task'a ek:
 ```
 
 **Field kuralları:**
+
 - `filename`: 1-255 karakter; path traversal karakterleri reddedilir (`/`, `\`, `..`, null byte)
 - `contentType`: whitelist — `image/jpeg`, `image/png`, `image/webp`, `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 - `fileSizeBytes`: ≤ 10_485_760 (10 MB)
 - `contextType`: `PROCESS_START` / `TASK_ATTACHMENT`
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2325,6 +2482,7 @@ veya mevcut task'a ek:
 **Rate limit:** 30 / dakika / kullanıcı.
 
 **Request body:**
+
 ```json
 {
   "documentId": "clx-doc",
@@ -2341,12 +2499,14 @@ veya mevcut task'a ek:
 `documentId` upload-initiate'den dönen değer — backend staging S3 key'i bu ID ile oluşturmuştur.
 
 Backend adımları:
+
 - S3'te `staging/{documentId}-<filename>` key'inin varlığını doğrular (HEAD object)
 - File size ve content type reported vs actual uyumu kontrolü
 - `documents` INSERT — `scan_status = PENDING_SCAN`, `process_id` null (context=PROCESS_START için — process henüz yok; context=TASK_ATTACHMENT için task'ın process_id'si)
 - EventBridge → Scan Lambda tetiklenir
 
 **Response 201:**
+
 ```json
 {
   "data": {
@@ -2376,6 +2536,7 @@ Backend adımları:
 **Auth:** Dokümanın ilişkili olduğu süreç/görev'e erişim yetkisi (sürecin başlatıcısı, task atanmışı, veya `PROCESS_VIEW_ALL`).
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2405,6 +2566,7 @@ Backend adımları:
 **Rate limit:** 50 / 5 dakika / kullanıcı (anomaly önleme).
 
 **Response 200:**
+
 ```http
 Set-Cookie: CloudFront-Policy=...; HttpOnly; Secure; SameSite=Strict; Path=/processes
 Set-Cookie: CloudFront-Signature=...; HttpOnly; Secure; SameSite=Strict; Path=/processes
@@ -2441,6 +2603,7 @@ URL IP-bound, 5dk TTL. Signed Cookie parallel doğrulama katmanı — tam URL ba
 **Cache:** `Cache-Control: no-store`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2452,6 +2615,7 @@ URL IP-bound, 5dk TTL. Signed Cookie parallel doğrulama katmanı — tam URL ba
 ```
 
 veya:
+
 ```json
 {
   "data": {
@@ -2474,12 +2638,14 @@ veya:
 **Auth:** Access token (kendi bildirimleri).
 
 **Query params:**
+
 - `channel` — `IN_APP` (default; çan ikonu sadece bunu gösterir) / `EMAIL` / `all`
 - `isRead` — `true` / `false` / `all` (default `all`)
 - `eventType` — filtre
 - `limit`, `cursor`
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2509,6 +2675,7 @@ veya:
 **Cache:** `Cache-Control: no-store`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2543,6 +2710,7 @@ Yalnız `channel=IN_APP AND read_at IS NULL` sayımı. Email için bu endpoint a
 **Auth:** Access token + `X-CSRF-Token`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2552,6 +2720,57 @@ Yalnız `channel=IN_APP AND read_at IS NULL` sayımı. Email için bu endpoint a
 ```
 
 **Audit:** Yok.
+
+---
+
+#### `GET /api/v1/notification-preferences`
+
+**Purpose:** Oturumdaki kullanıcı için tüm `notification_event_type` değerleri üzerinden çözümlenmiş bildirim tercihleri (satır yoksa varsayılan: in-app ve email açık, digest kapalı).
+**Auth:** Access token.
+**Permission:** `NOTIFICATION_READ`.
+
+**Response 200:**
+
+```json
+{
+  "data": {
+    "preferences": [
+      {
+        "eventType": "TASK_ASSIGNED",
+        "inAppEnabled": true,
+        "emailEnabled": true,
+        "digestEnabled": false
+      }
+    ]
+  }
+}
+```
+
+`preferences` sırası `@leanmgmt/shared-schemas` içindeki `NOTIFICATION_EVENT_TYPES` ile aynıdır.
+
+---
+
+#### `PUT /api/v1/notification-preferences`
+
+**Purpose:** Kullanıcı bildirim tercihlerini toplu güncelleme (upsert; `eventType` başına bir satır).
+**Auth:** Access token + `X-CSRF-Token`.
+**Permission:** `NOTIFICATION_READ`.
+
+**Request body:** `NotificationPreferencesPutSchema` — `{ "preferences": [ { "eventType", "inAppEnabled", "emailEnabled", "digestEnabled" }, ... ] }` (en az 1, en çok 40 satır; `.strict()`).
+
+**Response 200:**
+
+```json
+{
+  "data": {
+    "saved": true
+  }
+}
+```
+
+**Errors:** `VALIDATION_FAILED` (400).
+
+**Audit:** Yok (yüksek frekanslı kullanıcı ayarı).
 
 ### 9.9 Admin — Audit Log Modülü
 
@@ -2565,6 +2784,7 @@ Bu modül yalnız Superadmin'e açıktır (`AUDIT_LOG_VIEW` yetkisi sistem rolü
 **Auth:** `AUDIT_LOG_VIEW` (yalnız Superadmin).
 
 **Query params:**
+
 - `userId` — belirli kullanıcının aksiyonları
 - `action` — enum filter (örn. `CREATE_USER`, `DELETE_ROLE`)
 - `entity` — enum filter (`user`, `role`, `process`, vb.)
@@ -2574,6 +2794,7 @@ Bu modül yalnız Superadmin'e açıktır (`AUDIT_LOG_VIEW` yetkisi sistem rolü
 - `limit`, `cursor`
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2615,6 +2836,7 @@ Bu modül yalnız Superadmin'e açıktır (`AUDIT_LOG_VIEW` yetkisi sistem rolü
 **Query params:** `GET /audit-logs` ile aynı filtreler (pagination hariç; tüm eşleşen kayıtlar export edilir, max 100.000 satır).
 
 **Response 200:**
+
 ```http
 Content-Type: text/csv; charset=utf-8
 Content-Disposition: attachment; filename="audit-logs-2026-04-01-to-2026-04-30.csv"
@@ -2638,6 +2860,7 @@ CSV içerik sütunları: `timestamp`, `userId`, `userSicil`, `action`, `entity`,
 **Auth:** `AUDIT_LOG_VIEW`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2652,6 +2875,7 @@ CSV içerik sütunları: `timestamp`, `userId`, `userSicil`, `action`, `entity`,
 ```
 
 Zincir bozulmuşsa:
+
 ```json
 {
   "data": {
@@ -2671,6 +2895,47 @@ Chain break tespit edildiğinde otomatik P1 alarm tetiklenir (Slack + email + SM
 
 **Audit:** Yok.
 
+#### `POST /api/v1/admin/audit-logs/chain-integrity/verify`
+
+**Purpose:** Zincir bütünlüğü doğrulamasını anında çalıştırır; sonucu `audit_chain_integrity_checks` tablosuna yazar (GET ile aynı özet alanı).
+**Auth:** `AUDIT_LOG_VIEW`.
+**Rate limit:** 5 / dakika / kullanıcı.
+
+**Request body:** `{}` (`.strict()` — ek alan yok).
+
+**Response 200:** `GET .../chain-integrity` ile aynı `data` şekli.
+
+**Errors:** `PERMISSION_DENIED` (403), `429` (throttle).
+
+**Audit:** Yok.
+
+#### `GET /api/v1/admin/summary`
+
+**Purpose:** Yönetim paneli “Özet” ekranı — toplu sayılar (KPI benzeri, S-DASH-HOME’dan bağımsız admin kapsamı).
+**Auth:** Aşağıdakilerden **en az biri** (OR): `AUDIT_LOG_VIEW`, `SYSTEM_SETTINGS_VIEW`, `SYSTEM_SETTINGS_EDIT`, `CONSENT_VERSION_VIEW`, `CONSENT_VERSION_EDIT`, `CONSENT_VERSION_PUBLISH`, `EMAIL_TEMPLATE_VIEW`.
+
+**Response 200:**
+
+```json
+{
+  "data": {
+    "activeUserCount": 42,
+    "openProcessCount": 7,
+    "overdueTaskCount": 3
+  }
+}
+```
+
+- `activeUserCount` — `users.is_active = true` ve `anonymized_at` boş
+- `openProcessCount` — `processes.status` ∈ `INITIATED`, `IN_PROGRESS`
+- `overdueTaskCount` — `tasks.is_sla_overdue = true` ve `status` ∈ `PENDING`, `CLAIMED`, `IN_PROGRESS`
+
+**Errors:** `PERMISSION_DENIED` (403) — yukarıdaki izinlerin hiçbiri yok.
+
+**Audit:** Yok (salt okunur toplu sayım).
+
+**Rate limit:** global default (600/dk/kullanıcı).
+
 ### 9.10 Admin — System Modülü
 
 Sistem Ayarları, Email Şablonları ve Rıza Metni Versiyonları. Yalnız Superadmin erişimli.
@@ -2683,6 +2948,7 @@ Sistem Ayarları, Email Şablonları ve Rıza Metni Versiyonları. Yalnız Super
 **Auth:** `SYSTEM_SETTINGS_VIEW` (yalnız Superadmin).
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2722,6 +2988,7 @@ Sistem Ayarları, Email Şablonları ve Rıza Metni Versiyonları. Yalnız Super
 **Auth:** `SYSTEM_SETTINGS_EDIT`.
 
 **Request body:**
+
 ```json
 {
   "value": 10
@@ -2748,6 +3015,7 @@ Sistem Ayarları, Email Şablonları ve Rıza Metni Versiyonları. Yalnız Super
 **Auth:** `EMAIL_TEMPLATE_VIEW`.
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2772,6 +3040,7 @@ Body kısaltılmış döner; full template için `GET /:eventType`.
 **Auth:** `EMAIL_TEMPLATE_VIEW`.
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2799,6 +3068,7 @@ Body kısaltılmış döner; full template için `GET /:eventType`.
 **Request body:** Full template içeriği (tüm alanlar).
 
 **Field kuralları:**
+
 - `requiredVariables` listesindeki her değişkenin `subjectTemplate`, `htmlBodyTemplate` ve `textBodyTemplate` içinde `{{variable}}` formatında en az bir kez geçtiği validate edilir
 - `htmlBodyTemplate` DOMPurify ile sanitize edilir (script tag, event handler'lar reddedilir)
 
@@ -2819,6 +3089,7 @@ Body kısaltılmış döner; full template için `GET /:eventType`.
 **Auth:** `EMAIL_TEMPLATE_EDIT`.
 
 **Request body:**
+
 ```json
 {
   "subjectTemplate": "Size yeni bir görev atandı: {{taskName}}",
@@ -2835,6 +3106,7 @@ Body kısaltılmış döner; full template için `GET /:eventType`.
 Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (preview-only).
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2854,12 +3126,29 @@ Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (previe
 
 ---
 
+#### `POST /api/v1/admin/email-templates/:eventType/send-test`
+
+**Purpose:** Kayıtlı şablon + gerçek render ile belirtilen adrese test e-postası gönderir (SES / Mailpit ortamına göre).
+**Auth:** `EMAIL_TEMPLATE_EDIT` + `X-CSRF-Token`.
+**Rate limit:** 10 istek / saat / kullanıcı (sensitive endpoint).
+
+**Request body:** `EmailTemplateSendTestSchema` — örn. `{ "toEmail": "admin@example.com" }` (tam alan adları shared-schemas’ta).
+
+**Response 200:** Gönderim kabul özeti (ör. kuyruk / mesaj id — implementasyon detayı API yanıtına bakın).
+
+**Errors:** `VALIDATION_FAILED` (400), `PERMISSION_DENIED` (403), şablon yoksa ilgili hata kodu.
+
+**Audit:** Yok (operasyonel test).
+
+---
+
 #### `GET /api/v1/admin/consent-versions`
 
 **Purpose:** Tüm rıza metni versiyonları.
 **Auth:** `CONSENT_VERSION_VIEW` (Superadmin).
 
 **Response 200:**
+
 ```json
 {
   "data": [
@@ -2894,6 +3183,7 @@ Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (previe
 **Auth:** `CONSENT_VERSION_EDIT`.
 
 **Request body:**
+
 ```json
 {
   "content": "KVKK aydınlatma metni tam içerik (markdown desteklenir) ..."
@@ -2901,6 +3191,7 @@ Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (previe
 ```
 
 **Field kuralları:**
+
 - `content`: 100-50000 karakter
 - Sistem otomatik olarak `version = max(version) + 1` atar
 - AES-256-GCM ile şifreli saklanır
@@ -2917,6 +3208,7 @@ Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (previe
 **Auth:** `CONSENT_VERSION_EDIT`.
 
 **Request body:**
+
 ```json
 {
   "content": "Güncellenmiş içerik ..."
@@ -2941,6 +3233,7 @@ Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (previe
 **Auth:** `CONSENT_VERSION_PUBLISH`.
 
 **Request body:**
+
 ```json
 {
   "effectiveFrom": "2026-05-01T00:00:00.000Z"
@@ -2950,6 +3243,7 @@ Request body'de henüz kaydedilmemiş taslak template de gönderilebilir (previe
 `effectiveFrom` geçmişte olamaz (min: now + 1 dakika).
 
 **Response 200:**
+
 ```json
 {
   "data": {
@@ -2983,6 +3277,7 @@ Yan etki: `SystemSetting.ACTIVE_CONSENT_VERSION_ID = :id` olarak güncellenir (t
 **Rate limit:** 100 / dakika / IP (spam önlemi; WAF tarafında daha sıkı).
 
 **Request body (CSP spec standart format):**
+
 ```json
 {
   "csp-report": {
@@ -3010,6 +3305,7 @@ Yan etki: `SystemSetting.ACTIVE_CONSENT_VERSION_ID = :id` olarak güncellenir (t
 **Cache:** `Cache-Control: no-store`.
 
 **Response 200:**
+
 ```json
 {
   "status": "ok",
@@ -3031,6 +3327,7 @@ Backend ayakta ama DB/Redis down ise yine 200 döner (liveness != readiness) —
 **Cache:** `Cache-Control: no-store`.
 
 **Response 200 (sağlıklı):**
+
 ```json
 {
   "status": "ready",
@@ -3044,6 +3341,7 @@ Backend ayakta ama DB/Redis down ise yine 200 döner (liveness != readiness) —
 ```
 
 **Response 503 (herhangi bir dependency down):**
+
 ```json
 {
   "error": {
@@ -3070,17 +3368,17 @@ Load balancer 503 alır → trafik bu pod'dan kesilir. 3 ardışık başarısız
 
 Endpoint kategorisi bazında latency hedefleri (CloudWatch custom metric ile ölçülür; p95 ihlali P2 alarm tetikler).
 
-| Kategori | p50 | p95 | p99 | Not |
-|---|---|---|---|---|
-| Auth (login, refresh) | 80 ms | 200 ms | 500 ms | bcrypt + DB + session create |
-| Auth (me, logout) | 30 ms | 100 ms | 250 ms | Redis-hit yetki + JWT verify |
-| List (paginated) | 100 ms | 300 ms | 800 ms | DB indexed query + permission filter |
-| Single get | 60 ms | 150 ms | 400 ms | DB single-row |
-| Write (create/update) | 80 ms | 250 ms | 600 ms | DB + cache invalidate + audit |
-| File URL (upload-initiate, download-url) | 40 ms | 120 ms | 300 ms | JWT sign + DB check |
-| Admin (audit export) | 500 ms | 2 sn | 5 sn | CSV streaming, büyük sorgular |
-| Health (liveness) | 5 ms | 20 ms | 50 ms | Statik response |
-| Health (readiness) | 30 ms | 100 ms | 300 ms | DB + Redis + KMS ping |
+| Kategori                                 | p50    | p95    | p99    | Not                                  |
+| ---------------------------------------- | ------ | ------ | ------ | ------------------------------------ |
+| Auth (login, refresh)                    | 80 ms  | 200 ms | 500 ms | bcrypt + DB + session create         |
+| Auth (me, logout)                        | 30 ms  | 100 ms | 250 ms | Redis-hit yetki + JWT verify         |
+| List (paginated)                         | 100 ms | 300 ms | 800 ms | DB indexed query + permission filter |
+| Single get                               | 60 ms  | 150 ms | 400 ms | DB single-row                        |
+| Write (create/update)                    | 80 ms  | 250 ms | 600 ms | DB + cache invalidate + audit        |
+| File URL (upload-initiate, download-url) | 40 ms  | 120 ms | 300 ms | JWT sign + DB check                  |
+| Admin (audit export)                     | 500 ms | 2 sn   | 5 sn   | CSV streaming, büyük sorgular        |
+| Health (liveness)                        | 5 ms   | 20 ms  | 50 ms  | Statik response                      |
+| Health (readiness)                       | 30 ms  | 100 ms | 300 ms | DB + Redis + KMS ping                |
 
 **Budget:** API p95 genel hedefi **< 300 ms**; p99 **< 800 ms**. Üç haftalık trend üzerinde rolling average. İhlaller `07_SECURITY_IMPLEMENTATION` monitoring tier'ında P2 alarm olarak belirir.
 

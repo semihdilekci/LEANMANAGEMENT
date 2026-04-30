@@ -292,7 +292,7 @@ Her faz için sabit yapı:
   - `system_settings`
 - İlk migration + seed script (Superadmin user + v1 consent version)
 - Auth modülü tam:
-  - `AuthService` — login, logout, refresh, password-reset-request, password-reset-confirm, change-password, consent/accept
+  - `AuthService` — login, logout, refresh, password-reset-request, password-reset-confirm, change-password, consent/accept; **OIDC** (dev: Google, prod hedef: Keycloak) authorization + callback ile aynı oturum modeli
   - `AuthController` — 8 endpoint
   - `JwtAuthGuard`, `CsrfGuard`, `ConsentGuard`
   - JWT HS256 + refresh token rotation + family tracking
@@ -306,7 +306,7 @@ Her faz için sabit yapı:
 
 - Next.js 15 + App Router boilerplate
 - Tailwind + shadcn/ui base setup
-- Auth route grubu: `/login`, `/forgot-password`, `/reset-password`
+- Auth route grubu: `/login` (OIDC butonu + isteğe bağlı email/şifre), `/forgot-password`, `/reset-password`
 - `AuthLayout`, `<Card>`, `<Form>`, `<Button>`, `<Input>` shadcn bileşenleri
 - Axios client + interceptor (auth + refresh rotation + error handling)
 - Zustand `useAuthStore`
@@ -327,7 +327,7 @@ Her faz için sabit yapı:
 Session sequence önerisi:
 
 - **Session 2.1 — Prisma schema + migrations:** `02_DATABASE_SCHEMA` (users + audit_logs + sessions + roles + master data iskeleti), `07_SECURITY_IMPLEMENTATION` (audit chain function)
-- **Session 2.2 — Auth service:** `03_API_CONTRACTS` (auth endpoint'leri), `07_SECURITY_IMPLEMENTATION` (bcrypt, JWT, refresh rotation)
+- **Session 2.2 — Auth service:** `03_API_CONTRACTS` (auth endpoint'leri), `07_SECURITY_IMPLEMENTATION` (bcrypt, JWT, refresh rotation, OIDC dev/prod IdP)
 - **Session 2.3 — Auth controller + guards:** `04_BACKEND_SPEC` (middleware zinciri), `03_API_CONTRACTS` (error taxonomy)
 - **Session 2.4 — Frontend scaffold + axios:** `05_FRONTEND_SPEC` (route groups, state boundaries, axios interceptor)
 - **Session 2.5 — Auth ekranları:** `06_SCREEN_CATALOG` (S-AUTH-\* tam şablonları)
@@ -335,7 +335,7 @@ Session sequence önerisi:
 
 #### Deliverable
 
-- Lokal: docker compose up → `pnpm dev` → `/login`'e git → email+password ile giriş → `/dashboard` (boş placeholder) yönlendirilir
+- Lokal: docker compose up → `pnpm dev` → `/login` → **Google OIDC** veya (bootstrap) email+password → `/dashboard` (boş placeholder) yönlendirilir
 - Logout çalışır → login'e döner
 - Yanlış şifre 5 kez → lockout
 - Şifre expired senaryosu (password_changed_at manuel geçmişe al) → zorunlu değiştirme yönlendirmesi
@@ -369,6 +369,15 @@ Session sequence önerisi:
 #### Tahmini İterasyon
 
 12-18 agent session (~7-10 gün developer time). En yoğun faz.
+
+### Faz 2.1 — Google OIDC (dev) + Red Hat SSO (prod)
+
+Faz 2’deki email+şifre ve JWT oturum modeli **korunur**; üzerine **OpenID Connect** ile birincil giriş eklenir (dev: Google; prod hedef: Keycloak / Red Hat SSO).
+
+- **Cursor rehberi (iterasyonlar + ön hazırlık checklist):** `.cursor/rules/52.1-phase-02-GoogleSSOAuth.mdc` — sohbetlerde **「Faz 2.1 — İterasyon N」** belirtilir.
+- **ADR:** `docs/adr/0008-dev-google-oidc-prod-redhat-sso.md`
+
+**Ön koşul:** Faz 2 auth deliverable’ları (login/refresh/logout + guards) yeşil.
 
 ---
 
@@ -683,8 +692,8 @@ Session'lar:
 **Backend:**
 
 - Notifications tablosu
-- `NotificationDispatchService` — event → in-app notification + email queue
-- BullMQ worker setup (`apps/worker`)
+- `NotificationGeneratorService` (EventEmitter domain event’leri) + `NotificationsService` (persist + tercih + e-posta kuyruğu) — tek üretim yolu
+- BullMQ worker setup (`apps/worker`) — e-posta tüketicisi (`notification-email.processor.ts` vb.)
 - Email sender (Mailpit dev, SES staging/prod)
 - Handlebars render + DOMPurify sanitize
 - Event triggers:
@@ -692,11 +701,12 @@ Session'lar:
   - `TASK_CLAIMED_BY_PEER` (peer adayları için — CLAIM mode)
   - `PROCESS_COMPLETED` (başlatıcıya)
   - `PROCESS_REJECTED` (başlatıcıya)
-  - `SLA_WARNING` (task SLA %80 geçince)
+  - `SLA_WARNING` (task SLA penceresinde kalan ≤%20 — `TaskSlaService` + `sla-window.ts`, FE ile aynı mantık)
   - `SLA_BREACH` (SLA aşıldığında)
-  - `PASSWORD_EXPIRY_WARNING` (14 gün kala, 3 gün kala, 0 gün)
-  - `CONSENT_VERSION_PUBLISHED` (tüm aktif user'lara)
-- Cron jobs: SLA checker (her 10 dk), password expiry (günlük), audit chain verify (nightly)
+  - `PASSWORD_EXPIRY_WARNING` (14 / 3 / 0 gün eşikleri; giriş sonrası `password_expiry_warning_stage` ile idempotent)
+  - `CONSENT_VERSION_PUBLISHED` (tüm aktif kullanıcıya sayfalı batch; `requestBroadcastConsentPublished` ile tetik)
+  - `ROLE_ASSIGNED` (rol kullanıcıya eklendiğinde)
+- Cron jobs: SLA pipeline (`TaskSlaCronService`, Nest `@nestjs/schedule`, **her 5 dk**); şifre uyarısı ayrı günlük cron yok (login yolu); audit chain verify (nightly)
 - Notification endpoints: list, mark-read, mark-all-read, unread-count
 
 **Frontend:**
@@ -725,20 +735,20 @@ Session'lar:
 
 #### Human Gate
 
-- [ ] Email template her event için var (seed data)
+- [x] Email template her event için var (seed data — `prisma/seed.ts` `defaultEmailTemplates`)
 - [ ] Handlebars render sonrası DOMPurify sanitize aktif (XSS test)
 - [ ] BullMQ dead letter queue konfigürasyonu (failed jobs isolate)
-- [ ] SLA cron: %80 threshold'ta WARNING, aşıldığında BREACH
-- [ ] Notification linkUrl tıklama → doğru ekrana gider
+- [x] SLA cron: kalan süre ≤%20 iken WARNING, `sla_due_at` geçmişte BREACH (`TaskSlaService.runScheduledSlaPipeline`, 5 dk)
+- [ ] Notification linkUrl tıklama → doğru ekrana gider (E2E / manuel)
 - [ ] Optimistic mark-read: tıklama anında sayaç azalır, failure'da rollback
-- [ ] Password expiry banner: 14 gün sarı, 3 gün kırmızı
+- [x] Password expiry banner: 14 gün sarı, 3 gün kırmızı (`PasswordExpiryBanner` + `calendarDaysUntilPasswordExpiry`)
 
 #### Vibe Coding Risk Uyarıları
 
 - **Agent event trigger'ları service içinde inline atar** — decoupled event bus (EventEmitter2 veya NestJS events) pattern zorunlu. Test edilebilirlik + cross-cutting concern.
 - **Agent BullMQ retry config'ini default bırakır** — exponential backoff + max retry explicit. Failed jobs dead letter queue.
 - **Agent email template'leri hardcode'lar code içinde** — DB'de `email_templates` tablosundan gelir, runtime render. Seed data'da default template'ler.
-- **Agent cron job'ları Node.js setInterval ile yapar** — process restart'ta interval kaybı. BullMQ repeatable jobs kullanılmalı.
+- **Agent cron job'ları Node.js setInterval ile yapar** — process restart'ta interval kaybı. MVP’de SLA için `@nestjs/schedule` + `TaskSlaCronService` (5 dk); ileride BullMQ repeatable job’a taşınabilir.
 - **Agent notification polling'ini 5 sn yapar** — 30 sn yeterli, 5 sn gereksiz API load.
 - **Agent mark-read optimistic'i eksik implement eder** (onError rollback atlar) — UX bozulur.
 
@@ -759,6 +769,8 @@ Session'lar:
 - System settings endpoints (get list, bulk update)
 - Email template editor endpoints (get/update/preview/send-test)
 - Consent version endpoints (list/create/update/publish)
+- `GET /api/v1/admin/summary` (yönetim özet metrikleri)
+- Worker: periyodik audit zincir doğrulama (`AUDIT_CHAIN_CRON_INTERVAL_MS`), ayrı in-app bildirim retention job (`IN_APP_NOTIFICATION_RETENTION_DAYS` + `system_settings`)
 
 **Frontend:**
 
@@ -768,6 +780,14 @@ Session'lar:
 - S-ADMIN-SETTINGS (kategori sekmeleri + dirty diff)
 - S-ADMIN-EMAIL-LIST + S-ADMIN-EMAIL-EDIT (editor + preview + test send)
 - S-ADMIN-CONSENT-LIST + S-ADMIN-CONSENT-EDIT (markdown + publish flow)
+- `/admin` özet: aktif kullanıcı / açık süreç / SLA gecikmiş görev sayıları
+
+#### Durum (Faz 8 — iterasyon 3)
+
+- [x] Worker audit chain verify cron + in-app data retention (ayrı schedule)
+- [x] `GET /admin/summary` + web özet kartları
+- [x] `@RequireAnyPermission` + admin layout ile uyumlu izinler
+- [x] İlgili entegrasyon testleri + `03` sözleşme güncellemesi
 
 #### Agent Kick-off Materyali
 
@@ -1088,14 +1108,14 @@ Bu side-effect'ler MVP'de tolere edilir; post-MVP "hardening" fazında cleanup.
 
 ### Faz 13+ — Gelecek Yol Haritası
 
-| Dalgalar                                           | Süre   | Odak                                                                                        |
-| -------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- |
-| **Wave 1 — Security Enhancements** (Q3-Q4 2026)    | 2-3 ay | MFA (TOTP), IP whitelist admin, HSM for JWT, SIEM integration                               |
-| **Wave 2 — Process Expansion** (Q4 2026 - Q1 2027) | 3-4 ay | 5S audit süreci, TPM (Total Productive Maintenance) süreci, Özel form fields generic        |
-| **Wave 3 — Analytics + Reporting** (Q2 2027)       | 2-3 ay | Dashboard analytics, executive reports, KPI tracking, CSV/PDF export, BI integration        |
-| **Wave 4 — Mobile Experience** (Q3 2027)           | 3-4 ay | Responsive improvements → native app (React Native), push notifications, offline capability |
-| **Wave 5 — Integration Ecosystem** (Q4 2027)       | 2-3 ay | Webhooks, REST API for third-party, ERP integration (SAP), SSO (SAML/OIDC federation)       |
-| **Wave 6 — AI-Assisted Features** (2028+)          | —      | Auto-categorization, SLA prediction, anomaly detection in audit logs                        |
+| Dalgalar                                           | Süre   | Odak                                                                                                                      |
+| -------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------- |
+| **Wave 1 — Security Enhancements** (Q3-Q4 2026)    | 2-3 ay | MFA (TOTP), IP whitelist admin, HSM for JWT, SIEM integration                                                             |
+| **Wave 2 — Process Expansion** (Q4 2026 - Q1 2027) | 3-4 ay | 5S audit süreci, TPM (Total Productive Maintenance) süreci, Özel form fields generic                                      |
+| **Wave 3 — Analytics + Reporting** (Q2 2027)       | 2-3 ay | Dashboard analytics, executive reports, KPI tracking, CSV/PDF export, BI integration                                      |
+| **Wave 4 — Mobile Experience** (Q3 2027)           | 3-4 ay | Responsive improvements → native app (React Native), push notifications, offline capability                               |
+| **Wave 5 — Integration Ecosystem** (Q4 2027)       | 2-3 ay | Webhooks, REST API for third-party, ERP integration (SAP), çoklu IdP / SAML federation (OIDC çekirdeği MVP ile hizalanır) |
+| **Wave 6 — AI-Assisted Features** (2028+)          | —      | Auto-categorization, SLA prediction, anomaly detection in audit logs                                                      |
 
 Her wave sonunda:
 
@@ -1113,7 +1133,7 @@ MVP'nin ilk yılında beklenen değişimler:
 - **Caching:** Redis multi-AZ failover test + opsiyonel global replication
 - **Search:** OpenSearch eklentisi (audit log full-text search için)
 - **Observability:** CloudWatch → Datadog/New Relic migration (maturity + cost)
-- **Auth:** Custom JWT → Keycloak (federated SSO)
+- **Auth:** Geliştirme Google OIDC → production **Red Hat SSO (Keycloak)**; aynı Passport/JWT oturum modeli korunur (ADR 0008)
 
 Bu değişimler ADR ile dokümante edilir. Her biri major migration — expand-contract pattern zorunlu.
 

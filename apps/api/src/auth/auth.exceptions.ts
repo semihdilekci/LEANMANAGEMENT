@@ -105,3 +105,57 @@ export class ConsentVersionNotFoundException extends AppException {
     super('CONSENT_VERSION_NOT_FOUND', 'Rıza versiyonu bulunamadı.', 404);
   }
 }
+
+export class AuthOidcDisabledException extends AppException {
+  constructor() {
+    super('AUTH_OIDC_DISABLED', 'Kurumsal giriş bu ortamda yapılandırılmamış.', 404);
+  }
+}
+
+export class AuthOidcInvalidRequestException extends AppException {
+  constructor() {
+    super('AUTH_OIDC_INVALID_REQUEST', 'Geçersiz veya eksik OAuth isteği.', 400);
+  }
+}
+
+export class AuthOidcStateInvalidException extends AppException {
+  constructor() {
+    super(
+      'AUTH_OIDC_STATE_INVALID',
+      'Oturum doğrulaması başarısız. Lütfen girişi yeniden başlatın.',
+      401,
+    );
+  }
+}
+
+export class AuthOidcTokenException extends AppException {
+  constructor() {
+    super('AUTH_OIDC_TOKEN_INVALID', 'Kimlik sağlayıcı yanıtı doğrulanamadı.', 401);
+  }
+}
+
+export class AuthOidcEmailUnverifiedException extends AppException {
+  constructor() {
+    super(
+      'AUTH_OIDC_EMAIL_UNVERIFIED',
+      'E-posta adresi kurumsal kimlik sağlayıcıda doğrulanmamış. Yöneticinize başvurun.',
+      403,
+    );
+  }
+}
+
+export class AuthOidcUserNotProvisionedException extends AppException {
+  constructor() {
+    super(
+      'AUTH_OIDC_USER_NOT_PROVISIONED',
+      'Bu e-posta ile ön tanımlı platform kullanıcısı bulunamadı. Yöneticinize başvurun.',
+      403,
+    );
+  }
+}
+
+export class AuthOidcInvalidClaimsException extends AppException {
+  constructor() {
+    super('AUTH_OIDC_INVALID_CLAIMS', 'Kimlik sağlayıcıdan gelen kullanıcı bilgisi eksik.', 400);
+  }
+}

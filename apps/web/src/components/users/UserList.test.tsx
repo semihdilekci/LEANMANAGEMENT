@@ -9,6 +9,7 @@ import { UserList } from './UserList';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/users',
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -34,6 +35,7 @@ const server = setupServer(
       },
     }),
   ),
+  http.get('/api/v1/master-data/:type', () => HttpResponse.json({ success: true, data: [] })),
 );
 
 beforeAll(() => server.listen());
@@ -46,8 +48,11 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe('<UserList>', () => {
-  it('kullanıcı listesini render eder', async () => {
+  it('attribute filtre panelini ve listeyi birlikte gösterir', async () => {
     renderWithClient(<UserList />);
+    expect(
+      await screen.findByRole('search', { name: 'Kullanıcı listesi filtreleri' }),
+    ).toBeDefined();
     expect(await screen.findByText('Ahmet Yılmaz')).toBeDefined();
     expect(screen.getByText('12345678')).toBeDefined();
     expect(screen.getByText('Şirket A')).toBeDefined();

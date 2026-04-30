@@ -21,6 +21,8 @@ export const NOTIFICATION_EVENT_TYPES = [
   'AUDIT_CHAIN_BROKEN',
   'USER_LOGIN_WELCOME',
   'DAILY_DIGEST',
+  'CONSENT_VERSION_PUBLISHED',
+  'ROLE_ASSIGNED',
 ] as const;
 
 export type NotificationEventTypeValue = (typeof NOTIFICATION_EVENT_TYPES)[number];

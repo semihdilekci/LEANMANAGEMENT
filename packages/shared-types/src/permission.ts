@@ -22,6 +22,7 @@ export enum Permission {
   PROCESS_VIEW_ALL = 'PROCESS_VIEW_ALL',
   MASTER_DATA_MANAGE = 'MASTER_DATA_MANAGE',
   AUDIT_LOG_VIEW = 'AUDIT_LOG_VIEW',
+  SYSTEM_SETTINGS_VIEW = 'SYSTEM_SETTINGS_VIEW',
   SYSTEM_SETTINGS_EDIT = 'SYSTEM_SETTINGS_EDIT',
   DOCUMENT_UPLOAD = 'DOCUMENT_UPLOAD',
   USER_SESSION_VIEW = 'USER_SESSION_VIEW',
@@ -30,6 +31,9 @@ export enum Permission {
   NOTIFICATION_READ = 'NOTIFICATION_READ',
   EMAIL_TEMPLATE_VIEW = 'EMAIL_TEMPLATE_VIEW',
   EMAIL_TEMPLATE_EDIT = 'EMAIL_TEMPLATE_EDIT',
+  CONSENT_VERSION_VIEW = 'CONSENT_VERSION_VIEW',
+  CONSENT_VERSION_EDIT = 'CONSENT_VERSION_EDIT',
+  CONSENT_VERSION_PUBLISH = 'CONSENT_VERSION_PUBLISH',
   USER_PROFILE_VIEW = 'USER_PROFILE_VIEW',
   MASTER_DATA_VIEW = 'MASTER_DATA_VIEW',
 }
@@ -158,6 +162,12 @@ export const PERMISSION_METADATA: Record<Permission, PermissionMetadata> = {
     description: 'Denetim kayıtlarını görüntüleme',
     isSensitive: true,
   },
+  [Permission.SYSTEM_SETTINGS_VIEW]: {
+    key: Permission.SYSTEM_SETTINGS_VIEW,
+    category: 'DATA',
+    description: 'Sistem ayarlarını listeleme (salt okunur)',
+    isSensitive: true,
+  },
   [Permission.SYSTEM_SETTINGS_EDIT]: {
     key: Permission.SYSTEM_SETTINGS_EDIT,
     category: 'ACTION',
@@ -204,6 +214,24 @@ export const PERMISSION_METADATA: Record<Permission, PermissionMetadata> = {
     key: Permission.EMAIL_TEMPLATE_EDIT,
     category: 'ACTION',
     description: 'E-posta şablonlarını düzenleme ve önizleme',
+    isSensitive: true,
+  },
+  [Permission.CONSENT_VERSION_VIEW]: {
+    key: Permission.CONSENT_VERSION_VIEW,
+    category: 'DATA',
+    description: 'KVKK rıza metni versiyonlarını listeleme',
+    isSensitive: true,
+  },
+  [Permission.CONSENT_VERSION_EDIT]: {
+    key: Permission.CONSENT_VERSION_EDIT,
+    category: 'ACTION',
+    description: 'Rıza metni taslağı oluşturma ve güncelleme',
+    isSensitive: true,
+  },
+  [Permission.CONSENT_VERSION_PUBLISH]: {
+    key: Permission.CONSENT_VERSION_PUBLISH,
+    category: 'ACTION',
+    description: 'Rıza metni versiyonunu yayınlama',
     isSensitive: true,
   },
   [Permission.USER_PROFILE_VIEW]: {

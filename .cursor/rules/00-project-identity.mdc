@@ -62,6 +62,14 @@ Bu terimler proje-özel — Türkçe veya İngilizce default anlamıyla karışt
 - **Superadmin** — tüm permission'lara sahip sistem rolü
 - **KVKK** — Türk GDPR eşdeğeri; compliance zorunluluğu
 
+## Kimlik doğrulama (ortam profili)
+
+- **Geliştirme (lokal / dev):** Birincil kullanıcı girişi **Google OpenID Connect** (OAuth 2.0 Authorization Code + PKCE) ile yapılır. Uygulama Google Cloud’da kayıtlı OAuth istemcisidir.
+- **Production (canlı):** Kurumsal **Red Hat SSO (Keycloak)** OIDC issuer’ı hedeflenir; Google IdP yalnızca geliştirme içindir.
+- **Oturum modeli:** Access JWT + refresh httpOnly cookie + CSRF (Faz 2) her iki IdP yolunda da **aynı** kalır.
+- **Email + şifre:** Seed, CI/E2E, bootstrap ve geçiş için **yardımcı yol** olarak korunur (`docs/mimari-kararlar.md` [A-007], ADR 0008).
+- **Uygulama planı:** `@52.1-phase-02-GoogleSSOAuth` (Faz 2.1 iterasyonları).
+
 ## Kritik İş Kuralları (Proje Genelinde)
 
 - **Audit log append-only** — UPDATE/DELETE trigger tarafından reddedilir; chain hash doğrular
@@ -78,7 +86,7 @@ Agent'ın eklemeye meyilli olabileceği ama **MVP'de YAPILMAYACAK** şeyler:
 - WebSocket real-time (polling yeterli)
 - Native mobile app (responsive web)
 - Data export (`/me/data-download`) — email kanalı ile manuel
-- Kendi SSO (SAML/OIDC federation)
+- **Kendi çok kiracılı IdP / genel SAML broker ürünü** — holding dışına SaaS kimlik ürünü MVP dışı. **Kurumsal IdP entegrasyonu** (dev: Google OIDC, prod: Red Hat SSO) mimari kapsamdadır; uygulama `@52.1-phase-02-GoogleSSOAuth` + `docs/adr/0008-dev-google-oidc-prod-redhat-sso.md`.
 - Advanced analytics dashboard
 - A/B testing framework
 - 5S, TPM gibi ek süreç tipleri (sadece KTİ)

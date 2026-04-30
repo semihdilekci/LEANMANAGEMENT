@@ -11,6 +11,18 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./password-expiry-calendar": {
+      "types": "./dist/password-expiry-calendar.d.ts",
+      "import": "./dist/password-expiry-calendar.js",
+      "require": "./dist/password-expiry-calendar.js",
+      "default": "./dist/password-expiry-calendar.js"
+    },
+    "./internal-redirect-path": {
+      "types": "./dist/internal-redirect-path.d.ts",
+      "import": "./dist/internal-redirect-path.js",
+      "require": "./dist/internal-redirect-path.js",
+      "default": "./dist/internal-redirect-path.js"
     }
   },
   "scripts": {

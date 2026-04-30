@@ -60,4 +60,28 @@ describe('EmailTemplatesService', () => {
     expect(r.unresolvedVariables).toEqual(['y']);
     expect(r.subjectRendered).toBe('1');
   });
+
+  it('sendTest: noop modunda SES çağırmaz', async () => {
+    const prevMode = process.env.EMAIL_SENDING_MODE;
+    const prevFrom = process.env.SES_FROM_ADDRESS;
+    process.env.EMAIL_SENDING_MODE = 'noop';
+    process.env.SES_FROM_ADDRESS = 'noreply@example.com';
+    prisma.emailTemplate.findUnique.mockResolvedValue({
+      id: 't1',
+      eventType: 'TASK_ASSIGNED' as NotificationEventType,
+      subjectTemplate: 'Merhaba {{firstName}}',
+      htmlBodyTemplate: '<p>{{firstName}}</p>',
+      textBodyTemplate: '{{firstName}}',
+      requiredVariables: ['firstName'],
+      updatedAt: new Date(),
+      updatedByUserId: null,
+    });
+    const r = await service.sendTest('TASK_ASSIGNED' as NotificationEventType, {
+      toEmail: 'test@example.com',
+    });
+    expect(r.sent).toBe(false);
+    expect(r.mode).toBe('noop');
+    process.env.EMAIL_SENDING_MODE = prevMode;
+    process.env.SES_FROM_ADDRESS = prevFrom;
+  });
 });

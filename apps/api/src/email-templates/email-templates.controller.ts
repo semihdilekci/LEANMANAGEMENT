@@ -4,8 +4,10 @@ import type { NotificationEventType } from '@leanmgmt/prisma-client';
 import {
   EmailTemplateEventTypeParamSchema,
   EmailTemplatePreviewSchema,
+  EmailTemplateSendTestSchema,
   UpdateEmailTemplateSchema,
   type EmailTemplatePreviewInput,
+  type EmailTemplateSendTestInput,
   type UpdateEmailTemplateInput,
 } from '@leanmgmt/shared-schemas';
 import { Permission } from '@leanmgmt/shared-types';
@@ -67,5 +69,17 @@ export class EmailTemplatesController {
     @Body(createZodValidationPipe(EmailTemplatePreviewSchema)) dto: EmailTemplatePreviewInput,
   ): Promise<ReturnType<EmailTemplatesService['preview']>> {
     return this.emailTemplates.preview(dto);
+  }
+
+  @Post(':eventType/send-test')
+  @RequirePermission(Permission.EMAIL_TEMPLATE_EDIT)
+  @Throttle({ default: { limit: 10, ttl: 60 * 60 * 1000 } })
+  @HttpCode(200)
+  async sendTest(
+    @Param('eventType', createZodValidationPipe(EmailTemplateEventTypeParamSchema))
+    eventType: NotificationEventType,
+    @Body(createZodValidationPipe(EmailTemplateSendTestSchema)) dto: EmailTemplateSendTestInput,
+  ): Promise<Awaited<ReturnType<EmailTemplatesService['sendTest']>>> {
+    return this.emailTemplates.sendTest(eventType, dto);
   }
 }

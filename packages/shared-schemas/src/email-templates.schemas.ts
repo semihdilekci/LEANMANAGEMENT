@@ -28,3 +28,13 @@ export const EmailTemplatePreviewSchema = z
   .strict();
 
 export type EmailTemplatePreviewInput = z.infer<typeof EmailTemplatePreviewSchema>;
+
+/** POST /admin/email-templates/:eventType/send-test — test e-postası */
+export const EmailTemplateSendTestSchema = z
+  .object({
+    toEmail: z.string().email().max(320),
+    variables: z.record(z.string(), z.string()).optional(),
+  })
+  .strict();
+
+export type EmailTemplateSendTestInput = z.infer<typeof EmailTemplateSendTestSchema>;

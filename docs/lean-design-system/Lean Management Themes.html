@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<title>Lean Management — Soft Apricot</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f4f4f2;
+    color: #1a1a1a;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============ Base frame ============ */
+  .app {
+    font-family: 'Inter', system-ui, sans-serif;
+    display: grid;
+    grid-template-columns: var(--sidebar-w, 250px) 1fr;
+    min-height: 900px;
+    font-size: 13.5px;
+    color: var(--fg);
+    background: var(--bg);
+    background-image: var(--bg-aura);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .app::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image: var(--bg-blobs);
+    pointer-events: none;
+    z-index: 0;
+    transition: opacity 0.4s;
+  }
+  .app > * { position: relative; z-index: 1; }
+
+  /* ============ Sidebar ============ */
+  .sidebar {
+    background: var(--sidebar);
+    backdrop-filter: var(--sidebar-blur, blur(20px) saturate(1.2));
+    -webkit-backdrop-filter: var(--sidebar-blur, blur(20px) saturate(1.2));
+    border-right: 1px solid var(--sidebar-border, var(--border));
+    padding: 22px 14px;
+    display: flex; flex-direction: column; gap: 2px;
+    position: relative;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 8px 24px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800; font-size: 15px; letter-spacing: -0.01em;
+    color: var(--fg);
+  }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 10px;
+    background: var(--brand-mark-bg);
+    display: grid; place-items: center;
+    color: var(--brand-mark-fg);
+    font-size: 14px; font-weight: 800;
+    box-shadow: 0 6px 16px -4px var(--brand-mark-shadow);
+    position: relative;
+  }
+  .brand-mark::after {
+    content: ''; position: absolute; inset: 1px;
+    border-radius: 9px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.35), transparent 60%);
+    pointer-events: none;
+  }
+  .nav-section-label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); padding: 16px 10px 6px; font-weight: 600;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: 10px;
+    color: var(--fg-soft); cursor: pointer;
+    font-weight: 500; transition: background .18s;
+  }
+  .nav-item:hover { background: var(--hover); }
+  .nav-item.active {
+    background: var(--active-bg);
+    color: var(--active-fg);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--active-ring);
+  }
+  .nav-item .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); margin-left: auto;
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .nav-icon {
+    width: 18px; height: 18px; display: grid; place-items: center;
+    color: currentColor; opacity: 0.85;
+  }
+  .nav-sub {
+    padding: 5px 10px 5px 38px; font-size: 12.5px;
+    color: var(--fg-soft); border-radius: 6px; cursor: pointer;
+  }
+  .nav-sub:hover { background: var(--hover); }
+  .nav-admin { margin-top: auto; }
+
+  /* ============ Main ============ */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    height: 62px; border-bottom: 1px solid var(--border);
+    background: var(--topbar-bg);
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    padding: 0 26px; display: flex; align-items: center; gap: 16px;
+  }
+  .crumb { font-size: 12.5px; color: var(--muted); }
+  .crumb b { color: var(--fg); font-weight: 600; }
+  .topbar-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .bell {
+    width: 36px; height: 36px; border-radius: 11px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    display: grid; place-items: center; position: relative; cursor: pointer;
+  }
+  .bell .badge {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--badge-bg); color: var(--badge-fg);
+    font-size: 10px; font-weight: 700;
+    min-width: 16px; height: 16px; padding: 0 4px;
+    border-radius: 8px; display: grid; place-items: center;
+    border: 2px solid var(--bg);
+  }
+  .avatar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 12px 4px 4px; border-radius: 22px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+  }
+  .avatar-circle {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--avatar-bg);
+    color: var(--avatar-fg);
+    font-weight: 700; font-size: 12px;
+    display: grid; place-items: center;
+    box-shadow: 0 2px 8px -2px var(--brand-mark-shadow);
+  }
+
+  .content { padding: 26px 30px; flex: 1; overflow: hidden; }
+  .greet {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 28px; font-weight: 700; letter-spacing: -0.02em;
+    margin: 0 0 4px;
+    background: var(--greet-gradient);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  .greet-sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(12, 1fr);
+    gap: 14px;
+  }
+
+  /* Glass card */
+  .card {
+    background: var(--card-bg);
+    backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: 1px solid var(--card-border);
+    border-radius: var(--card-radius, 18px);
+    padding: 18px;
+    box-shadow: var(--card-shadow);
+    position: relative;
+    overflow: hidden;
+    transition: background .35s, border-color .35s, backdrop-filter .35s, box-shadow .35s;
+  }
+  .card::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--card-sheen);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .card > * { position: relative; z-index: 1; }
+
+  .card-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 13.5px; font-weight: 700; color: var(--fg);
+    display: flex; align-items: center; gap: 8px;
+    margin: 0 0 14px;
+  }
+  .count-pill {
+    background: var(--pill-accent-bg); color: var(--pill-accent-fg);
+    font-size: 11px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+    border: 1px solid var(--pill-accent-border);
+    backdrop-filter: blur(6px);
+  }
+  .count-pill.warm  { background: var(--sla-warn-bg);  color: var(--sla-warn-fg);  border-color: var(--sla-warn-border); }
+  .count-pill.cool  { background: var(--pill-secondary-bg);  color: var(--pill-secondary-fg);  border-color: var(--pill-secondary-border); }
+  .count-pill.danger{ background: var(--sla-danger-bg); color: var(--sla-danger-fg); border-color: var(--sla-danger-border); }
+  .link-all {
+    margin-left: auto; font-size: 12px; font-weight: 600;
+    color: var(--link-fg); cursor: pointer; text-decoration: none;
+  }
+
+  .task-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px; border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer; transition: background .15s, border-color .15s, transform .15s;
+  }
+  .task-row + .task-row { margin-top: 2px; }
+  .task-row:hover { background: var(--hover); border-color: var(--border); transform: translateX(2px); }
+  .task-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+  .task-title {
+    font-weight: 600; font-size: 13px; color: var(--fg);
+    margin-top: 1px;
+  }
+  .icon-chip {
+    width: 38px; height: 38px; border-radius: 12px;
+    display: grid; place-items: center;
+    background: var(--icon-chip-bg);
+    color: var(--icon-chip-fg);
+    border: 1px solid var(--icon-chip-border);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+  .icon-chip.warm { background: var(--icon-chip-bg); color: var(--icon-chip-fg); border-color: var(--icon-chip-border); }
+  .icon-chip.cool { background: var(--icon-chip-secondary-bg); color: var(--icon-chip-secondary-fg); border-color: var(--icon-chip-secondary-border); }
+  .icon-chip.danger { background: var(--sla-danger-bg); color: var(--sla-danger-fg); border-color: var(--sla-danger-border); }
+
+  .sla-pill {
+    margin-left: auto; font-size: 10.5px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--sla-ok-bg); color: var(--sla-ok-fg);
+    border: 1px solid var(--sla-ok-border);
+  }
+  .sla-pill.danger { background: var(--sla-danger-bg); color: var(--sla-danger-fg); border-color: var(--sla-danger-border); }
+  .sla-pill.warn   { background: var(--sla-warn-bg);   color: var(--sla-warn-fg);   border-color: var(--sla-warn-border); opacity: 0.92; }
+  .sla-pill.ok     { background: var(--sla-ok-bg);     color: var(--sla-ok-fg);     border-color: var(--sla-ok-border);   opacity: 0.82; }
+
+  /* KPI */
+  .kpi {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 18px; border-radius: 16px;
+    background: var(--kpi-bg);
+    backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: 1px solid var(--kpi-border);
+    position: relative; overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: background .35s, border-color .35s;
+  }
+  .kpi::before {
+    content:''; position:absolute; inset:auto -60px -60px auto;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: var(--kpi-blob);
+    filter: blur(28px); opacity: 0.35;
+  }
+  .kpi::after {
+    content:''; position:absolute; inset: 0;
+    background: linear-gradient(160deg, rgba(255,255,255,0.24) 0%, transparent 45%);
+    pointer-events: none;
+  }
+  .kpi > * { position: relative; z-index: 1; }
+  .kpi-val {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 28px; font-weight: 700; color: var(--fg);
+    letter-spacing: -0.02em;
+  }
+  .kpi-label { font-size: 11.5px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;}
+  .kpi-delta { font-size: 11px; font-weight: 600; color: var(--link-fg); margin-top: 4px;}
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 14px; border-radius: 11px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--fg);
+    backdrop-filter: blur(8px);
+    transition: transform .12s, box-shadow .18s, background .18s;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -10px rgba(0,0,0,0.18); }
+  .btn.primary {
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
+    border: 1px solid var(--btn-primary-border);
+    box-shadow: 0 8px 20px -8px var(--btn-primary-shadow);
+    position: relative; overflow: hidden;
+  }
+  .btn.primary::after {
+    content:''; position:absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.25), transparent 60%);
+    pointer-events: none;
+  }
+  .btn.ghost { background: transparent; }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 11px; border-radius: 999px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    font-size: 11.5px; color: var(--fg-soft); font-weight: 500;
+    backdrop-filter: blur(6px);
+  }
+
+  .quick {
+    display: flex; gap: 10px; margin-top: 14px;
+    padding: 18px; border-radius: 18px;
+    background: var(--quick-bg);
+    backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: 1px solid var(--quick-border);
+    align-items: center;
+    position: relative; overflow: hidden;
+    box-shadow: var(--card-shadow);
+    transition: background .35s, border-color .35s;
+  }
+  .quick::before {
+    content:''; position:absolute; inset: -30px auto auto -40px;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: var(--quick-blob);
+    filter: blur(34px); opacity: 0.65;
+  }
+  .quick::after {
+    content:''; position:absolute; inset: auto -30px -30px auto;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: var(--quick-blob-2, var(--quick-blob));
+    filter: blur(40px); opacity: 0.45;
+  }
+  .quick > * { position: relative; z-index: 1; }
+  .quick-label { font-size: 12px; color: var(--muted); font-weight: 600; margin-right: auto; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .ic { width: 16px; height: 16px; stroke-width: 1.75; }
+
+  /* Task list */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding: 0 4px; }
+  .tab {
+    padding: 11px 14px; font-size: 13px; font-weight: 600;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--link-fg); border-color: var(--accent); }
+  .filter-bar {
+    display: flex; gap: 8px; padding: 14px 0;
+    flex-wrap: wrap; align-items: center;
+  }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-radius: 12px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    min-width: 320px; color: var(--muted); font-size: 12.5px;
+    backdrop-filter: blur(10px);
+  }
+  .tbl {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    background: var(--card-bg);
+    backdrop-filter: var(--card-blur);
+    -webkit-backdrop-filter: var(--card-blur);
+    border: 1px solid var(--card-border); border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+  }
+  .tbl th, .tbl td {
+    text-align: left; padding: 12px 16px; font-size: 12.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tbl th {
+    background: var(--th-bg); color: var(--muted);
+    font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: var(--hover); }
+  .pid { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+/* ============================================
+   Theme: Soft Apricot (more ferah — less pigment, more air)
+   3 expressive tweak axes drive the whole look.
+   ============================================ */
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "ambiance": "daylight",
+  "density": "airy",
+  "palette": "terracotta"
+}/*EDITMODE-END*/;
+
+/* ---------- Ambiance: swaps the whole aura ---------- */
+const AMBIANCE = {
+  morning: {
+    label: 'Morning',
+    // cool-white with low-sun golden wash from top-left
+    aura:  'linear-gradient(170deg, #ffffff 0%, #fdfbf8 60%, #fcf6ed 100%)',
+    blobs: 'radial-gradient(640px 460px at 6% -8%, rgba(255,205,140,0.14), transparent 62%), radial-gradient(520px 420px at 105% 40%, rgba(252,180,160,0.09), transparent 64%), radial-gradient(420px 340px at 40% 95%, rgba(255,215,185,0.08), transparent 68%)',
+    greet: 'linear-gradient(90deg, #2e1a0a 0%, #c08840 100%)',
+  },
+  daylight: {
+    label: 'Daylight',
+    // ferah / crisp — mostly white, diffuse peach whispers
+    aura:  'linear-gradient(175deg, #ffffff 0%, #fefdfb 65%, #fdfaf5 100%)',
+    blobs: 'radial-gradient(760px 540px at 96% -6%, rgba(239,155,90,0.10), transparent 62%), radial-gradient(600px 460px at -4% 100%, rgba(248,180,160,0.08), transparent 64%), radial-gradient(480px 380px at 62% 55%, rgba(255,215,185,0.07), transparent 68%), radial-gradient(380px 300px at 22% 20%, rgba(255,205,165,0.05), transparent 72%)',
+    greet: 'linear-gradient(90deg, #2e1a0a 0%, #c06a2a 100%)',
+  },
+  dusk: {
+    label: 'Dusk',
+    // warmer, lower, more atmosphere near the horizon (bottom)
+    aura:  'linear-gradient(170deg, #fefdfb 0%, #fcf6ee 55%, #faeee1 100%)',
+    blobs: 'radial-gradient(700px 520px at 92% 108%, rgba(230,120,95,0.14), transparent 58%), radial-gradient(560px 440px at 8% 110%, rgba(250,175,140,0.12), transparent 62%), radial-gradient(440px 360px at 60% 30%, rgba(255,210,175,0.06), transparent 68%)',
+    greet: 'linear-gradient(90deg, #2a120a 0%, #b74a30 100%)',
+  },
+};
+
+/* ---------- Density: reshapes surface presence ---------- */
+const DENSITY = {
+  airy: {
+    label: 'Airy',
+    // barely-there surfaces — content floats
+    cardBg:      'rgba(255,255,255,0.38)',
+    cardBorder:  'rgba(255,255,255,0.75)',
+    cardBlur:    'blur(32px) saturate(1.25)',
+    cardShadow:  '0 1px 2px rgba(160,100,60,0.03), 0 16px 40px -22px rgba(200,120,70,0.15)',
+    cardSheen:   'linear-gradient(150deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.06) 25%, transparent 50%)',
+    surface1:    'rgba(255,255,255,0.55)',
+    sidebar:     'linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(255,250,244,0.22) 100%)',
+    topbar:      'rgba(255,255,255,0.48)',
+    kpiBg:       'linear-gradient(160deg, rgba(255,255,255,0.44) 0%, rgba(255,246,236,0.18) 100%)',
+    kpiBorder:   'rgba(255,255,255,0.7)',
+    quickBg:     'linear-gradient(120deg, rgba(255,255,255,0.44) 0%, rgba(255,236,218,0.2) 100%)',
+    quickBorder: 'rgba(255,255,255,0.7)',
+    thBg:        'rgba(255,250,244,0.28)',
+  },
+  soft: {
+    label: 'Soft',
+    // balanced — ferah default
+    cardBg:      'rgba(255,255,255,0.56)',
+    cardBorder:  'rgba(255,255,255,0.82)',
+    cardBlur:    'blur(24px) saturate(1.3)',
+    cardShadow:  '0 1px 2px rgba(170,100,60,0.04), 0 20px 48px -24px rgba(200,120,70,0.2)',
+    cardSheen:   'linear-gradient(160deg, rgba(255,255,255,0.28) 0%, transparent 48%)',
+    surface1:    'rgba(255,255,255,0.68)',
+    sidebar:     'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,249,242,0.32) 100%)',
+    topbar:      'rgba(255,255,255,0.62)',
+    kpiBg:       'linear-gradient(160deg, rgba(255,255,255,0.62) 0%, rgba(255,244,230,0.34) 100%)',
+    kpiBorder:   'rgba(255,255,255,0.82)',
+    quickBg:     'linear-gradient(120deg, rgba(255,255,255,0.62) 0%, rgba(255,234,215,0.36) 100%)',
+    quickBorder: 'rgba(255,255,255,0.82)',
+    thBg:        'rgba(255,248,240,0.38)',
+  },
+  frosted: {
+    label: 'Frosted',
+    // present, solid, tactile
+    cardBg:      'rgba(255,255,255,0.78)',
+    cardBorder:  'rgba(255,255,255,0.95)',
+    cardBlur:    'blur(18px) saturate(1.2)',
+    cardShadow:  '0 1px 2px rgba(170,100,60,0.06), 0 24px 56px -22px rgba(200,120,70,0.28)',
+    cardSheen:   'linear-gradient(165deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.08) 35%, transparent 55%)',
+    surface1:    'rgba(255,255,255,0.82)',
+    sidebar:     'linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,247,238,0.55) 100%)',
+    topbar:      'rgba(255,255,255,0.78)',
+    kpiBg:       'linear-gradient(160deg, rgba(255,255,255,0.78) 0%, rgba(255,238,220,0.52) 100%)',
+    kpiBorder:   'rgba(255,255,255,0.95)',
+    quickBg:     'linear-gradient(120deg, rgba(255,255,255,0.78) 0%, rgba(255,228,206,0.56) 100%)',
+    quickBorder: 'rgba(255,255,255,0.95)',
+    thBg:        'rgba(255,246,234,0.56)',
+  },
+};
+
+/* ---------- Palettes: primary + secondary accent pairings ---------- */
+function rgbStr([r,g,b], a=1) { return `rgba(${r},${g},${b},${a})`; }
+function rgbHex([r,g,b]) {
+  return '#' + [r,g,b].map(n => n.toString(16).padStart(2,'0')).join('');
+}
+
+const PALETTES = {
+  terracotta: {
+    label: 'Terracotta + Sage',
+    primary:     [210, 110, 82],   // warm terracotta
+    primaryDark: [150, 60, 32],
+    primaryLight:[238, 170, 138],
+    secondary:   [122, 162, 138], // sage
+    secondaryDark:[48, 92, 74],
+    secondaryLight:[196, 220, 204],
+  },
+  amber: {
+    label: 'Amber + Steel',
+    primary:     [212, 148, 76],   // warm amber
+    primaryDark: [132, 82, 22],
+    primaryLight:[238, 198, 142],
+    secondary:   [112, 140, 168],  // steel blue
+    secondaryDark:[44, 74, 102],
+    secondaryLight:[188, 208, 224],
+  },
+  copper: {
+    label: 'Copper + Slate',
+    primary:     [184, 104, 72],   // deep copper
+    primaryDark: [118, 52, 28],
+    primaryLight:[224, 160, 128],
+    secondary:   [108, 122, 148],  // slate
+    secondaryDark:[52, 64, 88],
+    secondaryLight:[188, 198, 216],
+  },
+};
+
+function buildPalette(paletteId) {
+  const p = PALETTES[paletteId] || PALETTES.terracotta;
+  const { primary, primaryDark, primaryLight, secondary, secondaryDark, secondaryLight } = p;
+
+  return {
+    '--accent':            rgbStr(primary),
+    '--accent-soft':       rgbStr(primary, 0.12),
+    '--link-fg':           rgbHex(primaryDark),
+
+    '--active-bg':         rgbStr(primary, 0.14),
+    '--active-fg':         rgbHex(primaryDark),
+    '--active-ring':       rgbStr(primary, 0.20),
+
+    '--pill-accent-bg':    rgbStr(primary, 0.16),
+    '--pill-accent-fg':    rgbHex(primaryDark),
+    '--pill-accent-border':rgbStr(primary, 0.26),
+
+    '--icon-chip-bg':      `linear-gradient(135deg, ${rgbStr(primary, 0.26)}, ${rgbStr(primary, 0.10)})`,
+    '--icon-chip-fg':      rgbHex(primaryDark),
+    '--icon-chip-border':  rgbStr(primary, 0.22),
+
+    '--brand-mark-bg':     `linear-gradient(135deg, ${rgbStr(primaryLight)} 0%, ${rgbStr(primary)} 100%)`,
+    '--brand-mark-fg':     '#ffffff',
+    '--brand-mark-shadow': rgbStr(primary, 0.35),
+
+    '--avatar-bg':         `linear-gradient(135deg, ${rgbStr(primaryLight)}, ${rgbStr(primary)})`,
+    '--avatar-fg':         '#ffffff',
+    '--badge-bg':          rgbHex(primary),
+    '--badge-fg':          '#ffffff',
+
+    '--kpi-blob':          `radial-gradient(circle, ${rgbStr(primary, 0.14)}, transparent 72%)`,
+    '--quick-blob':        `radial-gradient(circle, ${rgbStr(primary, 0.26)}, transparent 70%)`,
+    '--quick-blob-2':      `radial-gradient(circle, ${rgbStr(secondary, 0.22)}, transparent 70%)`,
+
+    '--btn-primary-bg':    `linear-gradient(135deg, ${rgbStr(primaryLight)} 0%, ${rgbStr(primary)} 100%)`,
+    '--btn-primary-fg':    '#ffffff',
+    '--btn-primary-border':rgbStr(primary, 0.32),
+    '--btn-primary-shadow':rgbStr(primary, 0.42),
+
+    /* ---- Secondary accent — cool counterpart ---- */
+    '--secondary':         rgbStr(secondary),
+    '--secondary-soft':    rgbStr(secondary, 0.14),
+    '--secondary-dark':    rgbHex(secondaryDark),
+
+    '--pill-secondary-bg':    rgbStr(secondary, 0.16),
+    '--pill-secondary-fg':    rgbHex(secondaryDark),
+    '--pill-secondary-border':rgbStr(secondary, 0.26),
+
+    '--icon-chip-secondary-bg': `linear-gradient(135deg, ${rgbStr(secondary, 0.26)}, ${rgbStr(secondary, 0.10)})`,
+    '--icon-chip-secondary-fg': rgbHex(secondaryDark),
+    '--icon-chip-secondary-border': rgbStr(secondary, 0.22),
+
+    /* ---- SLA: single-hue opacity ladder on primary ---- */
+    '--sla-danger-bg':     rgbStr(primary, 0.28),
+    '--sla-danger-fg':     rgbHex(primaryDark),
+    '--sla-danger-border': rgbStr(primary, 0.40),
+    '--sla-warn-bg':       rgbStr(primary, 0.16),
+    '--sla-warn-fg':       rgbHex(primaryDark),
+    '--sla-warn-border':   rgbStr(primary, 0.26),
+    '--sla-ok-bg':         rgbStr(primary, 0.06),
+    '--sla-ok-fg':         rgbHex(primaryDark),
+    '--sla-ok-border':     rgbStr(primary, 0.14),
+  };
+}
+
+/* ---------- Static theme bits (neutrals / cool/warn/danger pills) ---------- */
+const STATIC_VARS = {
+  '--bg':                '#ffffff',
+  '--border':            'rgba(210,150,110,0.13)',
+  '--hover':             'rgba(239,155,90,0.06)',
+
+  '--fg':                '#2a1a0c',
+  '--fg-soft':           '#4a3322',
+  '--muted':             'rgba(74,51,34,0.58)',
+
+  '--sidebar-blur':      'blur(22px) saturate(1.2)',
+  '--sidebar-border':    'rgba(210,150,110,0.12)',
+
+  '--card-radius':       '18px',
+
+};
+
+function buildTheme({ ambiance, density, palette }) {
+  const amb = AMBIANCE[ambiance] || AMBIANCE.daylight;
+  const den = DENSITY[density] || DENSITY.soft;
+  return {
+    ...STATIC_VARS,
+    '--bg-aura':        amb.aura,
+    '--bg-blobs':       amb.blobs,
+    '--greet-gradient': amb.greet,
+
+    '--card-bg':        den.cardBg,
+    '--card-border':    den.cardBorder,
+    '--card-blur':      den.cardBlur,
+    '--card-shadow':    den.cardShadow,
+    '--card-sheen':     den.cardSheen,
+    '--surface-1':      den.surface1,
+    '--sidebar':        den.sidebar,
+    '--topbar-bg':      den.topbar,
+    '--kpi-bg':         den.kpiBg,
+    '--kpi-border':     den.kpiBorder,
+    '--quick-bg':       den.quickBg,
+    '--quick-border':   den.quickBorder,
+    '--th-bg':          den.thBg,
+
+    ...buildPalette(palette),
+  };
+}
+</script>
+
+<script type="text/babel">
+const Ic = {
+  home:   () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-7H9v7H5a2 2 0 0 1-2-2z"/></svg>,
+  check:  () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h13l-2 3H4zM4 10h11M4 15h13l-2 3H4z"/></svg>,
+  flow:   () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h8l4 4h4M4 18h8l4-4h4"/></svg>,
+  users:  () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 11a3 3 0 1 0 0-6M21 19c0-2-1.6-3.6-4-4.4"/></svg>,
+  shield: () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l8 3v6c0 5-4 8-8 9-4-1-8-4-8-9V6z"/></svg>,
+  data:   () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>,
+  gear:   () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>,
+  bell:   () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 7 3 9H3c0-2 3-2 3-9zM10 21a2 2 0 0 0 4 0"/></svg>,
+  plus:   () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>,
+  search: () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>,
+  alert:  () => <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3l10 18H2zM12 10v5M12 18v.1"/></svg>,
+};
+
+const pendingTasks = [
+  { id: 'KTİ-2026-0412', title: 'Hat 3 — Cıvata istasyonu Kaizen onayı', sla: { label: '6sa kaldı', cls: 'warn' } },
+  { id: 'KTİ-2026-0408', title: 'Paketleme tezgahı revizesi', sla: { label: '2sa kaldı', cls: 'danger' } },
+  { id: 'KTİ-2026-0401', title: 'Kalite kontrol bandı — Before onayı', sla: { label: '1g kaldı', cls: 'ok' } },
+];
+const myProcesses = [
+  { id: 'KTİ-2026-0420', title: 'Depo raf düzeni — Before/After', step: 'Yönetici onayında' },
+  { id: 'KTİ-2026-0417', title: 'Lojistik yükleme noktası', step: 'Yönetici onayında' },
+  { id: 'KTİ-2026-0415', title: 'Tornalama ünitesi', step: 'Revize talebi aldı' },
+];
+const notifs = [
+  { t: 'Yeni görev atandı', s: 'KTİ-2026-0412 — 72 saat SLA başladı', time: '14:02', unread: true },
+  { t: 'SLA yaklaşıyor', s: 'KTİ-2026-0408 — 2 saat kaldı', time: '13:40', unread: true },
+  { t: 'Süreç tamamlandı', s: 'KTİ-2026-0402 onaylandı', time: '09:12' },
+];
+const slaRisks = [
+  { id: 'KTİ-2026-0408', title: 'Paketleme tezgahı — onay' },
+  { id: 'KTİ-2026-0412', title: 'Hat 3 Cıvata — onay' },
+];
+
+function AppFrame({ children, themeVars, activeRoute = 'dashboard' }) {
+  const processes = [
+    { id: 'proc-my', label: 'Süreçlerim' },
+    { id: 'proc-new', label: 'Yeni KTİ Başlat' },
+    { id: 'proc-all', label: 'Tüm Süreçler' },
+  ];
+
+  return (
+    <div className="app" style={themeVars} data-screen-label={activeRoute === 'dashboard' ? '01 Dashboard' : '02 Görevler'}>
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">L</div>
+          Lean Management
+        </div>
+
+        <div className={`nav-item ${activeRoute==='dashboard'?'active':''}`}>
+          <span className="nav-icon">{Ic.home()}</span> Ana Sayfa
+        </div>
+        <div className={`nav-item ${activeRoute==='tasks'?'active':''}`}>
+          <span className="nav-icon">{Ic.check()}</span> Görevlerim
+          <span className="dot"/>
+        </div>
+
+        <div className="nav-item">
+          <span className="nav-icon">{Ic.flow()}</span> Süreçler
+        </div>
+        {processes.map(p => (
+          <div key={p.id} className="nav-sub">{p.label}</div>
+        ))}
+
+        <div className="nav-item">
+          <span className="nav-icon">{Ic.users()}</span> Kullanıcılar
+        </div>
+        <div className="nav-item">
+          <span className="nav-icon">{Ic.shield()}</span> Roller
+        </div>
+        <div className="nav-item">
+          <span className="nav-icon">{Ic.data()}</span> Master Data
+        </div>
+
+        <div className="nav-section-label nav-admin">Yönetim</div>
+        <div className="nav-item">
+          <span className="nav-icon">{Ic.gear()}</span> Sistem Ayarları
+        </div>
+      </aside>
+
+      <div className="main">
+        <header className="topbar">
+          <div className="crumb">Ana Sayfa <span style={{opacity:0.4}}> › </span> <b>Bugün</b></div>
+          <div className="topbar-right">
+            <div className="chip">KVKK rızası aktif</div>
+            <div className="bell">
+              {Ic.bell()}<span className="badge">3</span>
+            </div>
+            <div className="avatar">
+              <div className="avatar-circle">AY</div>
+              <div style={{fontSize:12.5, fontWeight:600}}>Ali Yılmaz</div>
+            </div>
+          </div>
+        </header>
+        <div className="content">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardMock({ themeVars }) {
+  return (
+    <AppFrame themeVars={themeVars} activeRoute="dashboard">
+      <h1 className="greet">İyi günler, Ali</h1>
+      <div className="greet-sub">Bugün 5 bekleyen görev ve 3 aktif süreç var.</div>
+
+      <div className="grid">
+        <section className="card" style={{gridColumn:'span 5'}}>
+          <div className="card-title">
+            Bekleyen Görevlerim
+            <span className="count-pill">5 bekleyen</span>
+            <a className="link-all">Tümünü Gör →</a>
+          </div>
+          {pendingTasks.map(t => (
+            <div key={t.id} className="task-row">
+              <div className="icon-chip">{Ic.check()}</div>
+              <div style={{minWidth:0}}>
+                <div className="task-id">{t.id}</div>
+                <div className="task-title">{t.title}</div>
+              </div>
+              <span className={`sla-pill ${t.sla.cls}`}>{t.sla.label}</span>
+            </div>
+          ))}
+        </section>
+
+        <section className="card" style={{gridColumn:'span 4'}}>
+          <div className="card-title">
+            Aktif Süreçlerim
+            <span className="count-pill warm">3 aktif</span>
+            <a className="link-all">Tümü →</a>
+          </div>
+          {myProcesses.map(p => (
+            <div key={p.id} className="task-row">
+              <div className="icon-chip warm">{Ic.flow()}</div>
+              <div style={{minWidth:0}}>
+                <div className="task-id">{p.id}</div>
+                <div className="task-title">{p.title}</div>
+                <div style={{fontSize:11.5,color:'var(--muted)',marginTop:2}}>{p.step}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="card" style={{gridColumn:'span 3'}}>
+          <div className="card-title">
+            SLA Uyarısı
+            <span className="count-pill danger">2 kritik</span>
+          </div>
+          {slaRisks.map(s => (
+            <div key={s.id} className="task-row">
+              <div className="icon-chip danger">{Ic.alert()}</div>
+              <div style={{minWidth:0}}>
+                <div className="task-id">{s.id}</div>
+                <div className="task-title" style={{fontSize:12}}>{s.title}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section style={{gridColumn:'span 8', display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:12}}>
+          <div className="kpi">
+            <div className="kpi-label">Aktif kullanıcı</div>
+            <div className="kpi-val">18.432</div>
+            <div className="kpi-delta">+124 bu hafta</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">Aktif süreç</div>
+            <div className="kpi-val">347</div>
+            <div className="kpi-delta">72 onay bekliyor</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">30g tamamlanan</div>
+            <div className="kpi-val">1.280</div>
+            <div className="kpi-delta">%94 onay oranı</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-label">30g reddedilen</div>
+            <div className="kpi-val">73</div>
+            <div className="kpi-delta">−8 geçen aya göre</div>
+          </div>
+        </section>
+
+        <section className="card" style={{gridColumn:'span 4'}}>
+          <div className="card-title">
+            Son Bildirimler
+            <span className="count-pill cool">2 okunmamış</span>
+            <a className="link-all">Tümü →</a>
+          </div>
+          {notifs.map((n, i) => (
+            <div key={i} className="task-row">
+              <div style={{width:8,height:8,borderRadius:50,background: n.unread ? 'var(--accent)' : 'var(--border)',boxShadow: n.unread ? '0 0 0 3px var(--accent-soft)' : 'none'}}/>
+              <div style={{minWidth:0}}>
+                <div className="task-title" style={{fontSize:12.5}}>{n.t}</div>
+                <div style={{fontSize:11.5,color:'var(--muted)'}}>{n.s}</div>
+              </div>
+              <span style={{marginLeft:'auto', fontSize:11, color:'var(--muted)'}}>{n.time}</span>
+            </div>
+          ))}
+        </section>
+      </div>
+
+      <div className="quick">
+        <span className="quick-label">Hızlı aksiyonlar</span>
+        <button className="btn primary">{Ic.plus()} Yeni KTİ Başlat</button>
+        <button className="btn">{Ic.users()} Kullanıcı Ekle</button>
+        <button className="btn ghost">{Ic.shield()} Denetim Kayıtları</button>
+      </div>
+    </AppFrame>
+  );
+}
+
+function TaskListMock({ themeVars }) {
+  const rows = [
+    { id:'KTİ-2026-0412', title:'Hat 3 — Cıvata istasyonu Kaizen onayı', by:'Mehmet Kaya', sla:{label:'6sa kaldı', cls:'warn'}, step:'Yönetici onayı' },
+    { id:'KTİ-2026-0408', title:'Paketleme tezgahı revizesi',             by:'Selin Aydın', sla:{label:'2sa kaldı', cls:'danger'}, step:'Yönetici onayı' },
+    { id:'KTİ-2026-0401', title:'Kalite kontrol bandı — Before onayı',    by:'Okan Demir',  sla:{label:'1g kaldı',  cls:'ok'},   step:'Yönetici onayı' },
+    { id:'KTİ-2026-0398', title:'Depo rampası — zemin çizgi düzenlemesi', by:'Ayşe Koç',    sla:{label:'2g kaldı',  cls:'ok'},   step:'Yönetici onayı' },
+    { id:'KTİ-2026-0394', title:'CNC iş istasyonu — alet askısı',          by:'Burak Öz',    sla:{label:'3g kaldı',  cls:'ok'},   step:'Yönetici onayı' },
+  ];
+  return (
+    <AppFrame themeVars={themeVars} activeRoute="tasks">
+      <h1 className="greet">Görevlerim</h1>
+      <div className="greet-sub">Onayınıza bekleyen ve takip ettiğiniz tüm görevler.</div>
+
+      <div className="tabs">
+        <div className="tab active">Bekleyen (5)</div>
+        <div className="tab">Başlattığım</div>
+        <div className="tab">Tamamlananlar</div>
+      </div>
+
+      <div className="filter-bar">
+        <div className="search">{Ic.search()} Sicil, ad veya süreç no ara…</div>
+        <div className="chip">Şirket: Tümü</div>
+        <div className="chip">Lokasyon: Tümü</div>
+        <div className="chip" style={{background:'var(--pill-accent-bg)',color:'var(--pill-accent-fg)',borderColor:'var(--pill-accent-border)'}}>SLA: Kritik</div>
+        <div style={{marginLeft:'auto'}}>
+          <button className="btn primary">{Ic.plus()} Yeni KTİ Başlat</button>
+        </div>
+      </div>
+
+      <table className="tbl">
+        <thead>
+          <tr>
+            <th>Süreç No</th>
+            <th>Başlık</th>
+            <th>Başlatan</th>
+            <th>Adım</th>
+            <th>SLA</th>
+            <th style={{width:60}}></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id}>
+              <td className="pid">{r.id}</td>
+              <td style={{fontWeight:600,color:'var(--fg)'}}>{r.title}</td>
+              <td style={{color:'var(--fg-soft)'}}>{r.by}</td>
+              <td><span className="chip">{r.step}</span></td>
+              <td><span className={`sla-pill ${r.sla.cls}`}>{r.sla.label}</span></td>
+              <td style={{color:'var(--muted)'}}>⋯</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </AppFrame>
+  );
+}
+
+const { DesignCanvas, DCSection, DCArtboard } = window;
+const { TweaksPanel, TweakSection, TweakRadio, TweakSlider, useTweaks } = window;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const themeVars = React.useMemo(() => buildTheme(t), [t.ambiance, t.density, t.palette]);
+
+  return (
+    <React.Fragment>
+      <DesignCanvas
+        title="Lean Management — Soft Apricot"
+        subtitle="Turuncu birincil + mavi-yeşil ikincil accent. SLA pill'leri tek-renk opaklık skalası — sakin, kurumsal SaaS."
+      >
+        <DCSection id="screens" title="Ekranlar">
+          <DCArtboard id="dashboard" label="Ana Sayfa (Dashboard)" width={1340} height={980}>
+            <DashboardMock themeVars={themeVars}/>
+          </DCArtboard>
+          <DCArtboard id="tasks" label="Görev Listesi" width={1340} height={900}>
+            <TaskListMock themeVars={themeVars}/>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Ambiance"/>
+        <TweakRadio
+          label="Light"
+          value={t.ambiance}
+          options={[
+            { value: 'morning',  label: 'Morning' },
+            { value: 'daylight', label: 'Daylight' },
+            { value: 'dusk',     label: 'Dusk' },
+          ]}
+          onChange={(v) => setTweak('ambiance', v)}
+        />
+
+        <TweakSection label="Glass"/>
+        <TweakRadio
+          label="Density"
+          value={t.density}
+          options={[
+            { value: 'airy',    label: 'Airy' },
+            { value: 'soft',    label: 'Soft' },
+            { value: 'frosted', label: 'Frosted' },
+          ]}
+          onChange={(v) => setTweak('density', v)}
+        />
+
+        <TweakSection label="Accent"/>
+        <TweakRadio
+          label="Palette"
+          value={t.palette}
+          options={[
+            { value: 'terracotta', label: 'Terracotta + Sage' },
+            { value: 'amber',      label: 'Amber + Steel' },
+            { value: 'copper',     label: 'Copper + Slate' },
+          ]}
+          onChange={(v) => setTweak('palette', v)}
+        />
+        <div style={{
+          fontSize:10.5, color:'rgba(41,38,27,.55)', lineHeight:1.45,
+          marginTop:-4, paddingLeft:2
+        }}>
+          Primary + secondary accent. SLA pills use primary with opacity ladder (danger → warn → ok).
+        </div>
+      </TweaksPanel>
+    </React.Fragment>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

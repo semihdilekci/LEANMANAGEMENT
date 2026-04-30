@@ -2,12 +2,17 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Permission } from '@leanmgmt/shared-types';
 
 import { PermissionGate } from '@/components/shared/PermissionGate';
+import {
+  hasUserListActiveFilters,
+  userListFilterSignature,
+  UserListFiltersPanel,
+} from '@/components/users/UserListFilters';
 import { useDeactivateUserMutation, useUserListQuery } from '@/lib/queries/users';
 
 export function UserList() {
@@ -15,59 +20,97 @@ export function UserList() {
   const searchParams = useSearchParams();
   const [cursor, setCursor] = useState<string | undefined>();
 
-  const filters = {
-    search: searchParams.get('search') ?? undefined,
-    companyId: searchParams.get('companyId') ?? undefined,
-    isActive: searchParams.get('isActive') ?? undefined,
-    cursor,
-    limit: 20,
-  };
+  const filterSignature = useMemo(() => userListFilterSignature(searchParams), [searchParams]);
+
+  useEffect(() => {
+    setCursor(undefined);
+  }, [filterSignature]);
+
+  const filters = useMemo(
+    () => ({
+      search: searchParams.get('search') ?? undefined,
+      companyId: searchParams.get('companyId') ?? undefined,
+      locationId: searchParams.get('locationId') ?? undefined,
+      departmentId: searchParams.get('departmentId') ?? undefined,
+      positionId: searchParams.get('positionId') ?? undefined,
+      levelId: searchParams.get('levelId') ?? undefined,
+      employeeType: searchParams.get('employeeType') ?? undefined,
+      isActive: searchParams.get('isActive') ?? undefined,
+      sort: searchParams.get('sort') ?? undefined,
+      cursor,
+      limit: 20,
+    }),
+    [searchParams, cursor],
+  );
+
+  const activeFilters = useMemo(() => hasUserListActiveFilters(searchParams), [searchParams]);
 
   const { data, isLoading, error, refetch } = useUserListQuery(filters);
   const deactivateMutation = useDeactivateUserMutation();
 
   if (isLoading) {
     return (
-      <div role="status" aria-live="polite" aria-busy className="space-y-[var(--space-3)]">
-        <span className="sr-only">Yükleniyor...</span>
-        {[...Array(5)].map((_, i) => (
-          <div
-            key={i}
-            className="h-16 animate-pulse rounded-[var(--radius-md)] bg-[var(--color-neutral-100)]"
-          />
-        ))}
+      <div className="space-y-[var(--space-4)]">
+        <UserListFiltersPanel />
+        <div role="status" aria-live="polite" aria-busy className="space-y-[var(--space-3)]">
+          <span className="sr-only">Yükleniyor...</span>
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={i}
+              className="h-16 animate-pulse rounded-[var(--radius-md)] bg-[var(--color-neutral-100)]"
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div role="alert" className="ls-alert ls-alert--error">
-        <p>Kullanıcılar yüklenemedi.</p>
-        <button
-          type="button"
-          className="ls-btn ls-btn--neutral ls-btn--sm mt-[var(--space-2)]"
-          onClick={() => void refetch()}
-        >
-          Tekrar dene
-        </button>
+      <div className="space-y-[var(--space-4)]">
+        <UserListFiltersPanel />
+        <div role="alert" className="ls-alert ls-alert--error">
+          <p>Kullanıcılar yüklenemedi.</p>
+          <button
+            type="button"
+            className="ls-btn ls-btn--neutral ls-btn--sm mt-[var(--space-2)]"
+            onClick={() => void refetch()}
+          >
+            Tekrar dene
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!data?.items.length) {
     return (
-      <div className="py-[var(--space-12)] text-center text-[var(--color-neutral-500)]">
-        <p className="text-lg font-medium">Kullanıcı bulunamadı</p>
-        <p className="mt-[var(--space-1)] text-sm">
-          Farklı filtreler deneyin veya yeni kullanıcı oluşturun.
-        </p>
+      <div className="space-y-[var(--space-4)]">
+        <UserListFiltersPanel />
+        <div className="py-[var(--space-12)] text-center text-[var(--color-neutral-500)]">
+          <p className="text-lg font-medium">Kullanıcı bulunamadı</p>
+          <p className="mt-[var(--space-1)] text-sm">
+            {activeFilters
+              ? 'Seçili filtrelere uyan kullanıcı yok. Filtreleri gevşetmeyi deneyin.'
+              : 'Farklı filtreler deneyin veya yeni kullanıcı oluşturun.'}
+          </p>
+          {activeFilters && (
+            <button
+              type="button"
+              className="ls-btn ls-btn--neutral ls-btn--sm mt-[var(--space-4)]"
+              onClick={() => router.push('/users')}
+            >
+              Filtreleri temizle
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="space-y-[var(--space-4)]">
+      <UserListFiltersPanel />
       <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-neutral-200)]">
         <table className="w-full text-sm" aria-label="Kullanıcı listesi">
           <thead className="bg-[var(--color-neutral-50)]">

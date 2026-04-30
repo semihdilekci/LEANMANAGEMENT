@@ -1,4 +1,6 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import {
@@ -22,14 +24,22 @@ import {
   CurrentUser,
   type AuthenticatedUser,
 } from '../common/decorators/current-user.decorator.js';
+import { AppException } from '../common/exceptions/app.exception.js';
 import { createZodValidationPipe } from '../common/pipes/zod-validation.pipe.js';
+import type { Env } from '../config/env.schema.js';
 
 import { AuthService } from './auth.service.js';
 import type { AccessTokenPayload } from './auth.types.js';
+import { buildPostOidcLoginUrl } from './oidc-login-redirect.js';
+import { OidcGoogleAuthService } from './oidc-google-auth.service.js';
 
 @Controller('auth')
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(OidcGoogleAuthService) private readonly oidcGoogle: OidcGoogleAuthService,
+    @Inject(ConfigService) private readonly config: ConfigService<Env, true>,
+  ) {}
 
   @Public()
   @SkipCsrf()
@@ -41,6 +51,49 @@ export class AuthController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<Record<string, unknown>> {
     return this.auth.login(dto, req.ip ?? '0.0.0.0', req.headers['user-agent'] ?? '', reply);
+  }
+
+  @Public()
+  @SkipCsrf()
+  @SkipEnvelope()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get('oauth/google')
+  async oidcGoogleStart(
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: false }) reply: FastifyReply,
+  ): Promise<void> {
+    await this.oidcGoogle.startGoogleOidc(req, reply);
+  }
+
+  @Public()
+  @SkipCsrf()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('oauth/google/callback')
+  @HttpCode(200)
+  async oidcGoogleCallback(
+    @Req() req: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<Record<string, unknown> | void> {
+    try {
+      const result = await this.oidcGoogle.handleGoogleCallback(req, reply);
+      if (reply.sent) {
+        return;
+      }
+      return result;
+    } catch (err) {
+      const webOrigin = this.config.get('WEB_PUBLIC_ORIGIN', { infer: true });
+      if (webOrigin && err instanceof AppException && !reply.sent) {
+        reply.redirect(
+          buildPostOidcLoginUrl(webOrigin, {
+            oidc: 'error',
+            errorCode: err.code,
+          }),
+          302,
+        );
+        return;
+      }
+      throw err;
+    }
   }
 
   @Public()

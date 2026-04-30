@@ -177,6 +177,8 @@ enum NotificationEventType {
   USER_LOGIN_WELCOME
   /** Günlük özet e-postası — digest cron */
   DAILY_DIGEST
+  CONSENT_VERSION_PUBLISHED
+  ROLE_ASSIGNED
 
   @@map("notification_event_type")
 }
@@ -378,9 +380,13 @@ model User {
   anonymizedAt        DateTime? @map("anonymized_at") @db.Timestamptz(6)
   anonymizationReason String?   @map("anonymization_reason") @db.Text
   passwordChangedAt   DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  /** 0=yok, 1=≤14g uyarısı gönderildi, 2=≤3g, 3=son gün — tekrar spam önler */
+  passwordExpiryWarningStage Int @default(0) @map("password_expiry_warning_stage")
   failedLoginCount    Int       @default(0) @map("failed_login_count")
   lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
   lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
+  /// OIDC harici konu (IdP `sub`); Google ile Keycloak `sub` farklıdır — ADR 0008, docs/07 §2.0
+  externalSubject     String?   @map("external_subject") @db.VarChar(255)
 
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -675,6 +681,20 @@ model SystemSetting {
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("system_settings")
+}
+
+/// docs/07_SECURITY_IMPLEMENTATION.md §12.2 — gecelik job Faz 8 iter 3; sonuç satırı API okur
+model AuditChainIntegrityCheck {
+  id                  String   @id @default(cuid())
+  checkedAt           DateTime @default(now()) @map("checked_at") @db.Timestamptz(6)
+  chainIntact         Boolean  @map("chain_intact")
+  firstBrokenAt       DateTime? @map("first_broken_at") @db.Timestamptz(6)
+  firstBrokenRecordId String?  @map("first_broken_record_id")
+  totalRecordsChecked Int      @map("total_records_checked")
+  durationMs          Int      @map("duration_ms")
+
+  @@index([checkedAt(sort: Desc)], map: "audit_chain_checks_checked_at_idx")
+  @@map("audit_chain_integrity_checks")
 }
 
 // --- Workflow (Faz 5) — kaynak: docs/02_DATABASE_SCHEMA.md §6.4 ---

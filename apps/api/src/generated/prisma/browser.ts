@@ -132,6 +132,11 @@ export type AuditLog = Prisma.AuditLogModel;
  */
 export type SystemSetting = Prisma.SystemSettingModel;
 /**
+ * Model AuditChainIntegrityCheck
+ * docs/07_SECURITY_IMPLEMENTATION.md §12.2 — gecelik job Faz 8 iter 3; sonuç satırı API okur
+ */
+export type AuditChainIntegrityCheck = Prisma.AuditChainIntegrityCheckModel;
+/**
  * Model Process
  *
  */

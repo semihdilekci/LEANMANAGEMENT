@@ -7,8 +7,10 @@ import { getKtiTaskStepLabel } from '../tasks/kti-task-step.js';
 
 import {
   NOTIFICATION_DOMAIN_EVENT,
+  type ConsentVersionPublishedPayload,
   type ProcessCancelledPayload,
   type ProcessRollbackPerformedPayload,
+  type RoleAssignedPayload,
   type TaskAssignedPayload,
   type TaskClaimedByPeerPayload,
   type TaskCompletedPayload,
@@ -140,5 +142,22 @@ export class NotificationGeneratorService {
         },
       });
     }
+  }
+
+  @OnEvent(NOTIFICATION_DOMAIN_EVENT.ROLE_ASSIGNED, { async: true })
+  async handleRoleAssigned(payload: RoleAssignedPayload): Promise<void> {
+    await this.notifications.createInAppAndEmailIfEnabled({
+      userId: payload.userId,
+      eventType: 'ROLE_ASSIGNED',
+      title: 'Yeni rol atandı',
+      body: `Size “${payload.roleName}” (${payload.roleCode}) rolü atandı.`,
+      linkUrl: '/roles',
+      metadata: { roleCode: payload.roleCode, roleName: payload.roleName },
+    });
+  }
+
+  @OnEvent(NOTIFICATION_DOMAIN_EVENT.CONSENT_VERSION_PUBLISHED, { async: true })
+  async handleConsentVersionPublished(payload: ConsentVersionPublishedPayload): Promise<void> {
+    await this.notifications.broadcastConsentVersionPublished(payload.versionId);
   }
 }
