@@ -2,49 +2,92 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8" />
-<title>Lean DS — Örnek</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lean DS — Soft Pastel örnek</title>
 <link rel="stylesheet" href="./index.css" />
 <style>
-  body {
+  .demo-wrap {
     margin: 0;
-    padding: 48px;
-    background: var(--color-surface-0);
+    min-height: 100vh;
+    padding: var(--page-padding);
     color: var(--color-fg);
     font-family: var(--font-body);
   }
   .demo-grid {
     display: grid;
-    gap: 24px;
-    max-width: 720px;
+    gap: var(--card-gap);
+    max-width: 960px;
   }
-  h1 {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: var(--text-3xl);
-    margin: 0 0 8px;
+  .demo-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: center;
+  }
+  h1.text-page-title {
+    margin: 0 0 var(--space-4);
   }
   p.sub {
-    color: var(--color-fg-muted);
-    margin: 0 0 24px;
+    color: var(--color-fg-soft);
+    margin: 0 0 var(--space-8);
+    font-size: var(--text-md);
   }
 </style>
 </head>
 <body>
-  <h1>Lean Design System</h1>
-  <p class="sub">Tek dosyalık hızlı sağlık kontrolü.</p>
+  <div class="demo-wrap">
+    <h1 class="text-page-title">Lean Design System</h1>
+    <p class="sub">
+      Soğuk gri-mavi zemin, mavi marka, beyaz kartlar ve segmentli ilerleme çubuğu (mavi → açık mavi → gri → magenta).
+      Kanonik tanım: <code>design-system.json</code>.
+    </p>
 
-  <div class="demo-grid">
-    <div>
-      <button class="ls-btn ls-btn--primary">Birincil buton</button>
-      <button class="ls-btn ls-btn--secondary" style="margin-left:8px">İkincil</button>
-      <button class="ls-btn ls-btn--ghost" style="margin-left:8px">Ghost</button>
-    </div>
+    <div class="demo-grid">
+      <div class="demo-row">
+        <button type="button" class="ls-btn ls-btn--primary ls-btn--md">Birincil</button>
+        <button type="button" class="ls-btn ls-btn--secondary ls-btn--md">İkincil</button>
+        <button type="button" class="ls-btn ls-btn--ghost ls-btn--md">Ghost</button>
+      </div>
 
-    <div class="ls-card" style="padding: 20px;">
-      <h3 style="margin:0 0 6px; font-family: var(--font-display);">Kart başlığı</h3>
-      <p style="margin:0; color: var(--color-fg-muted);">
-        Token + component sınıfları çalışıyorsa bu kart terracotta tonlarında görünmeli.
-      </p>
+      <div class="ls-card">
+        <div class="ls-card__header">
+          <h3 class="ls-card__title">Kart başlığı</h3>
+          <a class="ls-link" href="#">Tümünü gör</a>
+        </div>
+        <p style="margin:0; color: var(--color-fg-soft); line-height: var(--lh-md);">
+          Kartlar beyaz yüzey ve geniş blur gölge ile gradient üzerinde yüzer; sert çerçeve yok.
+        </p>
+      </div>
+
+      <div class="ls-progress ls-progress--segments" role="img" aria-label="Örnek dört segmentli ilerleme">
+        <span class="ls-progress__segment ls-progress__segment--positive" style="flex: 3"></span>
+        <span class="ls-progress__segment ls-progress__segment--mid" style="flex: 2"></span>
+        <span class="ls-progress__segment ls-progress__segment--neutral" style="flex: 2"></span>
+        <span class="ls-progress__segment ls-progress__segment--negative" style="flex: 2"></span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--card-gap);">
+        <div class="ls-stat-tile">
+          <div class="ls-stat-tile__badge ls-stat-tile__badge--lavender" aria-hidden="true">◆</div>
+          <div>
+            <p class="ls-stat-tile__label">Açık görev</p>
+            <p class="ls-stat-tile__value">24</p>
+          </div>
+        </div>
+        <div class="ls-stat-tile">
+          <div class="ls-stat-tile__badge ls-stat-tile__badge--sky" aria-hidden="true">◇</div>
+          <div>
+            <p class="ls-stat-tile__label">SLA</p>
+            <p class="ls-stat-tile__value">98%</p>
+          </div>
+        </div>
+      </div>
+
+      <section class="ls-cta-card" style="max-width: 560px;">
+        <p class="ls-cta-card__pretitle">Öne çıkan</p>
+        <h2 class="ls-cta-card__title">Gradient CTA kartı</h2>
+        <button type="button" class="ls-btn--ghost-on-gradient">Devam et</button>
+      </section>
     </div>
   </div>
 </body>

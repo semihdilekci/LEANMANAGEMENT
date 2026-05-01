@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Patch, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -9,11 +9,13 @@ import {
   LoginSchema,
   PasswordResetConfirmSchema,
   PasswordResetRequestSchema,
+  UpdateMyAvatarSchema,
   type ChangePasswordInput,
   type ConsentAcceptInput,
   type LoginInput,
   type PasswordResetConfirmInput,
   type PasswordResetRequestInput,
+  type UpdateMyAvatarInput,
 } from '@leanmgmt/shared-schemas';
 
 import { Public } from '../common/decorators/public.decorator.js';
@@ -183,6 +185,25 @@ export class AuthController {
   @HttpCode(200)
   async me(@CurrentUser() user: AuthenticatedUser): Promise<Record<string, unknown>> {
     return this.auth.getMe(user.id);
+  }
+
+  @SkipConsent()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Patch('me/avatar')
+  @HttpCode(200)
+  async updateMyAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(createZodValidationPipe(UpdateMyAvatarSchema)) dto: UpdateMyAvatarInput,
+    @Req() req: FastifyRequest,
+  ): Promise<Record<string, unknown>> {
+    const ua = req.headers['user-agent'];
+    return this.auth.updateMyAvatar(
+      user.id,
+      user.sessionId,
+      dto,
+      req.ip ?? '0.0.0.0',
+      typeof ua === 'string' ? ua : '',
+    );
   }
 
   @SkipConsent()

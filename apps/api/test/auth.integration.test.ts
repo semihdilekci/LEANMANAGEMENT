@@ -292,4 +292,85 @@ describe('Auth integration', () => {
     const body = JSON.parse(res.body) as { success: boolean; error: { code: string } };
     expect(body.error.code).toBe('AUTH_OIDC_DISABLED');
   });
+
+  it('PATCH /auth/me/avatar — günceller ve GET /auth/me avatarKey döner', async () => {
+    const srv = app.getHttpAdapter().getInstance();
+    const login = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        email: 'superadmin@leanmgmt.local',
+        password: 'AdminPass123!@#',
+      }),
+    });
+    expect(login.statusCode).toBe(200);
+    const loginJson = JSON.parse(login.body) as {
+      success: boolean;
+      data: { accessToken: string; csrfToken: string };
+    };
+    const token = loginJson.data.accessToken;
+    const csrfFromBody = loginJson.data.csrfToken;
+    const cookies = parseSetCookie(login.headers['set-cookie']);
+    const cookieHeader = `csrf_token=${cookies.csrf_token ?? ''}`;
+
+    const patch = await srv.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me/avatar',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'x-csrf-token': csrfFromBody,
+        cookie: cookieHeader,
+      },
+      payload: JSON.stringify({ avatarKey: 'night/clear/1' }),
+    });
+    expect(patch.statusCode).toBe(200);
+    const patchJson = JSON.parse(patch.body) as { success: boolean; data: { avatarKey: string } };
+    expect(patchJson.success).toBe(true);
+    expect(patchJson.data.avatarKey).toBe('night/clear/1');
+
+    const me = await srv.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(me.statusCode).toBe(200);
+    const meJson = JSON.parse(me.body) as { success: boolean; data: { avatarKey: string } };
+    expect(meJson.data.avatarKey).toBe('night/clear/1');
+  });
+
+  it('PATCH /auth/me/avatar — geçersiz key doğrulama hatası', async () => {
+    const srv = app.getHttpAdapter().getInstance();
+    const login = await srv.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({
+        email: 'superadmin@leanmgmt.local',
+        password: 'AdminPass123!@#',
+      }),
+    });
+    const loginJson = JSON.parse(login.body) as {
+      success: boolean;
+      data: { accessToken: string; csrfToken: string };
+    };
+    const token = loginJson.data.accessToken;
+    const csrfFromBody = loginJson.data.csrfToken;
+    const cookies = parseSetCookie(login.headers['set-cookie']);
+    const cookieHeader = `csrf_token=${cookies.csrf_token ?? ''}`;
+
+    const patch = await srv.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me/avatar',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+        'x-csrf-token': csrfFromBody,
+        cookie: cookieHeader,
+      },
+      payload: JSON.stringify({ avatarKey: 'invalid/key' }),
+    });
+    expect(patch.statusCode).toBe(400);
+  });
 });

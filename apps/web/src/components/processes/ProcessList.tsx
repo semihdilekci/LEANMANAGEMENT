@@ -66,7 +66,7 @@ export function ProcessList() {
       <div className="flex flex-wrap items-center gap-[var(--space-2)] border-b border-[var(--color-neutral-200)] pb-[var(--space-3)]">
         <button
           type="button"
-          className={`rounded-[var(--radius-md)] px-[var(--space-3)] py-[var(--space-2)] text-sm font-medium ${
+          className={`rounded-[var(--radius-sm)] px-[var(--space-6)] py-[var(--space-4)] text-sm font-medium leading-snug ${
             scope === 'my-started'
               ? 'bg-[var(--color-primary-100)] text-[var(--color-primary-800)]'
               : 'text-[var(--color-neutral-600)] hover:bg-[var(--color-neutral-50)]'
@@ -78,7 +78,7 @@ export function ProcessList() {
         <PermissionGate permission={Permission.PROCESS_VIEW_ALL}>
           <button
             type="button"
-            className={`rounded-[var(--radius-md)] px-[var(--space-3)] py-[var(--space-2)] text-sm font-medium ${
+            className={`rounded-[var(--radius-sm)] px-[var(--space-6)] py-[var(--space-4)] text-sm font-medium leading-snug ${
               scope === 'admin'
                 ? 'bg-[var(--color-primary-100)] text-[var(--color-primary-800)]'
                 : 'text-[var(--color-neutral-600)] hover:bg-[var(--color-neutral-50)]'
@@ -90,7 +90,7 @@ export function ProcessList() {
         </PermissionGate>
         <div className="ml-auto flex gap-[var(--space-2)]">
           <PermissionGate permission={Permission.PROCESS_KTI_START}>
-            <Link href="/processes/kti/start" className="ls-btn ls-btn--primary ls-btn--sm">
+            <Link href="/processes/kti/start" className="ls-btn ls-btn--primary ls-btn--md">
               Yeni KTİ Başlat
             </Link>
           </PermissionGate>
@@ -105,7 +105,7 @@ export function ProcessList() {
           <PermissionGate permission={Permission.PROCESS_KTI_START}>
             <Link
               href="/processes/kti/start"
-              className="ls-btn ls-btn--primary mt-[var(--space-4)] inline-flex"
+              className="ls-btn ls-btn--primary ls-btn--md mt-[var(--space-4)]"
             >
               Yeni KTİ Başlat
             </Link>

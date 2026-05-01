@@ -1,41 +1,34 @@
 # Lean Management Design System — Cursor Rules
 
-Bu proje Lean Management design system'ini kullanır.
+Bu paket **Cool Blue Dashboard** görsel dilini uygular; üst düzey sözleşme repo kökündeki **`design-system.json`** dosyasıdır (soğuk gri zemin, canlı mavi birincil renk).
 
-## Temel Kurallar
+## Temel kurallar
 
-1. **Sadece token kullan.** Renk, spacing, font-size, radius, shadow için
-   her zaman `tokens.css` içinde tanımlı CSS değişkenlerini kullan
-   (`var(--color-*)`, `var(--font-*)`, `var(--space-*)`, `var(--radius-*)`).
-   Hex kodu, px spacing değeri HARDCODE ETME — mutlaka token kullan.
+1. **Sadece token kullan.** Renk, spacing, font-size, radius, shadow için her zaman `tokens.css` içindeki CSS değişkenlerini kullan (`var(--color-*)`, `var(--font-*)`, `var(--space-*)`, `var(--radius-*)`, `var(--shadow-*)`, `var(--gradient-*)`). Hex veya ham `px` şelalesi yasak.
 
-2. **Component sınıfları önceliklidir.** Buton, kart, chip, alert, input,
-   toast gibi UI elemanları için `components.css` içindeki `ls-*` sınıflarını
-   kullan. Yeni sınıf icat etmeden önce var olanı ara.
+2. **Bileşen sınıfları önceliklidir.** `components.css` içindeki `ls-*` sınıflarını kullan. Yeni sınıf eklemeden önce mevcutları kontrol et.
 
-3. **Token yoksa önce ekle.** İhtiyacın olan bir değer `tokens.css`'de yoksa,
-   inline style yazmak yerine önce token olarak tanımla, sonra kullan.
+3. **Token yoksa önce ekle.** `tokens.css` ve gerekiyorsa `design-system.json` ile hizala; inline magic number yazma.
 
-4. **Tipografi:** Başlıklar için `var(--font-display)` (Plus Jakarta Sans),
-   body için `var(--font-body)` (Inter), kod için `var(--font-mono)`
-   (JetBrains Mono). Başka font ekleme.
+4. **Tipografi:** Başlık/display için `var(--font-display)` (Plus Jakarta Sans), gövde için `var(--font-body)` (Inter), kod için `var(--font-mono)` (JetBrains Mono).
 
 5. **Renk sistemi:**
-   - Primary: Terracotta (`--color-primary-500` base)
-   - Secondary: Sage yeşili (`--color-secondary-500` base)
-   - SLA / önem derecesi primary'nin alpha skalasıyla ifade edilir
-     (`--color-primary-a10` … `-a40`)
-   - `--color-danger` / `--color-success` / `--color-info` sadece
-     destructive, success, info durumları için.
+   - Primary: **mavi** — `var(--gradient-primary)`, `--color-primary-*` (ör. `#2563EB`, `#3B82F6`)
+   - Secondary: **slate** — `--color-secondary-*` (ikincil buton / nötr yüzey)
+   - Accent: **fuşya/magenta** — `--gradient-accent`, progress son segmenti, dikkat
+   - İstatistik rozetleri: `--color-stat-sky`, `--color-stat-mint`, `--color-stat-lavender`, `--color-stat-pink`, `--color-stat-peach`, `--color-stat-magenta` (komşu karolarda aynı rengi tekrar etme)
+   - Semantic: `--color-success`, `--color-warning`, `--color-danger`, `--color-info`
+   - SLA önem merdiveni: `--color-primary-a06` … `-a40`
 
-6. **İkonlar:** 24×24 stroke-based. `icons.jsx` içindeki `I.*` seti
-   dışına çıkmadan önce sor / kütüphaneye ekle. Emoji kullanma.
+6. **Layout:** Sayfa zemini `var(--gradient-page-bg)`; sidebar şeffaf kalır; kartlar beyaz + `var(--shadow-card)`.
 
-7. **Türkçe arayüz.** Kopya Türkçe olmalı (örn. "Kaydet", "İptal",
-   "KTİ Oluştur", "Onayla").
+7. **İkonlar:** 24×24 outline stroke (Lucide uyumlu). `icons.jsx` dışına çıkmadan önce kütüphaneye ekle.
 
-## Dosya Referansları
+8. **Kopya:** Türkçe arayüz metni ("Kaydet", "İptal", "KTİ Oluştur").
 
-- `@lean-design-system/tokens.css` — tüm tasarım tokenları
-- `@lean-design-system/components.css` — component sınıfları
-- `@lean-design-system/icons.jsx` — ikon kütüphanesi
+## Dosya referansları
+
+- `design-system.json` (repo kökü) — tasarım ilkeleri ve palet
+- `tokens.css` — tüm tasarım tokenları
+- `components.css` — bileşen sınıfları
+- `icons.jsx` — ikon seti

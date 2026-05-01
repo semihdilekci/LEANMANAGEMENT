@@ -18,6 +18,14 @@ export {
 } from './auth.schemas.js';
 
 export {
+  UpdateMyAvatarSchema,
+  WEATHER_AVATAR_KEYS,
+  weatherAvatarSrc,
+  type UpdateMyAvatarInput,
+  type WeatherAvatarKey,
+} from './profile.schemas.js';
+
+export {
   CreateMasterDataSchema,
   MASTER_DATA_TYPES,
   MasterDataIdParamSchema,

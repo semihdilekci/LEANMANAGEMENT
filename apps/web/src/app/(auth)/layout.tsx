@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { PageRouteCardMotion } from '@/components/layout/PageRouteCardMotion';
+
 export const metadata: Metadata = {
   title: 'Oturum',
 };
@@ -14,7 +16,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <p className="text-sm text-[var(--color-neutral-600)]">Kurumsal lean yönetim platformu</p>
       </header>
       <main className="w-full max-w-md" id="main-content">
-        {children}
+        <PageRouteCardMotion>{children}</PageRouteCardMotion>
       </main>
     </div>
   );

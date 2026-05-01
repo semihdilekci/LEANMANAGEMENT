@@ -1,0 +1,551 @@
+{
+  "designSystem": {
+    "name": "Cool Blue Dashboard System",
+    "version": "1.1.0",
+    "description": "Airy dashboard UI with a cool-toned canvas (~#F4F7FA family), vibrant blue as brand primary (navigation pill, links, headings), pure white cards with soft lift shadows, and multi-hue stat badges (sky, teal, lavender, pink, magenta). Reference visual language: sports/analytics dashboard — crisp, calm, low visual noise.",
+
+    "designPrinciples": {
+      "mood": "Calm, optimistic, premium-but-friendly. Avoids corporate sterility.",
+      "contrast": "Deliberately low. Text-on-background contrast is soft; the eye is guided by spacing, color hue shifts, and gradient pools rather than hard borders or heavy weights.",
+      "density": "Low to medium. Generous padding inside cards, generous gaps between cards. The layout breathes.",
+      "decoration": "Minimal but present — one or two accent gradients, occasional 3D rendered illustration as a hero element. No skeuomorphism, no heavy shadows, no glassmorphism.",
+      "emphasis": "Achieved through (1) a single saturated blue gradient CTA or banner, (2) large numeric values in stat tiles, (3) the active nav item filled with the primary blue gradient. Everything else recedes."
+    },
+
+    "colorSystem": {
+      "strategy": "Cool neutral canvas with slight blue tint; vibrant medium blue as the primary anchor; magenta/pink family as accent for segmented bars and markers. Page background reads as one continuous soft grey-blue field — cards are pure white (#FFFFFF) and separate via shadow only.",
+
+      "palette": {
+        "background": {
+          "type": "linear-gradient",
+          "description": "Soft horizontal/diagonal gradient from cool blue-grey through main app grey (#F4F7FA) to a slightly cooler blue-grey on the right — reads as one airy canvas.",
+          "stops": [
+            { "position": "0%", "hex": "#E8EEF5" },
+            { "position": "50%", "hex": "#F4F7FA" },
+            { "position": "100%", "hex": "#EEF2F7" }
+          ],
+          "angle": "90deg or 110deg"
+        },
+
+        "primary": {
+          "name": "Vibrant Blue",
+          "base": "#2563EB",
+          "gradient": {
+            "from": "#60A5FA",
+            "to": "#1D4ED8",
+            "angle": "135deg",
+            "usage": "Active sidebar pill, primary buttons, inline links, promotional banner gradient"
+          },
+          "usage": "Brand and primary actions — one strong blue gradient region per major layout band (e.g. active nav + one hero card)."
+        },
+
+        "accent": {
+          "name": "Magenta Pink",
+          "base": "#E879F9",
+          "gradient": {
+            "from": "#F472B6",
+            "to": "#E879F9",
+            "angle": "135deg"
+          },
+          "usage": "Last segment of multi-segment progress bars, versus markers, optional highlight chips"
+        },
+
+        "surface": {
+          "card": "#FFFFFF",
+          "cardAlpha": "rgba(255, 255, 255, 0.85)",
+          "cardElevated": "#FFFFFF",
+          "sidebar": "transparent (sits directly on page gradient)",
+          "description": "Cards are pure white or near-white with very high opacity. They float over the page gradient and rely on a soft shadow rather than a border to separate from the background."
+        },
+
+        "text": {
+          "primary": "#1A1A1A",
+          "secondary": "#707070",
+          "tertiary": "#9CA3AF",
+          "onPrimary": "#FFFFFF",
+          "onPrimaryMuted": "rgba(255, 255, 255, 0.82)",
+          "link": "#2563EB",
+          "description": "Primary body copy is charcoal; labels and secondary UI text use medium grey (#707070). Tertiary for table headers and quiet metadata."
+        },
+
+        "statTileAccents": {
+          "description": "Each stat tile uses a circular icon badge filled with a unique pastel hue. The badges are color-coded by category, creating a soft rainbow across the dashboard without overwhelming it.",
+          "swatches": [
+            { "name": "sky", "hex": "#93C5FD" },
+            { "name": "mint", "hex": "#5EEAD4" },
+            { "name": "lavender", "hex": "#C4B5FD" },
+            { "name": "pink", "hex": "#F9A8D4" },
+            { "name": "magenta", "hex": "#E879F9" }
+          ],
+          "rule": "Use one badge color per stat category. Never repeat a color in adjacent tiles."
+        },
+
+        "semantic": {
+          "success": "#10B981",
+          "warning": "#F59E0B",
+          "danger": "#F43F5E",
+          "info": "#0EA5E9",
+          "note": "Semantic hues stay saturated enough for status recognition while remaining adjacent to the cool blue UI."
+        },
+
+        "progressBar": {
+          "description": "Horizontal segmented bar: saturated blue, light blue, neutral grey, then magenta accent — rounded caps; segments may abut for a continuous pill strip.",
+          "segments": [
+            { "purpose": "primaryBlue", "hex": "#3B82F6" },
+            { "purpose": "lightBlue", "hex": "#93C5FD" },
+            { "purpose": "neutral", "hex": "#E5E7EB" },
+            { "purpose": "magenta", "hex": "#E879F9" }
+          ],
+          "height": "6-8px",
+          "borderRadius": "full (each segment)"
+        }
+      }
+    },
+
+    "typography": {
+      "fontFamily": {
+        "primary": "A geometric humanist sans-serif. Plus Jakarta Sans, Inter, DM Sans, or Manrope are appropriate. The face must have a friendly 'a' and 'g' and read warm rather than technical.",
+        "fallback": "system-ui, -apple-system, 'Segoe UI', sans-serif"
+      },
+
+      "scale": {
+        "display": {
+          "size": "44-52px",
+          "weight": 700,
+          "lineHeight": 1.1,
+          "letterSpacing": "-0.02em",
+          "usage": "Page title only. One per screen."
+        },
+        "h1": {
+          "size": "32-40px",
+          "weight": 700,
+          "lineHeight": 1.15,
+          "letterSpacing": "-0.015em"
+        },
+        "h2": {
+          "size": "24-28px",
+          "weight": 600,
+          "lineHeight": 1.25,
+          "usage": "Hero card headline (e.g. CTA card title)"
+        },
+        "cardTitle": {
+          "size": "16-18px",
+          "weight": 600,
+          "color": "text.primary",
+          "usage": "Card headers like 'Standings', 'Next game'"
+        },
+        "statValue": {
+          "size": "28-36px",
+          "weight": 700,
+          "letterSpacing": "-0.02em",
+          "usage": "The big number in a stat tile. This is the visual anchor of the tile."
+        },
+        "statLabel": {
+          "size": "11-12px",
+          "weight": 500,
+          "letterSpacing": "0.08em",
+          "textTransform": "uppercase",
+          "color": "text.tertiary",
+          "usage": "Tiny all-caps label above the stat value"
+        },
+        "body": {
+          "size": "14px",
+          "weight": 400,
+          "lineHeight": 1.5
+        },
+        "bodyStrong": {
+          "size": "14px",
+          "weight": 600
+        },
+        "tableHeader": {
+          "size": "11-12px",
+          "weight": 500,
+          "color": "text.tertiary",
+          "textTransform": "none",
+          "usage": "Column headers in data tables — kept very small and quiet"
+        },
+        "tableCell": {
+          "size": "13-14px",
+          "weight": 400,
+          "lineHeight": 1.4
+        },
+        "navItem": {
+          "size": "14px",
+          "weight": 500
+        },
+        "caption": {
+          "size": "11-12px",
+          "weight": 400,
+          "color": "text.tertiary"
+        },
+        "link": {
+          "size": "12-13px",
+          "weight": 500,
+          "color": "primary.base",
+          "usage": "'View all' style inline links — always paired top-right of a card header"
+        }
+      },
+
+      "rules": [
+        "Page title is the only display-sized text. Subordinate hierarchy uses size jumps of roughly 1.4x.",
+        "All-caps is reserved for stat labels and never used in body or headings.",
+        "Numeric values (stat values, table cells, scores) should sit slightly tighter than body text via letter-spacing -0.02em.",
+        "Avoid italics. Avoid underlines except on hovered links."
+      ]
+    },
+
+    "spacing": {
+      "unit": "4px base",
+      "scale": [0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80],
+
+      "applied": {
+        "pagePadding": "32-40px",
+        "cardPadding": "20-28px",
+        "cardGap": "20-24px",
+        "sectionGap": "24-32px",
+        "navItemPadding": "12px 16px",
+        "navItemGap": "4-8px",
+        "tableRowVerticalPadding": "12-16px",
+        "statTileInternalGap": "12px",
+        "iconToLabelGap": "12-16px",
+        "headerToContentGap": "20-24px"
+      },
+
+      "philosophy": "Whitespace is a primary design material in this system. When in doubt, use more padding rather than less. Cards should never feel crowded against their neighbors or against their own content."
+    },
+
+    "layout": {
+      "shell": {
+        "type": "fixed-sidebar + fluid-content",
+        "sidebarWidth": "220-260px",
+        "sidebarBackground": "transparent — sits on page gradient",
+        "contentPadding": "32-40px",
+        "topBar": {
+          "present": true,
+          "height": "64-72px",
+          "content": "greeting (left), search + notifications + avatar (right)",
+          "background": "transparent",
+          "border": "none"
+        }
+      },
+
+      "grid": {
+        "type": "asymmetric two-column dashboard grid",
+        "columns": "approx 5fr 7fr — left column narrower, right column wider",
+        "gap": "20-24px",
+        "alternative": "Single 12-col CSS grid with content spanning 5 and 7 columns respectively",
+        "rowBehavior": "Cards fill their grid cell; rows align to natural content height. Avoid forcing equal heights across the row."
+      },
+
+      "compositionPatterns": [
+        {
+          "name": "Hero pair",
+          "description": "Top of dashboard: two side-by-side summary cards of equal height — one shows a featured event, the other shows aggregate stats with a progress bar."
+        },
+        {
+          "name": "Detail + stat-grid + CTA",
+          "description": "Below hero: a tall data table on the left, paired with a 2x2 stat tile grid on the right, with a saturated promotional CTA card occupying the bottom-right corner."
+        },
+        {
+          "name": "Stat tile grid",
+          "description": "2-column or 4-column grid of small cards, each containing one icon badge + one tiny label + one large value."
+        }
+      ]
+    },
+
+    "shape": {
+      "borderRadius": {
+        "xs": "6px",
+        "sm": "10px",
+        "md": "14px",
+        "lg": "18px",
+        "xl": "24px",
+        "card": "20-24px",
+        "tile": "16-20px",
+        "button": "10-12px or full-pill",
+        "avatar": "full",
+        "iconBadge": "full (circular)",
+        "rule": "Border radius is generous everywhere. Nothing is sharp. Cards use lg/xl, buttons use md or pill, avatars and icon badges are always full circles."
+      },
+
+      "borders": {
+        "philosophy": "Borders are essentially absent. Separation is done via background color shifts, soft shadows, and whitespace — not lines.",
+        "exceptions": [
+          "Faint horizontal divider between table rows (1px, color #F0F1F3, optional)",
+          "Faint vertical divider in sidebar between primary nav and secondary nav (1px, color #E0E4E8, low opacity)"
+        ]
+      }
+    },
+
+    "elevation": {
+      "philosophy": "Shadows are large, soft, and low-opacity — they suggest cards are floating gently above the gradient page rather than stamped onto it.",
+      "shadows": {
+        "none": "none",
+        "card": "0 4px 24px rgba(30, 50, 70, 0.06)",
+        "cardHover": "0 8px 32px rgba(30, 50, 70, 0.10)",
+        "elevated": "0 12px 40px rgba(30, 50, 70, 0.12)",
+        "ctaCard": "0 12px 32px rgba(37, 99, 235, 0.22)"
+      },
+      "rules": [
+        "Never use shadows with blur < 16px — small tight shadows look 2010-era.",
+        "Always use a slight color tint in shadow (cool blue-gray for neutral cards, primary-tinted for the CTA card).",
+        "Stat tiles use the same shadow as cards — no nested elevation."
+      ]
+    },
+
+    "components": {
+      "sidebar": {
+        "structure": "logo (top) → primary nav group → divider → secondary nav group",
+        "background": "transparent over page gradient",
+        "navItem": {
+          "default": {
+            "padding": "12px 16px",
+            "borderRadius": "12px",
+            "background": "transparent",
+            "iconColor": "text.secondary",
+            "textColor": "text.secondary",
+            "iconSize": "20px"
+          },
+          "active": {
+            "background": "primary.gradient",
+            "borderRadius": "12px",
+            "iconColor": "white",
+            "textColor": "white",
+            "shadow": "soft primary-tinted shadow",
+            "rule": "Exactly one nav item is active. The active state is the most visually prominent element in the sidebar."
+          },
+          "hover": {
+            "background": "rgba(37, 99, 235, 0.07)"
+          }
+        },
+        "iconography": {
+          "style": "Outline icons, 1.5-2px stroke, rounded line caps and joins. Lucide, Phosphor (regular), or Tabler are good fits.",
+          "rule": "Sidebar icons are always outline — never filled, except inside the active pill where the icon may render in white outline on the gradient."
+        }
+      },
+
+      "topBar": {
+        "structure": "greeting text (left) | flex-spacer | search-icon-button + notification-icon-button + user-pill",
+        "greeting": {
+          "color": "primary.base",
+          "size": "14-15px",
+          "weight": 500,
+          "decoration": "may include a small emoji or decorative glyph at the end"
+        },
+        "iconButton": {
+          "size": "40px",
+          "shape": "circle",
+          "background": "transparent",
+          "iconColor": "primary.base",
+          "hover": "rgba(37, 99, 235, 0.08) circle"
+        },
+        "userPill": {
+          "structure": "avatar + name",
+          "avatarSize": "36px",
+          "avatarShape": "full circle",
+          "nameSize": "13-14px",
+          "nameWeight": 500,
+          "gap": "12px"
+        }
+      },
+
+      "card": {
+        "anatomy": "header-row (title + optional inline link, right-aligned) → content-region → optional footer",
+        "background": "surface.card",
+        "borderRadius": "card",
+        "padding": "card",
+        "shadow": "elevation.card",
+        "headerLink": {
+          "alignment": "right side of header row, vertically centered with title",
+          "style": "typography.link — primary-colored, small, weight 500"
+        }
+      },
+
+      "summaryCard": {
+        "description": "Top hero summary card. Contains a small meta-tag row (date/category) and a comparison or featured visual below.",
+        "structure": "title + viewAll-link (top row) → meta row (small badge + timestamp) → main visual region (e.g. two entities + a versus marker)",
+        "versusMarker": {
+          "shape": "circle",
+          "size": "32-40px",
+          "background": "accent.gradient",
+          "textColor": "white",
+          "textSize": "10-11px",
+          "textWeight": 700,
+          "purpose": "Visually anchors a comparison between two flanking entities"
+        }
+      },
+
+      "statSummaryCard": {
+        "description": "Aggregate stats card with a horizontal multi-segment progress bar above a row of labeled metrics.",
+        "structure": "title + viewAll-link → multi-segment progress bar → row of N metric columns (label above, value below)",
+        "metricColumn": {
+          "label": "typography.tableHeader",
+          "value": "size 18-22px, weight 600",
+          "alignment": "left-aligned, evenly distributed across row"
+        }
+      },
+
+      "dataTable": {
+        "background": "transparent within parent card",
+        "headerRow": {
+          "typography": "typography.tableHeader",
+          "color": "text.tertiary",
+          "padding": "8px 0 12px 0",
+          "border": "none — separation comes from color and spacing only"
+        },
+        "row": {
+          "padding": "12-16px 0",
+          "separator": "optional 1px line in #F0F1F3, low opacity",
+          "hover": "rgba(37, 99, 235, 0.045)"
+        },
+        "cellTypes": {
+          "rank": "small monospace-feeling number, text.tertiary, fixed width column",
+          "entity": "circular avatar/logo (24-28px) + name with weight 500",
+          "numeric": "tabular numbers, text.primary, right-aligned for totals or left-aligned for individual stats",
+          "highlight": "the rightmost 'total' or 'points' column is rendered slightly bolder (weight 600)"
+        }
+      },
+
+      "statTile": {
+        "description": "Compact metric card with one circular icon badge, a tiny uppercase label, and one large value.",
+        "size": "approx 200x110px",
+        "structure": "horizontal: [iconBadge] [label-stack: tiny-uppercase-label, large-value]",
+        "iconBadge": {
+          "size": "44-48px",
+          "shape": "full circle",
+          "background": "one of statTileAccents swatches",
+          "iconColor": "white or a darker tone of the same hue",
+          "iconSize": "20-22px",
+          "iconStyle": "filled glyph, simple silhouette"
+        },
+        "label": "typography.statLabel",
+        "value": "typography.statValue",
+        "rule": "Each stat tile in a grid uses a different statTileAccents color. Never repeat in adjacent tiles."
+      },
+
+      "ctaCard": {
+        "description": "Promotional card with saturated gradient background, prominent illustration, headline, and pill button. Acts as the visual climax of the layout.",
+        "background": "primary.gradient",
+        "borderRadius": "card",
+        "shadow": "elevation.ctaCard",
+        "padding": "card",
+        "structure": "left column (text content) | right column (3D illustration occupying 40-50% width)",
+        "preTitle": {
+          "size": "11-12px",
+          "weight": 600,
+          "letterSpacing": "0.08em",
+          "textTransform": "uppercase",
+          "color": "rgba(255,255,255,0.75)"
+        },
+        "title": {
+          "size": "24-28px",
+          "weight": 700,
+          "color": "white",
+          "lineHeight": 1.2
+        },
+        "button": {
+          "shape": "pill",
+          "background": "rgba(255,255,255,0.18) with subtle inner border, OR solid white with primary text",
+          "padding": "10px 20px",
+          "textSize": "13-14px",
+          "textWeight": 600
+        },
+        "illustration": {
+          "style": "3D rendered, soft-lit, isometric or three-quarter view, pastel palette matching primary+accent. Geometric primitives (spheres, cylinders, rings) on a circular podium. Renders like Spline or Blender soft-shaded.",
+          "size": "fills right ~45% of card, may overflow card bounds slightly for visual interest"
+        }
+      },
+
+      "buttons": {
+        "primary": {
+          "background": "primary.gradient",
+          "color": "white",
+          "borderRadius": "12px",
+          "padding": "12px 20px",
+          "fontSize": "14px",
+          "fontWeight": 600,
+          "shadow": "elevation.ctaCard"
+        },
+        "ghostOnGradient": {
+          "background": "rgba(255,255,255,0.18)",
+          "color": "white",
+          "borderRadius": "full pill",
+          "padding": "10px 20px",
+          "border": "1px solid rgba(255,255,255,0.25)"
+        },
+        "textLink": "typography.link — no background, no padding beyond click target"
+      },
+
+      "iconography": {
+        "style": "outline, 1.5-2px stroke, rounded caps/joins, 20-24px default size",
+        "filledStyle": "Used inside circular icon badges only — simple silhouette glyph in white",
+        "library": "Lucide, Phosphor (Regular), Tabler, or custom in matching style",
+        "rule": "Maintain a single icon family across the entire interface — do not mix outline and material/filled styles in nav or content."
+      }
+    },
+
+    "motion": {
+      "philosophy": "Subtle, soft, never bouncy. Animations should feel like the interface is exhaling.",
+      "durations": {
+        "instant": "100ms",
+        "fast": "180ms",
+        "base": "240ms",
+        "slow": "360ms"
+      },
+      "easings": {
+        "default": "cubic-bezier(0.32, 0.72, 0.24, 1)",
+        "enter": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "exit": "cubic-bezier(0.7, 0, 0.84, 0)"
+      },
+      "patterns": {
+        "navItemActive": "background gradient fades in over 240ms",
+        "cardHover": "shadow expands and translateY(-2px) over 240ms",
+        "ctaButton": "scale to 0.98 on press, scale back over 180ms",
+        "pageEnter": "cards fade up with 8px translate, staggered 40ms apart"
+      }
+    },
+
+    "imagery": {
+      "illustrations": {
+        "style": "3D rendered, pastel-lit, geometric. Soft global illumination, no hard shadows, matte finish on most surfaces with one or two glossy accents.",
+        "palette": "pulled from primary + accent + at most one neutral",
+        "subjects": "abstract geometric primitives (spheres, cylinders, tori, rings, podium discs). Avoid characters, faces, or literal scene depictions."
+      },
+      "avatars": {
+        "shape": "always full circle",
+        "borderTreatment": "none — no ring, no border. Avatar sits cleanly on its background.",
+        "fallback": "soft pastel background with monochrome initials in weight 600"
+      },
+      "logos": {
+        "container": "if a logo needs containing (e.g. inside a table row), wrap in a 24-28px circular surface with #FFFFFF background and elevation.card shadow"
+      }
+    },
+
+    "accessibility": {
+      "contrastNotes": "Cool grey canvas with charcoal (#1A1A1A) body copy on white cards should meet WCAG AA for normal text. Medium grey (#707070) labels — verify on tinted backgrounds. Magenta/blue segments are supplementary — pair progress bars with numeric labels.",
+      "focusRing": {
+        "style": "2px solid primary.base, offset 2px, borderRadius matches element",
+        "rule": "Never remove focus rings. The default browser ring should be replaced with this branded ring, not eliminated."
+      },
+      "minTouchTarget": "40x40px",
+      "colorIndependence": "Never rely on the multi-segment progress bar's hue alone to convey meaning. Pair with labels."
+    },
+
+    "doAndDont": {
+      "do": [
+        "Let the page gradient breathe — keep the sidebar transparent over it.",
+        "Use exactly one filled-gradient element per major region (nav active state, CTA card).",
+        "Lean on whitespace and soft shadows for hierarchy, not borders.",
+        "Vary stat tile icon-badge colors across the grid for a soft polychromatic rhythm.",
+        "Keep numeric values large and confident; keep their labels small and quiet."
+      ],
+      "dont": [
+        "Don't add hard borders or 1px dividers around cards.",
+        "Don't use saturated gradients on more than 1-2 elements per screen — they lose meaning.",
+        "Don't use pure black text or pure white shadows.",
+        "Don't mix outline and filled icons in the same region.",
+        "Don't crowd cards — if it feels tight, the answer is more padding."
+      ]
+    }
+  }
+}

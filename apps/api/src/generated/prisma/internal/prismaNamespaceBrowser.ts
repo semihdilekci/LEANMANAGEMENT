@@ -234,6 +234,7 @@ export const UserScalarFieldEnum = {
   lockedUntil: 'lockedUntil',
   lastLoginAt: 'lastLoginAt',
   externalSubject: 'externalSubject',
+  avatarKey: 'avatarKey',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   createdByUserId: 'createdByUserId',

@@ -1,17 +1,18 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma, type User } from '@leanmgmt/prisma-client';
 
-import type {
-  CreateUserInput,
-  UpdateUserInput,
-  UserAnonymizeInput,
-  UserDeactivateInput,
-  UserListQuery,
-  UserReactivateInput,
-  UserRoleItem,
+import {
+  WEATHER_AVATAR_KEYS,
+  type CreateUserInput,
+  type UpdateUserInput,
+  type UserAnonymizeInput,
+  type UserDeactivateInput,
+  type UserListQuery,
+  type UserReactivateInput,
+  type UserRoleItem,
 } from '@leanmgmt/shared-schemas';
 
 import { AuditLogService } from '../common/audit/audit-log.service.js';
@@ -99,6 +100,7 @@ export class UsersService {
           ? this.encryption.decryptPhone(user.phoneEncrypted, user.phoneDek)
           : null,
       employeeType: user.employeeType,
+      avatarKey: user.avatarKey,
       companyId: user.companyId,
       locationId: user.locationId,
       departmentId: user.departmentId,
@@ -316,6 +318,7 @@ export class UsersService {
         managerEmailEncrypted: (managerEmailEncrypted ?? null) as Prisma.Bytes | null,
         managerEmailBlindIndex: managerEmailBlindIndex ?? null,
         hireDate: dto.hireDate ? new Date(dto.hireDate) : null,
+        avatarKey: WEATHER_AVATAR_KEYS[randomInt(WEATHER_AVATAR_KEYS.length)],
         createdByUserId: actor.id,
       },
       include: USER_DETAIL_INCLUDE,

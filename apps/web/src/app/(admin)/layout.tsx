@@ -6,6 +6,7 @@ import { useEffect, useMemo } from 'react';
 
 import { Permission } from '@leanmgmt/shared-types';
 
+import { PageRouteCardMotion } from '@/components/layout/PageRouteCardMotion';
 import { useAuthStore } from '@/stores/auth-store';
 
 const ADMIN_ENTRY_ANY_OF: Permission[] = [
@@ -127,7 +128,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 p-[var(--space-6)]" id="main-content">
-        {children}
+        <PageRouteCardMotion>{children}</PageRouteCardMotion>
       </main>
     </div>
   );

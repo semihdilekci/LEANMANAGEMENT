@@ -1,0 +1,36 @@
+<svg width="84" height="84" viewBox="0 0 84 84" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Weather / Morning / Windy ">
+<g clip-path="url(#clip0_2_177)">
+<rect width="84" height="84" rx="42" fill="url(#paint0_linear_2_177)"/>
+<g id="Group">
+<rect id="Rectangle" x="46" y="48" width="11" height="4" fill="#34516D"/>
+<path id="Path" fill-rule="evenodd" clip-rule="evenodd" d="M59 48.5C59 45.2345 56.913 42.4564 54 41.4268C53.2181 41.1504 52.3766 41 51.5 41C47.3579 41 44 44.3579 44 48.5" fill="#D1E6FF"/>
+<path id="Path_2" fill-rule="evenodd" clip-rule="evenodd" d="M59 48.5C59 44.3579 55.6421 41 51.5 41V48.5" fill="#BED4EE"/>
+<path id="Path 58" fill-rule="evenodd" clip-rule="evenodd" d="M42 104.656H61.5943L58.2733 51.0404H44.5232L42 104.656Z" fill="#D1E6FF"/>
+<path id="Shape" d="M58.2733 51.0404L61.5943 104.656L57 85L54.6056 51.0404H58.2733Z" fill="#BED4EE"/>
+<g id="Group 4">
+<g id="Group 3">
+<path id="Stroke 130" opacity="0.597935" d="M35.9064 54.0993C35.0523 49.3818 36.5265 44.7138 39.5678 41.3439" stroke="white" stroke-width="1.88235" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stroke 131" opacity="0.597935" d="M65.288 46.8717C63.8571 42.2961 60.3848 38.8449 56.1272 37.2705" stroke="white" stroke-width="1.88235" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Stroke 134" fill-rule="evenodd" clip-rule="evenodd" d="M47.1629 48.4223L44.0155 35.6273C43.643 34.1129 44.5765 32.5816 46.1009 32.2066C47.6252 31.8316 49.1626 32.7551 49.5351 34.2695L52.6826 47.0645" fill="#EDF1F6"/>
+<path id="Stroke 138" d="M49.5351 34.2695C49.1626 32.7551 47.6252 31.8316 46.1009 32.2066L50 48L52.6826 47.0645L49.5351 34.2695Z" fill="#E3EAF1"/>
+<path id="Stroke 135" fill-rule="evenodd" clip-rule="evenodd" d="M50.0488 56.0463L40.4691 65.1874C39.3351 66.2689 37.5366 66.2354 36.4523 65.1112C35.367 63.9874 35.4071 62.199 36.5411 61.1175L46.1208 51.9764" fill="#F0F3F6"/>
+<path id="Stroke 139" d="M36.5411 61.1175C35.4071 62.199 35.367 63.9874 36.4523 65.1112L48.5 54L46.1208 51.9764L36.5411 61.1175Z" fill="#E3EAF1"/>
+<path id="Stroke 136" fill-rule="evenodd" clip-rule="evenodd" d="M53.6629 55.1573L66.39 58.8112C67.8963 59.2432 69.474 58.3792 69.9131 56.8803C70.3531 55.3812 69.4879 53.8155 67.9817 53.3835L55.2546 49.7296" fill="#F6FAFF"/>
+<path id="Path_3" d="M66.3899 58.8112L53.6628 55.1572L54.5228 52.7436L69.913 56.8803C69.4739 58.3792 67.8962 59.2432 66.3899 58.8112Z" fill="#E3EAF1"/>
+<path id="Stroke 137" fill-rule="evenodd" clip-rule="evenodd" d="M49.698 46.8297C52.238 46.2049 54.8011 47.7445 55.4218 50.2679C56.0425 52.7912 54.4861 55.3442 51.9462 55.969C49.4062 56.5938 46.8431 55.0542 46.2223 52.5308C45.6016 50.0074 47.158 47.4545 49.698 46.8297Z" fill="#4E75B2"/>
+</g>
+</g>
+</g>
+</g>
+</g>
+<defs>
+<linearGradient id="paint0_linear_2_177" x1="0" y1="84" x2="84" y2="84" gradientUnits="userSpaceOnUse">
+<stop stop-color="#81B6F1"/>
+<stop offset="1" stop-color="#9CC1FF"/>
+</linearGradient>
+<clipPath id="clip0_2_177">
+<rect width="84" height="84" rx="42" fill="white"/>
+</clipPath>
+</defs>
+</svg>

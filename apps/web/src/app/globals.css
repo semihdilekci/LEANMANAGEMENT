@@ -6,7 +6,30 @@
 
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--color-primary-500, #2d6a4f);
+    outline: 2px solid var(--color-primary-600, #2563eb);
     outline-offset: 2px;
+  }
+}
+
+/* Rota değişiminde kart girişi — PageRouteCardMotion; prefers-reduced-motion: 25-frontend-a11y */
+@keyframes lm-page-card-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-route-card-motion .ls-card {
+  --card-enter-delay: 0ms;
+  animation: lm-page-card-enter var(--dur-medium) cubic-bezier(0.22, 1, 0.36, 1) var(--card-enter-delay) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-route-card-motion .ls-card {
+    animation: none;
   }
 }

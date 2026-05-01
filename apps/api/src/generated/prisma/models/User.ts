@@ -68,6 +68,7 @@ export type UserMinAggregateOutputType = {
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
   externalSubject: string | null;
+  avatarKey: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
   createdByUserId: string | null;
@@ -106,6 +107,7 @@ export type UserMaxAggregateOutputType = {
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
   externalSubject: string | null;
+  avatarKey: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
   createdByUserId: string | null;
@@ -144,6 +146,7 @@ export type UserCountAggregateOutputType = {
   lockedUntil: number;
   lastLoginAt: number;
   externalSubject: number;
+  avatarKey: number;
   createdAt: number;
   updatedAt: number;
   createdByUserId: number;
@@ -193,6 +196,7 @@ export type UserMinAggregateInputType = {
   lockedUntil?: true;
   lastLoginAt?: true;
   externalSubject?: true;
+  avatarKey?: true;
   createdAt?: true;
   updatedAt?: true;
   createdByUserId?: true;
@@ -231,6 +235,7 @@ export type UserMaxAggregateInputType = {
   lockedUntil?: true;
   lastLoginAt?: true;
   externalSubject?: true;
+  avatarKey?: true;
   createdAt?: true;
   updatedAt?: true;
   createdByUserId?: true;
@@ -269,6 +274,7 @@ export type UserCountAggregateInputType = {
   lockedUntil?: true;
   lastLoginAt?: true;
   externalSubject?: true;
+  avatarKey?: true;
   createdAt?: true;
   updatedAt?: true;
   createdByUserId?: true;
@@ -395,6 +401,7 @@ export type UserGroupByOutputType = {
   lockedUntil: Date | null;
   lastLoginAt: Date | null;
   externalSubject: string | null;
+  avatarKey: string;
   createdAt: Date;
   updatedAt: Date;
   createdByUserId: string | null;
@@ -453,6 +460,7 @@ export type UserWhereInput = {
   lockedUntil?: Prisma.DateTimeNullableFilter<'User'> | Date | string | null;
   lastLoginAt?: Prisma.DateTimeNullableFilter<'User'> | Date | string | null;
   externalSubject?: Prisma.StringNullableFilter<'User'> | string | null;
+  avatarKey?: Prisma.StringFilter<'User'> | string;
   createdAt?: Prisma.DateTimeFilter<'User'> | Date | string;
   updatedAt?: Prisma.DateTimeFilter<'User'> | Date | string;
   createdByUserId?: Prisma.StringNullableFilter<'User'> | string | null;
@@ -536,6 +544,7 @@ export type UserOrderByWithRelationInput = {
   lockedUntil?: Prisma.SortOrderInput | Prisma.SortOrder;
   lastLoginAt?: Prisma.SortOrderInput | Prisma.SortOrder;
   externalSubject?: Prisma.SortOrderInput | Prisma.SortOrder;
+  avatarKey?: Prisma.SortOrder;
   createdAt?: Prisma.SortOrder;
   updatedAt?: Prisma.SortOrder;
   createdByUserId?: Prisma.SortOrderInput | Prisma.SortOrder;
@@ -620,6 +629,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<
     lockedUntil?: Prisma.DateTimeNullableFilter<'User'> | Date | string | null;
     lastLoginAt?: Prisma.DateTimeNullableFilter<'User'> | Date | string | null;
     externalSubject?: Prisma.StringNullableFilter<'User'> | string | null;
+    avatarKey?: Prisma.StringFilter<'User'> | string;
     createdAt?: Prisma.DateTimeFilter<'User'> | Date | string;
     updatedAt?: Prisma.DateTimeFilter<'User'> | Date | string;
     createdByUserId?: Prisma.StringNullableFilter<'User'> | string | null;
@@ -708,6 +718,7 @@ export type UserOrderByWithAggregationInput = {
   lockedUntil?: Prisma.SortOrderInput | Prisma.SortOrder;
   lastLoginAt?: Prisma.SortOrderInput | Prisma.SortOrder;
   externalSubject?: Prisma.SortOrderInput | Prisma.SortOrder;
+  avatarKey?: Prisma.SortOrder;
   createdAt?: Prisma.SortOrder;
   updatedAt?: Prisma.SortOrder;
   createdByUserId?: Prisma.SortOrderInput | Prisma.SortOrder;
@@ -754,6 +765,7 @@ export type UserScalarWhereWithAggregatesInput = {
   lockedUntil?: Prisma.DateTimeNullableWithAggregatesFilter<'User'> | Date | string | null;
   lastLoginAt?: Prisma.DateTimeNullableWithAggregatesFilter<'User'> | Date | string | null;
   externalSubject?: Prisma.StringNullableWithAggregatesFilter<'User'> | string | null;
+  avatarKey?: Prisma.StringWithAggregatesFilter<'User'> | string;
   createdAt?: Prisma.DateTimeWithAggregatesFilter<'User'> | Date | string;
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<'User'> | Date | string;
   createdByUserId?: Prisma.StringNullableWithAggregatesFilter<'User'> | string | null;
@@ -783,6 +795,7 @@ export type UserCreateInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -862,6 +875,7 @@ export type UserUncheckedCreateInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -923,6 +937,7 @@ export type UserUpdateInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -1002,6 +1017,7 @@ export type UserUncheckedUpdateInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1072,6 +1088,7 @@ export type UserCreateManyInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -1101,6 +1118,7 @@ export type UserUpdateManyMutationInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
 };
@@ -1138,6 +1156,7 @@ export type UserUncheckedUpdateManyInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -1191,6 +1210,7 @@ export type UserCountOrderByAggregateInput = {
   lockedUntil?: Prisma.SortOrder;
   lastLoginAt?: Prisma.SortOrder;
   externalSubject?: Prisma.SortOrder;
+  avatarKey?: Prisma.SortOrder;
   createdAt?: Prisma.SortOrder;
   updatedAt?: Prisma.SortOrder;
   createdByUserId?: Prisma.SortOrder;
@@ -1234,6 +1254,7 @@ export type UserMaxOrderByAggregateInput = {
   lockedUntil?: Prisma.SortOrder;
   lastLoginAt?: Prisma.SortOrder;
   externalSubject?: Prisma.SortOrder;
+  avatarKey?: Prisma.SortOrder;
   createdAt?: Prisma.SortOrder;
   updatedAt?: Prisma.SortOrder;
   createdByUserId?: Prisma.SortOrder;
@@ -1272,6 +1293,7 @@ export type UserMinOrderByAggregateInput = {
   lockedUntil?: Prisma.SortOrder;
   lastLoginAt?: Prisma.SortOrder;
   externalSubject?: Prisma.SortOrder;
+  avatarKey?: Prisma.SortOrder;
   createdAt?: Prisma.SortOrder;
   updatedAt?: Prisma.SortOrder;
   createdByUserId?: Prisma.SortOrder;
@@ -3041,6 +3063,7 @@ export type UserCreateWithoutCompaniesCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -3119,6 +3142,7 @@ export type UserUncheckedCreateWithoutCompaniesCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -3187,6 +3211,7 @@ export type UserCreateWithoutCompanyInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   location: Prisma.LocationCreateNestedOneWithoutUsersInput;
@@ -3264,6 +3289,7 @@ export type UserUncheckedCreateWithoutCompanyInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -3358,6 +3384,7 @@ export type UserUpdateWithoutCompaniesCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -3436,6 +3463,7 @@ export type UserUncheckedUpdateWithoutCompaniesCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -3536,6 +3564,7 @@ export type UserScalarWhereInput = {
   lockedUntil?: Prisma.DateTimeNullableFilter<'User'> | Date | string | null;
   lastLoginAt?: Prisma.DateTimeNullableFilter<'User'> | Date | string | null;
   externalSubject?: Prisma.StringNullableFilter<'User'> | string | null;
+  avatarKey?: Prisma.StringFilter<'User'> | string;
   createdAt?: Prisma.DateTimeFilter<'User'> | Date | string;
   updatedAt?: Prisma.DateTimeFilter<'User'> | Date | string;
   createdByUserId?: Prisma.StringNullableFilter<'User'> | string | null;
@@ -3565,6 +3594,7 @@ export type UserCreateWithoutLocationsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -3643,6 +3673,7 @@ export type UserUncheckedCreateWithoutLocationsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -3711,6 +3742,7 @@ export type UserCreateWithoutLocationInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -3788,6 +3820,7 @@ export type UserUncheckedCreateWithoutLocationInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -3882,6 +3915,7 @@ export type UserUpdateWithoutLocationsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -3960,6 +3994,7 @@ export type UserUncheckedUpdateWithoutLocationsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -4048,6 +4083,7 @@ export type UserCreateWithoutDepartmentsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -4126,6 +4162,7 @@ export type UserUncheckedCreateWithoutDepartmentsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -4194,6 +4231,7 @@ export type UserCreateWithoutDepartmentInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -4271,6 +4309,7 @@ export type UserUncheckedCreateWithoutDepartmentInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -4365,6 +4404,7 @@ export type UserUpdateWithoutDepartmentsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -4443,6 +4483,7 @@ export type UserUncheckedUpdateWithoutDepartmentsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -4531,6 +4572,7 @@ export type UserCreateWithoutLevelsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -4609,6 +4651,7 @@ export type UserUncheckedCreateWithoutLevelsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -4677,6 +4720,7 @@ export type UserCreateWithoutLevelInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -4754,6 +4798,7 @@ export type UserUncheckedCreateWithoutLevelInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -4848,6 +4893,7 @@ export type UserUpdateWithoutLevelsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -4926,6 +4972,7 @@ export type UserUncheckedUpdateWithoutLevelsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -5011,6 +5058,7 @@ export type UserCreateWithoutPositionsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -5089,6 +5137,7 @@ export type UserUncheckedCreateWithoutPositionsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -5157,6 +5206,7 @@ export type UserCreateWithoutPositionInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -5234,6 +5284,7 @@ export type UserUncheckedCreateWithoutPositionInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -5328,6 +5379,7 @@ export type UserUpdateWithoutPositionsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -5406,6 +5458,7 @@ export type UserUncheckedUpdateWithoutPositionsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -5494,6 +5547,7 @@ export type UserCreateWithoutTeamsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -5572,6 +5626,7 @@ export type UserUncheckedCreateWithoutTeamsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -5640,6 +5695,7 @@ export type UserCreateWithoutTeamInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -5717,6 +5773,7 @@ export type UserUncheckedCreateWithoutTeamInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -5808,6 +5865,7 @@ export type UserUpdateWithoutTeamsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -5886,6 +5944,7 @@ export type UserUncheckedUpdateWithoutTeamsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -5965,6 +6024,7 @@ export type UserCreateWithoutWorkAreasCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -6043,6 +6103,7 @@ export type UserUncheckedCreateWithoutWorkAreasCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -6111,6 +6172,7 @@ export type UserCreateWithoutWorkAreaInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -6188,6 +6250,7 @@ export type UserUncheckedCreateWithoutWorkAreaInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -6282,6 +6345,7 @@ export type UserUpdateWithoutWorkAreasCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -6360,6 +6424,7 @@ export type UserUncheckedUpdateWithoutWorkAreasCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -6448,6 +6513,7 @@ export type UserCreateWithoutWorkSubAreasCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -6526,6 +6592,7 @@ export type UserUncheckedCreateWithoutWorkSubAreasCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -6594,6 +6661,7 @@ export type UserCreateWithoutWorkSubAreaInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -6671,6 +6739,7 @@ export type UserUncheckedCreateWithoutWorkSubAreaInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -6765,6 +6834,7 @@ export type UserUpdateWithoutWorkSubAreasCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -6843,6 +6913,7 @@ export type UserUncheckedUpdateWithoutWorkSubAreasCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -6931,6 +7002,7 @@ export type UserCreateWithoutDirectReportsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -7009,6 +7081,7 @@ export type UserUncheckedCreateWithoutDirectReportsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -7077,6 +7150,7 @@ export type UserCreateWithoutManagerInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -7154,6 +7228,7 @@ export type UserUncheckedCreateWithoutManagerInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -7228,6 +7303,7 @@ export type UserCreateWithoutCreatedUsersInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -7306,6 +7382,7 @@ export type UserUncheckedCreateWithoutCreatedUsersInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -7374,6 +7451,7 @@ export type UserCreateWithoutCreatedByUserInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -7452,6 +7530,7 @@ export type UserUncheckedCreateWithoutCreatedByUserInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   directReports?: Prisma.UserUncheckedCreateNestedManyWithoutManagerInput;
@@ -7545,6 +7624,7 @@ export type UserUpdateWithoutDirectReportsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -7623,6 +7703,7 @@ export type UserUncheckedUpdateWithoutDirectReportsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -7731,6 +7812,7 @@ export type UserUpdateWithoutCreatedUsersInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -7809,6 +7891,7 @@ export type UserUncheckedUpdateWithoutCreatedUsersInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -7897,6 +7980,7 @@ export type UserCreateWithoutSessionsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -7975,6 +8059,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -8063,6 +8148,7 @@ export type UserUpdateWithoutSessionsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -8141,6 +8227,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -8201,6 +8288,7 @@ export type UserCreateWithoutPasswordHistoriesInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -8279,6 +8367,7 @@ export type UserUncheckedCreateWithoutPasswordHistoriesInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -8367,6 +8456,7 @@ export type UserUpdateWithoutPasswordHistoriesInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -8445,6 +8535,7 @@ export type UserUncheckedUpdateWithoutPasswordHistoriesInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -8505,6 +8596,7 @@ export type UserCreateWithoutPasswordResetTokensInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -8583,6 +8675,7 @@ export type UserUncheckedCreateWithoutPasswordResetTokensInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -8671,6 +8764,7 @@ export type UserUpdateWithoutPasswordResetTokensInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -8749,6 +8843,7 @@ export type UserUncheckedUpdateWithoutPasswordResetTokensInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -8809,6 +8904,7 @@ export type UserCreateWithoutLoginAttemptsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -8887,6 +8983,7 @@ export type UserUncheckedCreateWithoutLoginAttemptsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -8975,6 +9072,7 @@ export type UserUpdateWithoutLoginAttemptsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -9053,6 +9151,7 @@ export type UserUncheckedUpdateWithoutLoginAttemptsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -9113,6 +9212,7 @@ export type UserCreateWithoutRolesCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -9191,6 +9291,7 @@ export type UserUncheckedCreateWithoutRolesCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -9279,6 +9380,7 @@ export type UserUpdateWithoutRolesCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -9357,6 +9459,7 @@ export type UserUncheckedUpdateWithoutRolesCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -9417,6 +9520,7 @@ export type UserCreateWithoutRoleRulesCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -9495,6 +9599,7 @@ export type UserUncheckedCreateWithoutRoleRulesCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -9583,6 +9688,7 @@ export type UserUpdateWithoutRoleRulesCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -9661,6 +9767,7 @@ export type UserUncheckedUpdateWithoutRoleRulesCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -9721,6 +9828,7 @@ export type UserCreateWithoutUserRolesInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -9799,6 +9907,7 @@ export type UserUncheckedCreateWithoutUserRolesInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -9867,6 +9976,7 @@ export type UserCreateWithoutUserRolesAssignedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -9945,6 +10055,7 @@ export type UserUncheckedCreateWithoutUserRolesAssignedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -10033,6 +10144,7 @@ export type UserUpdateWithoutUserRolesInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -10111,6 +10223,7 @@ export type UserUncheckedUpdateWithoutUserRolesInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -10191,6 +10304,7 @@ export type UserUpdateWithoutUserRolesAssignedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -10269,6 +10383,7 @@ export type UserUncheckedUpdateWithoutUserRolesAssignedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -10329,6 +10444,7 @@ export type UserCreateWithoutRolesGrantedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -10407,6 +10523,7 @@ export type UserUncheckedCreateWithoutRolesGrantedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -10495,6 +10612,7 @@ export type UserUpdateWithoutRolesGrantedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -10573,6 +10691,7 @@ export type UserUncheckedUpdateWithoutRolesGrantedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -10633,6 +10752,7 @@ export type UserCreateWithoutConsentVersionsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -10711,6 +10831,7 @@ export type UserUncheckedCreateWithoutConsentVersionsCreatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -10799,6 +10920,7 @@ export type UserUpdateWithoutConsentVersionsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -10877,6 +10999,7 @@ export type UserUncheckedUpdateWithoutConsentVersionsCreatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -10937,6 +11060,7 @@ export type UserCreateWithoutUserConsentsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -11015,6 +11139,7 @@ export type UserUncheckedCreateWithoutUserConsentsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -11103,6 +11228,7 @@ export type UserUpdateWithoutUserConsentsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -11181,6 +11307,7 @@ export type UserUncheckedUpdateWithoutUserConsentsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -11241,6 +11368,7 @@ export type UserCreateWithoutAuditLogsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -11319,6 +11447,7 @@ export type UserUncheckedCreateWithoutAuditLogsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -11407,6 +11536,7 @@ export type UserUpdateWithoutAuditLogsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -11485,6 +11615,7 @@ export type UserUncheckedUpdateWithoutAuditLogsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -11545,6 +11676,7 @@ export type UserCreateWithoutSystemSettingsUpdatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -11623,6 +11755,7 @@ export type UserUncheckedCreateWithoutSystemSettingsUpdatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -11711,6 +11844,7 @@ export type UserUpdateWithoutSystemSettingsUpdatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -11789,6 +11923,7 @@ export type UserUncheckedUpdateWithoutSystemSettingsUpdatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -11849,6 +11984,7 @@ export type UserCreateWithoutProcessesStartedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -11927,6 +12063,7 @@ export type UserUncheckedCreateWithoutProcessesStartedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -11995,6 +12132,7 @@ export type UserCreateWithoutProcessesCancelledInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -12073,6 +12211,7 @@ export type UserUncheckedCreateWithoutProcessesCancelledInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -12161,6 +12300,7 @@ export type UserUpdateWithoutProcessesStartedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -12239,6 +12379,7 @@ export type UserUncheckedUpdateWithoutProcessesStartedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -12319,6 +12460,7 @@ export type UserUpdateWithoutProcessesCancelledInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -12397,6 +12539,7 @@ export type UserUncheckedUpdateWithoutProcessesCancelledInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -12457,6 +12600,7 @@ export type UserCreateWithoutTasksCompletedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -12535,6 +12679,7 @@ export type UserUncheckedCreateWithoutTasksCompletedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -12603,6 +12748,7 @@ export type UserCreateWithoutTasksClaimedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -12681,6 +12827,7 @@ export type UserUncheckedCreateWithoutTasksClaimedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -12769,6 +12916,7 @@ export type UserUpdateWithoutTasksCompletedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -12847,6 +12995,7 @@ export type UserUncheckedUpdateWithoutTasksCompletedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -12927,6 +13076,7 @@ export type UserUpdateWithoutTasksClaimedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -13005,6 +13155,7 @@ export type UserUncheckedUpdateWithoutTasksClaimedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -13065,6 +13216,7 @@ export type UserCreateWithoutTaskAssignmentsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -13143,6 +13295,7 @@ export type UserUncheckedCreateWithoutTaskAssignmentsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -13231,6 +13384,7 @@ export type UserUpdateWithoutTaskAssignmentsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -13309,6 +13463,7 @@ export type UserUncheckedUpdateWithoutTaskAssignmentsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -13369,6 +13524,7 @@ export type UserCreateWithoutDocumentsUploadedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -13447,6 +13603,7 @@ export type UserUncheckedCreateWithoutDocumentsUploadedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -13535,6 +13692,7 @@ export type UserUpdateWithoutDocumentsUploadedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -13613,6 +13771,7 @@ export type UserUncheckedUpdateWithoutDocumentsUploadedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -13673,6 +13832,7 @@ export type UserCreateWithoutNotificationsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -13751,6 +13911,7 @@ export type UserUncheckedCreateWithoutNotificationsInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -13839,6 +14000,7 @@ export type UserUpdateWithoutNotificationsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -13917,6 +14079,7 @@ export type UserUncheckedUpdateWithoutNotificationsInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -13977,6 +14140,7 @@ export type UserCreateWithoutNotificationPreferencesInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -14055,6 +14219,7 @@ export type UserUncheckedCreateWithoutNotificationPreferencesInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -14143,6 +14308,7 @@ export type UserUpdateWithoutNotificationPreferencesInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -14221,6 +14387,7 @@ export type UserUncheckedUpdateWithoutNotificationPreferencesInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -14281,6 +14448,7 @@ export type UserCreateWithoutEmailTemplatesUpdatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   company: Prisma.CompanyCreateNestedOneWithoutUsersInput;
@@ -14359,6 +14527,7 @@ export type UserUncheckedCreateWithoutEmailTemplatesUpdatedInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -14447,6 +14616,7 @@ export type UserUpdateWithoutEmailTemplatesUpdatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -14525,6 +14695,7 @@ export type UserUncheckedUpdateWithoutEmailTemplatesUpdatedInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -14593,6 +14764,7 @@ export type UserCreateManyCompanyInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -14622,6 +14794,7 @@ export type UserUpdateWithoutCompanyInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   location?: Prisma.LocationUpdateOneRequiredWithoutUsersNestedInput;
@@ -14699,6 +14872,7 @@ export type UserUncheckedUpdateWithoutCompanyInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -14768,6 +14942,7 @@ export type UserUncheckedUpdateManyWithoutCompanyInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -14805,6 +14980,7 @@ export type UserCreateManyLocationInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -14834,6 +15010,7 @@ export type UserUpdateWithoutLocationInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -14911,6 +15088,7 @@ export type UserUncheckedUpdateWithoutLocationInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -14980,6 +15158,7 @@ export type UserUncheckedUpdateManyWithoutLocationInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15017,6 +15196,7 @@ export type UserCreateManyDepartmentInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -15046,6 +15226,7 @@ export type UserUpdateWithoutDepartmentInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -15123,6 +15304,7 @@ export type UserUncheckedUpdateWithoutDepartmentInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15192,6 +15374,7 @@ export type UserUncheckedUpdateManyWithoutDepartmentInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15229,6 +15412,7 @@ export type UserCreateManyLevelInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -15258,6 +15442,7 @@ export type UserUpdateWithoutLevelInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -15335,6 +15520,7 @@ export type UserUncheckedUpdateWithoutLevelInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15404,6 +15590,7 @@ export type UserUncheckedUpdateManyWithoutLevelInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15441,6 +15628,7 @@ export type UserCreateManyPositionInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -15470,6 +15658,7 @@ export type UserUpdateWithoutPositionInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -15547,6 +15736,7 @@ export type UserUncheckedUpdateWithoutPositionInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15616,6 +15806,7 @@ export type UserUncheckedUpdateManyWithoutPositionInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15653,6 +15844,7 @@ export type UserCreateManyTeamInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -15682,6 +15874,7 @@ export type UserUpdateWithoutTeamInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -15759,6 +15952,7 @@ export type UserUncheckedUpdateWithoutTeamInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15828,6 +16022,7 @@ export type UserUncheckedUpdateManyWithoutTeamInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -15865,6 +16060,7 @@ export type UserCreateManyWorkAreaInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -15894,6 +16090,7 @@ export type UserUpdateWithoutWorkAreaInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -15971,6 +16168,7 @@ export type UserUncheckedUpdateWithoutWorkAreaInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -16040,6 +16238,7 @@ export type UserUncheckedUpdateManyWithoutWorkAreaInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -16077,6 +16276,7 @@ export type UserCreateManyWorkSubAreaInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -16106,6 +16306,7 @@ export type UserUpdateWithoutWorkSubAreaInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -16183,6 +16384,7 @@ export type UserUncheckedUpdateWithoutWorkSubAreaInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -16252,6 +16454,7 @@ export type UserUncheckedUpdateManyWithoutWorkSubAreaInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -16289,6 +16492,7 @@ export type UserCreateManyManagerInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
   createdByUserId?: string | null;
@@ -16327,6 +16531,7 @@ export type UserCreateManyCreatedByUserInput = {
   lockedUntil?: Date | string | null;
   lastLoginAt?: Date | string | null;
   externalSubject?: string | null;
+  avatarKey?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 };
@@ -16355,6 +16560,7 @@ export type UserUpdateWithoutManagerInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -16432,6 +16638,7 @@ export type UserUncheckedUpdateWithoutManagerInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -16501,6 +16708,7 @@ export type UserUncheckedUpdateManyWithoutManagerInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
@@ -16530,6 +16738,7 @@ export type UserUpdateWithoutCreatedByUserInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   company?: Prisma.CompanyUpdateOneRequiredWithoutUsersNestedInput;
@@ -16608,6 +16817,7 @@ export type UserUncheckedUpdateWithoutCreatedByUserInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   directReports?: Prisma.UserUncheckedUpdateManyWithoutManagerNestedInput;
@@ -16677,6 +16887,7 @@ export type UserUncheckedUpdateManyWithoutCreatedByUserInput = {
   lockedUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   lastLoginAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
   externalSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+  avatarKey?: Prisma.StringFieldUpdateOperationsInput | string;
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
 };
@@ -17093,6 +17304,7 @@ export type UserSelect<
     lockedUntil?: boolean;
     lastLoginAt?: boolean;
     externalSubject?: boolean;
+    avatarKey?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     createdByUserId?: boolean;
@@ -17179,6 +17391,7 @@ export type UserSelectCreateManyAndReturn<
     lockedUntil?: boolean;
     lastLoginAt?: boolean;
     externalSubject?: boolean;
+    avatarKey?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     createdByUserId?: boolean;
@@ -17232,6 +17445,7 @@ export type UserSelectUpdateManyAndReturn<
     lockedUntil?: boolean;
     lastLoginAt?: boolean;
     externalSubject?: boolean;
+    avatarKey?: boolean;
     createdAt?: boolean;
     updatedAt?: boolean;
     createdByUserId?: boolean;
@@ -17282,6 +17496,7 @@ export type UserSelectScalar = {
   lockedUntil?: boolean;
   lastLoginAt?: boolean;
   externalSubject?: boolean;
+  avatarKey?: boolean;
   createdAt?: boolean;
   updatedAt?: boolean;
   createdByUserId?: boolean;
@@ -17322,6 +17537,7 @@ export type UserOmit<
   | 'lockedUntil'
   | 'lastLoginAt'
   | 'externalSubject'
+  | 'avatarKey'
   | 'createdAt'
   | 'updatedAt'
   | 'createdByUserId',
@@ -17494,6 +17710,10 @@ export type $UserPayload<
        * OIDC harici konu (IdP `sub`); Google ile Keycloak `sub` farklıdır — ADR 0008, docs/07 §2.0
        */
       externalSubject: string | null;
+      /**
+       * Weather preset görsel anahtarı (`WEATHER_AVATAR_KEYS`, uzantısız path)
+       */
+      avatarKey: string;
       createdAt: Date;
       updatedAt: Date;
       createdByUserId: string | null;
@@ -18528,6 +18748,7 @@ export interface UserFieldRefs {
   readonly lockedUntil: Prisma.FieldRef<'User', 'DateTime'>;
   readonly lastLoginAt: Prisma.FieldRef<'User', 'DateTime'>;
   readonly externalSubject: Prisma.FieldRef<'User', 'String'>;
+  readonly avatarKey: Prisma.FieldRef<'User', 'String'>;
   readonly createdAt: Prisma.FieldRef<'User', 'DateTime'>;
   readonly updatedAt: Prisma.FieldRef<'User', 'DateTime'>;
   readonly createdByUserId: Prisma.FieldRef<'User', 'String'>;

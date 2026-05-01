@@ -20,6 +20,8 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   email: string;
+  /** Weather preset key — eski oturumlarda yoksa `UserAvatar` varsayılan kullanır */
+  avatarKey?: string;
   permissions: string[];
   activeConsentVersionId: string | null;
   consentAccepted: boolean;

@@ -13,6 +13,7 @@ import type {
   LoginInput,
   PasswordResetConfirmInput,
   PasswordResetRequestInput,
+  UpdateMyAvatarInput,
 } from '@leanmgmt/shared-schemas';
 
 import { AuditLogService } from '../common/audit/audit-log.service.js';
@@ -961,6 +962,31 @@ export class AuthService {
     return { acceptedAt: new Date().toISOString(), consentVersionId: activeId };
   }
 
+  async updateMyAvatar(
+    userId: string,
+    sessionId: string,
+    dto: UpdateMyAvatarInput,
+    ip: string,
+    userAgent: string,
+  ): Promise<{ avatarKey: string }> {
+    const ipH = this.ipHash(ip);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarKey: dto.avatarKey },
+    });
+    await this.audit.append({
+      userId,
+      action: 'USER_AVATAR_UPDATED',
+      entity: 'user',
+      entityId: userId,
+      ipHash: ipH,
+      userAgent: userAgent.slice(0, 512),
+      sessionId,
+      metadata: { avatarKey: dto.avatarKey },
+    });
+    return { avatarKey: dto.avatarKey };
+  }
+
   async getMe(userId: string): Promise<Record<string, unknown>> {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -1002,6 +1028,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       email: this.encryption.decryptEmail(user.emailEncrypted),
+      avatarKey: user.avatarKey,
       phone:
         user.phoneEncrypted && user.phoneDek
           ? this.encryption.decryptPhone(user.phoneEncrypted, user.phoneDek)

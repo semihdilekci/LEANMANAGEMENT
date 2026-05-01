@@ -1,44 +1,48 @@
 # Lean Management — Design System
 
-Drop-in paket. Herhangi bir Cursor / web projesine bu klasörü kopyala, bir satırla import et.
+Drop-in paket. Soğuk gri-mavi zemin, **canlı mavi** birincil renk, beyaz kartlar ve çok renkli istatistik rozetleri. Özet: repo kökündeki **`design-system.json`** (Cool Blue Dashboard); CSS:**`tokens.css`** + **`components.css`**.
 
 ## İçindekiler
 
 ```
 lean-design-system/
-├── tokens.css          # Renk, tipografi, spacing, shadow, radius tokenları (CSS değişkenleri)
-├── components.css      # Hazır component sınıfları (ls-btn, ls-card, ls-chip, ls-alert, ls-toast, ls-input, ...)
-├── icons.jsx           # 24×24 stroke-based ikon kütüphanesi (window.I.* olarak expose)
+├── tokens.css          # Renk, tipografi, spacing, radius, shadow, motion (CSS değişkenleri)
+├── components.css      # Hazır bileşen sınıfları (ls-btn, ls-card, ls-stat-tile, ls-cta-card, …)
+├── icons.jsx           # 24×24 stroke tabanlı ikonlar (window.I.* olarak expose)
 ├── index.css           # Tek noktadan import — fontlar + tokens + components
 └── README.md
 ```
 
+## Tasarım özeti (design-system.json ile uyumlu)
+
+- Sayfa zemini: **soğuk gri-mavi** (~`#F4F7FA` ailesi), `--gradient-page-bg`.
+- Birincil: **mavi** (`--gradient-primary`, `--color-primary-*`, linkler `#2563EB`).
+- Kartlar: **beyaz**, **yumuşak gölge**, çerçeve yok.
+- Vurgu: **fuşya/magenta** (`--gradient-accent`) — segment çubuğu ucu, versus rozeti.
+- İstatistik rozetleri: gök mavisi, teal, lavanta, pembe, amber-peach (`--color-stat-*`).
+
 ## Kurulum
 
 ### 1) Klasörü projenize kopyalayın
-`lean-design-system/` klasörünü projenizin istediğiniz yerine atın. Örn:
-```
-your-project/
-└── src/
-    └── assets/
-        └── lean-design-system/
-```
+
+`lean-design-system/` klasörünü projenizin istediğiniz yerine atın.
 
 ### 2) Import edin
 
 **Vanilla HTML:**
+
 ```html
 <link rel="stylesheet" href="src/assets/lean-design-system/index.css" />
 ```
 
 **React / Next.js / Vite:**
+
 ```js
-// _app.js, main.jsx veya root layout
 import './assets/lean-design-system/index.css';
 ```
 
-**Tailwind projesine ek olarak:**
-`index.css` Tailwind ile çakışmaz. `@layer base` altında import edebilirsiniz:
+**Tailwind ile birlikte:**
+
 ```css
 @import './assets/lean-design-system/index.css';
 @tailwind base;
@@ -52,53 +56,53 @@ import './assets/lean-design-system/index.css';
 <button class="ls-btn ls-btn--primary">KTİ Oluştur</button>
 
 <div class="ls-card">
-  <h3>Kart başlığı</h3>
-  <p>İçerik…</p>
+  <div class="ls-card__header">
+    <h3 class="ls-card__title">Başlık</h3>
+    <a class="ls-link" href="#">Tümünü gör</a>
+  </div>
+  <p class="text-body">İçerik…</p>
 </div>
 
-<!-- Token'lar her yerde CSS değişkeni olarak var: -->
-<div style="color: var(--color-primary-600); font-family: var(--font-display);">
-  Marka metni
-</div>
+<!-- CTA bloğu (tek gradient vurgu) -->
+<section class="ls-cta-card">
+  <p class="ls-cta-card__pretitle">Öne çıkan</p>
+  <h2 class="ls-cta-card__title">Başlık</h2>
+  <button type="button" class="ls-btn--ghost-on-gradient">İlerle</button>
+</section>
 ```
 
 ### 4) İkonları kullanın (opsiyonel, React)
 
-Vanilla HTML + Babel kullanıyorsanız:
-```html
-<script type="text/babel" src="lean-design-system/icons.jsx"></script>
-<script type="text/babel">
-  // artık window.I.check(), I.flow(), I.users() vs. kullanılabilir
-  const App = () => <div className="ls-chip-icon">{I.check()}</div>;
-</script>
-```
+Vanilla HTML + Babel için `icons.jsx` README akışını kullanın. Modern React’te dosya sonundaki `window.I = I` satırını `export default I` ile değiştirin.
 
-Modern React projesinde `icons.jsx` dosyasını normal bir modül haline getirmek için son satırdaki `window.I = I` kısmını `export default I` ile değiştirin.
+## Token kullanımı (cheat-sheet)
 
-## Token Kullanımı (cheat-sheet)
+| Amaç                  | Değişken                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Sayfa arka planı      | `var(--gradient-page-bg)`                                                                                                            |
+| Birincil gradient     | `var(--gradient-primary)`                                                                                                            |
+| Accent gradient       | `var(--gradient-accent)`                                                                                                             |
+| Metin                 | `var(--color-fg)` / `--color-fg-soft` / `--color-fg-subtle`                                                                          |
+| Kart yüzeyi           | `var(--color-surface-card)`                                                                                                          |
+| Gölge (kart)          | `var(--shadow-card)` / `--shadow-card-hover`                                                                                         |
+| Link rengi            | `var(--color-link)`                                                                                                                  |
+| Sol menü pasif metin  | `var(--color-sidebar-nav-idle)`                                                                                                      |
+| Sol menü seçili satır | Sınıf `ls-sidebar-nav-link--active` + `color: var(--color-fg-inverse)` (Tailwind Preflight `a{color:inherit}` için `components.css`) |
+| İstatistik rozeti     | `var(--color-stat-lavender)` … `--color-stat-sky`                                                                                    |
+| Progress segmentleri  | `var(--color-progress-positive)` vb.                                                                                                 |
+| Font                  | `var(--font-display)` / `--font-body`                                                                                                |
+| Spacing               | `var(--space-1)` … `--space-12`                                                                                                      |
+| Radius                | `var(--radius-md)` … `--radius-card`                                                                                                 |
+| Hareket               | `var(--dur-base)` + `var(--ease-standard)`                                                                                           |
 
-| Amaç          | Değişken                                    |
-|---------------|---------------------------------------------|
-| Ana renk      | `var(--color-primary-500)` … `-900`         |
-| Sage/yeşil    | `var(--color-secondary-500)` …              |
-| Metin         | `var(--color-fg)` / `--fg-soft` / `--fg-muted` |
-| Arkaplan      | `var(--color-bg)` / `--surface-0`           |
-| Border        | `var(--color-border)` / `--border-strong`   |
-| Başarı/hata   | `var(--color-success)` / `--color-danger`   |
-| Font          | `var(--font-display)` / `--font-body)` / `--font-mono` |
-| Spacing       | `var(--space-1)` … `--space-12`             |
-| Radius        | `var(--radius-sm)` / `-md` / `-lg` / `-xl`  |
-| Shadow        | `var(--shadow-1)` / `-2` / `-3`             |
-| Duration      | `var(--dur-fast)` / `--dur-base)`           |
-
-Tam liste için `tokens.css`'yi açın.
+Tam liste: `tokens.css`.
 
 ## Kural: Token dışına çıkma
 
-- Yeni renk/spacing uydurmak yerine önce `tokens.css`'ye ekleyin.
-- Inline style yerine mümkün olduğunca `ls-*` sınıflarını kullanın.
-- Component örnekleri için orijinal projedeki `Design System.html` dosyası kanonik referanstır.
+- Yeni renk/spacing için önce `tokens.css`’e ekleyin; **design-system.json** ile çelişmeyin.
+- Mümkünse `ls-*` bileşenlerini kullanın.
+- Kanonik ürün spesifikasyonu: kök `design-system.json`. Bu klasör onun **CSS implementasyonu**dur.
 
 ## Cursor / agent (LeanManagement repo)
 
-`apps/web` veya bu klasördeki dosyalarla çalışırken `.cursor/rules/26-lean-design-system.mdc` otomatik eklenir; UI implementasyonunda bu README ile `tokens.css` / `components.css` zorunlu referanstır (`00-project-identity`, `20-frontend-architecture`, `24-frontend-components` ile uyumlu).
+`.cursor/rules/26-lean-design-system.mdc` — UI çalışmasında bu README + `tokens.css` + `components.css` birlikte referans alınır.

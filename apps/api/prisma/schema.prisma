@@ -387,6 +387,8 @@ model User {
   lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
   /// OIDC harici konu (IdP `sub`); Google ile Keycloak `sub` farklıdır — ADR 0008, docs/07 §2.0
   externalSubject     String?   @map("external_subject") @db.VarChar(255)
+  /// Weather preset görsel anahtarı (`WEATHER_AVATAR_KEYS`, uzantısız path)
+  avatarKey           String    @default("day/rainy/1") @map("avatar_key") @db.VarChar(128)
 
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
