@@ -20,3 +20,6 @@ terraform_remote_state_lock_table_arn = "arn:aws:dynamodb:eu-central-1:ACCOUNT_I
 # terraform_state_kms_key_arn = "arn:aws:kms:eu-central-1:ACCOUNT_ID:key/UUID"
 
 # alarm_sns_topic_arn = "arn:aws:sns:eu-central-1:ACCOUNT_ID:leanmgmt-alarms"
+
+# İsteğe bağlı: lokal dışında (ör. tunnel / preview) S3 yükleme için origin ekleyin.
+# documents_upload_cors_allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "https://preview.example.com"]

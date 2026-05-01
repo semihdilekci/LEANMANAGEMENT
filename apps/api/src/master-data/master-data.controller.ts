@@ -27,12 +27,12 @@ export class MasterDataController {
   constructor(@Inject(MasterDataService) private readonly masterDataService: MasterDataService) {}
 
   @Get()
-  @RequirePermission(Permission.MASTER_DATA_MANAGE)
   async list(
     @Param('type') type: string,
     @Query(createZodValidationPipe(MasterDataListQuerySchema)) query: MasterDataListQuery,
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.masterDataService.findAll(type, query);
+    return this.masterDataService.findAll(type, query, actor);
   }
 
   @Post()

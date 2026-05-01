@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Permission } from '@leanmgmt/shared-types';
 
 import type {
   CreateMasterDataInput,
@@ -12,11 +13,13 @@ import { AuditLogService } from '../common/audit/audit-log.service.js';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator.js';
 import { EncryptionService } from '../common/encryption/encryption.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PermissionResolverService } from '../roles/permission-resolver.service.js';
 
 import {
   MasterDataCodeDuplicateException,
   MasterDataCodeImmutableException,
   MasterDataInUseByUsersException,
+  MasterDataListAccessDeniedException,
   MasterDataParentInactiveException,
   MasterDataRecordNotFoundException,
   MasterDataUnknownTypeException,
@@ -90,6 +93,8 @@ export class MasterDataService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditLogService) private readonly audit: AuditLogService,
     @Inject(EncryptionService) private readonly encryption: EncryptionService,
+    @Inject(PermissionResolverService)
+    private readonly permissionResolver: PermissionResolverService,
   ) {}
 
   private getModel(type: MasterDataType) {
@@ -133,8 +138,22 @@ export class MasterDataService {
     return base;
   }
 
-  async findAll(type: string, query: MasterDataListQuery): Promise<Record<string, unknown>[]> {
+  async findAll(
+    type: string,
+    query: MasterDataListQuery,
+    actor: AuthenticatedUser,
+  ): Promise<Record<string, unknown>[]> {
     assertValidType(type);
+    const permissions = await this.permissionResolver.getUserPermissions(actor.id);
+    const hasManage = permissions.has(Permission.MASTER_DATA_MANAGE);
+    if (!hasManage) {
+      const canListOwnCompany =
+        type === 'companies' && permissions.has(Permission.PROCESS_KTI_START);
+      if (!canListOwnCompany) {
+        throw new MasterDataListAccessDeniedException();
+      }
+    }
+
     const model = this.getModel(type);
 
     const where: Record<string, unknown> = {};
@@ -146,6 +165,17 @@ export class MasterDataService {
         { code: { contains: query.search, mode: 'insensitive' } },
         { name: { contains: query.search, mode: 'insensitive' } },
       ];
+    }
+
+    if (!hasManage && type === 'companies') {
+      const userRow = await this.prisma.user.findUnique({
+        where: { id: actor.id },
+        select: { companyId: true },
+      });
+      if (!userRow?.companyId) {
+        return [];
+      }
+      where['id'] = userRow.companyId;
     }
 
     const items = (await model.findMany({ where, orderBy: { name: 'asc' } })) as Record<

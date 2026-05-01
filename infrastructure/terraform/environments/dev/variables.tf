@@ -71,3 +71,9 @@ variable "alarm_sns_topic_arn" {
   description = "Optional SNS topic for CloudWatch alarm notifications."
   default     = ""
 }
+
+variable "documents_upload_cors_allowed_origins" {
+  type        = list(string)
+  description = "Tarayıcıdan S3 presigned PUT için CORS AllowedOrigin değerleri (Next.js kök URL’leri)."
+  default     = ["http://localhost:3000", "http://127.0.0.1:3000"]
+}

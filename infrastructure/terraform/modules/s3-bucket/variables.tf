@@ -20,3 +20,9 @@ variable "owner_tag" {
   type    = string
   default = "platform-team"
 }
+
+variable "documents_upload_cors_allowed_origins" {
+  type        = list(string)
+  description = "Web uygulaması origin'leri (presigned PUT ile doğrudan tarayıcı yükleme). Boş liste = CORS kuralı eklenmez (yükleme CORS hatası verir)."
+  default     = []
+}

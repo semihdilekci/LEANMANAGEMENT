@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
+import { Permission } from '@leanmgmt/shared-types';
 
 import { MasterDataService } from './master-data.service.js';
 import {
   MasterDataCodeDuplicateException,
   MasterDataCodeImmutableException,
   MasterDataInUseByUsersException,
+  MasterDataListAccessDeniedException,
   MasterDataParentInactiveException,
   MasterDataRecordNotFoundException,
   MasterDataUnknownTypeException,
@@ -15,6 +17,9 @@ function makeActor(id = 'actor-1') {
 }
 
 function makeService(prismaOverrides?: Record<string, unknown>) {
+  const permissionResolver = {
+    getUserPermissions: vi.fn().mockResolvedValue(new Set<string>([Permission.MASTER_DATA_MANAGE])),
+  };
   const prisma = {
     company: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -40,6 +45,7 @@ function makeService(prismaOverrides?: Record<string, unknown>) {
     user: {
       count: vi.fn().mockResolvedValue(0),
       findMany: vi.fn().mockResolvedValue([]),
+      findUnique: vi.fn().mockResolvedValue({ companyId: 'c-own' }),
     },
     $transaction: vi
       .fn()
@@ -52,10 +58,16 @@ function makeService(prismaOverrides?: Record<string, unknown>) {
     decryptEmail: vi.fn().mockReturnValue('u@example.com'),
   };
   return {
-    service: new MasterDataService(prisma as never, audit as never, encryption as never),
+    service: new MasterDataService(
+      prisma as never,
+      audit as never,
+      encryption as never,
+      permissionResolver as never,
+    ),
     prisma,
     audit,
     encryption,
+    permissionResolver,
   };
 }
 
@@ -63,8 +75,75 @@ describe('MasterDataService — type validation', () => {
   it('geçersiz type → MasterDataUnknownTypeException', async () => {
     const { service } = makeService();
     await expect(
-      service.findAll('invalid-type', { isActive: 'all', search: undefined, usageFilter: 'all' }),
+      service.findAll(
+        'invalid-type',
+        { isActive: 'all', search: undefined, usageFilter: 'all' },
+        makeActor(),
+      ),
     ).rejects.toBeInstanceOf(MasterDataUnknownTypeException);
+  });
+});
+
+describe('MasterDataService — findAll yetki ve kapsam', () => {
+  it('MASTER_DATA_MANAGE yok ve PROCESS_KTI_START yok → MasterDataListAccessDeniedException', async () => {
+    const { service, permissionResolver } = makeService();
+    (permissionResolver.getUserPermissions as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Set([Permission.NOTIFICATION_READ]),
+    );
+
+    await expect(
+      service.findAll(
+        'companies',
+        { isActive: 'true', search: undefined, usageFilter: 'all' },
+        makeActor(),
+      ),
+    ).rejects.toBeInstanceOf(MasterDataListAccessDeniedException);
+  });
+
+  it('MASTER_DATA_MANAGE yok, lokasyon listesi → MasterDataListAccessDeniedException', async () => {
+    const { service, permissionResolver } = makeService();
+    (permissionResolver.getUserPermissions as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Set([Permission.PROCESS_KTI_START]),
+    );
+
+    await expect(
+      service.findAll(
+        'locations',
+        { isActive: 'true', search: undefined, usageFilter: 'all' },
+        makeActor(),
+      ),
+    ).rejects.toBeInstanceOf(MasterDataListAccessDeniedException);
+  });
+
+  it('PROCESS_KTI_START ile companies → yalnızca kullanıcı şirketi için findMany', async () => {
+    const { service, prisma, permissionResolver } = makeService();
+    (permissionResolver.getUserPermissions as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Set([Permission.PROCESS_KTI_START]),
+    );
+    (prisma.user.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({ companyId: 'c-own' });
+    (prisma.company.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
+      {
+        id: 'c-own',
+        code: 'ACME',
+        name: 'Acme',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const rows = await service.findAll(
+      'companies',
+      { isActive: 'true', search: undefined, usageFilter: 'all' },
+      makeActor(),
+    );
+
+    expect(prisma.company.findMany).toHaveBeenCalledWith({
+      where: { isActive: true, id: 'c-own' },
+      orderBy: { name: 'asc' },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]['id']).toBe('c-own');
   });
 });
 

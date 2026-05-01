@@ -45,6 +45,8 @@ function buildS3Client(env: Env): S3Client {
       : undefined,
     endpoint: env.S3_ENDPOINT_URL,
     forcePathStyle: Boolean(env.S3_ENDPOINT_URL),
+    // WHEN_SUPPORTED: presigned PUT URL'e CRC32 sorgu parametreleri eklenir; tarayıcı fetch ile uyumsuzluk riski.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
   });
 }
 

@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Loader2, Trash2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -9,6 +10,21 @@ const SCAN_POLL_MS = 2000;
 const SCAN_TIMEOUT_MS = 60_000;
 
 const KTI_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+
+/** Tarayıcı/OS bazen `File.type` boş bırakır; uzantıdan MIME çıkarırız (API ile uyumlu). */
+export function resolveKtiImageContentType(
+  file: Pick<File, 'name' | 'type'>,
+): (typeof KTI_IMAGE_TYPES)[number] | null {
+  const t = file.type.trim().toLowerCase();
+  if (KTI_IMAGE_TYPES.includes(t as (typeof KTI_IMAGE_TYPES)[number])) {
+    return t as (typeof KTI_IMAGE_TYPES)[number];
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  return null;
+}
 
 export type DocumentUploadSlotItem = {
   id: string;
@@ -59,7 +75,7 @@ export function DocumentUpload({
   value,
   onChange,
 }: DocumentUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputId = useId();
   const [rows, setRows] = useState<Row[]>([]);
   const pollTimers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
 
@@ -73,9 +89,14 @@ export function DocumentUpload({
     [],
   );
 
+  // setRows updater içinde doğrudan onChange → ebeveyn setState; React "render sırasında
+  // farklı bileşeni güncelleme" uyarısı verir. Mikro görev ile commit sonrasına alınır.
   const pushCleanToParent = useCallback(
     (nextRows: Row[]) => {
-      onChange(cleanIdsFromRows(nextRows));
+      const ids = cleanIdsFromRows(nextRows);
+      queueMicrotask(() => {
+        onChange(ids);
+      });
     },
     [onChange],
   );
@@ -106,9 +127,9 @@ export function DocumentUpload({
         try {
           const res = await apiClient.get<{
             success: boolean;
-            data: { scanStatus: string };
+            data: { scanStatus: string; scanResultDetail: string | null };
           }>(`/api/v1/documents/${encodeURIComponent(documentId)}/scan-status`);
-          const status = res.data.data.scanStatus;
+          const { scanStatus: status, scanResultDetail } = res.data.data;
           if (status === 'CLEAN') {
             stopPoll(documentId);
             setRows((prev) => {
@@ -123,6 +144,20 @@ export function DocumentUpload({
             setRows((prev) => {
               const next = prev.map((r) =>
                 r.documentId === documentId ? { ...r, state: { phase: 'infected' as const } } : r,
+              );
+              pushCleanToParent(next);
+              return next;
+            });
+          } else if (status === 'SCAN_FAILED') {
+            stopPoll(documentId);
+            const msg =
+              scanResultDetail?.trim() ||
+              'Virüs taraması tamamlanamadı. Worker ve ClamAV yapılandırmasını kontrol edin.';
+            setRows((prev) => {
+              const next = prev.map((r) =>
+                r.documentId === documentId
+                  ? { ...r, state: { phase: 'error' as const, message: msg } }
+                  : r,
               );
               pushCleanToParent(next);
               return next;
@@ -144,7 +179,7 @@ export function DocumentUpload({
   );
 
   const uploadFile = useCallback(
-    async (file: File) => {
+    async (file: File, contentType: (typeof KTI_IMAGE_TYPES)[number]): Promise<boolean> => {
       const clientKey = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       let accepted = false;
@@ -165,7 +200,7 @@ export function DocumentUpload({
           },
         ];
       });
-      if (!accepted) return;
+      if (!accepted) return false;
 
       try {
         const initRes = await apiClient.post<{
@@ -178,7 +213,7 @@ export function DocumentUpload({
           };
         }>('/api/v1/documents/upload-initiate', {
           filename: file.name,
-          contentType: file.type,
+          contentType,
           fileSizeBytes: file.size,
           contextType: 'PROCESS_START',
           contextData: { processType: 'BEFORE_AFTER_KAIZEN' },
@@ -197,6 +232,9 @@ export function DocumentUpload({
           method: 'PUT',
           headers: uploadHeaders,
           body: file,
+          mode: 'cors',
+          // S3 farklı origin; cookie gönderimi CORS'ta Allow-Credentials ister ve genelde gerekmez
+          credentials: 'omit',
         });
         if (!putRes.ok) {
           throw new Error(`Yükleme başarısız (${putRes.status})`);
@@ -211,7 +249,7 @@ export function DocumentUpload({
         await apiClient.post('/api/v1/documents', {
           documentId,
           filename: file.name,
-          contentType: file.type,
+          contentType,
           fileSizeBytes: file.size,
           contextType: 'PROCESS_START',
           contextData: { processType: 'BEFORE_AFTER_KAIZEN' },
@@ -226,7 +264,16 @@ export function DocumentUpload({
         );
         startScanPoll(documentId, Date.now());
       } catch (e) {
-        const message = e instanceof Error ? e.message : 'Yükleme hatası';
+        let message = 'Yükleme hatası';
+        if (e instanceof Error) {
+          message = e.message;
+          if (
+            e instanceof TypeError ||
+            /failed to fetch|load failed|networkerror|aborted|cancelled/i.test(message)
+          ) {
+            message = `${message} — S3 CORS: Adres çubuğundaki tam kök (örn. http://localhost:3000) AllowedOrigins’te olmalı; localhost ile 127.0.0.1 ayrıdır. CORS’u presigned URL’deki bucket’ta tanımlayın. .env’de API_UPSTREAM_URL uzak sunucuysa, CORS ve bucket o ortama aittir; yalnızca web’i (npm run dev) yenilemek yetmez.`;
+          }
+        }
         setRows((prev) => {
           const next = prev.map((r) =>
             r.clientKey === clientKey ? { ...r, state: { phase: 'error' as const, message } } : r,
@@ -235,20 +282,57 @@ export function DocumentUpload({
           return next;
         });
       }
+      return true;
     },
     [maxFiles, pushCleanToParent, startScanPoll],
   );
 
   const handlePick: React.ChangeEventHandler<HTMLInputElement> = async (ev) => {
-    const list = ev.target.files;
-    ev.target.value = '';
-    if (!list?.length) return;
-    for (const file of Array.from(list)) {
-      if (!KTI_IMAGE_TYPES.includes(file.type as (typeof KTI_IMAGE_TYPES)[number])) {
+    const input = ev.target;
+    // value temizlenmeden önce File[] kopyala — bazı tarayıcılarda FileList input ile canlı bağlıdır
+    const files = input.files?.length ? Array.from(input.files) : [];
+    input.value = '';
+    if (files.length === 0) return;
+
+    let queued = 0;
+    let rejectedType = 0;
+    let rejectedSize = 0;
+    let rejectedCapacity = 0;
+
+    for (const file of files) {
+      const contentType = resolveKtiImageContentType(file);
+      if (!contentType) {
+        rejectedType += 1;
         continue;
       }
-      if (file.size > 10_485_760) continue;
-      await uploadFile(file);
+      if (file.size > 10_485_760) {
+        rejectedSize += 1;
+        continue;
+      }
+      const ok = await uploadFile(file, contentType);
+      if (ok) queued += 1;
+      else rejectedCapacity += 1;
+    }
+
+    if (queued > 0) return;
+
+    if (rejectedType > 0) {
+      const parts: string[] = [
+        'Yalnızca JPEG, PNG veya WebP kabul edilir (.jpg, .jpeg, .png, .webp).',
+      ];
+      if (rejectedSize > 0) parts.push('10 MB üstü dosyalar reddedilir.');
+      if (rejectedCapacity > 0) parts.push('Kotanız dolduysa mevcut dosyalardan silin.');
+      toast.error(parts.join(' '));
+      return;
+    }
+    if (rejectedSize > 0) {
+      toast.error('Seçilen dosyalar 10 MB sınırını aşıyor. Daha küçük görüntü seçin.');
+      return;
+    }
+    if (rejectedCapacity > 0) {
+      toast.error(
+        `En fazla ${maxFiles} görüntü yükleyebilirsiniz. Devam etmek için listeden dosya kaldırın.`,
+      );
     }
   };
 
@@ -274,24 +358,32 @@ export function DocumentUpload({
         <p className="text-xs text-[var(--color-neutral-600)]">{hint}</p>
       </div>
       <input
-        ref={inputRef}
+        id={fileInputId}
         type="file"
-        accept={KTI_IMAGE_TYPES.join(',')}
+        accept={[...KTI_IMAGE_TYPES, '.jpg', '.jpeg', '.png', '.webp'].join(',')}
         multiple
         className="sr-only"
         aria-label={label}
         disabled={disabled || !canAddMore}
         onChange={handlePick}
       />
-      <button
-        type="button"
-        disabled={disabled || !canAddMore}
-        className="ls-btn ls-btn--neutral ls-btn--sm inline-flex items-center gap-2"
-        onClick={() => inputRef.current?.click()}
-      >
-        <Upload className="h-4 w-4" aria-hidden />
-        Dosya seç
-      </button>
+      {disabled || !canAddMore ? (
+        <span
+          className="ls-btn ls-btn--neutral ls-btn--sm inline-flex cursor-not-allowed items-center gap-2 opacity-50"
+          aria-disabled="true"
+        >
+          <Upload className="h-4 w-4" aria-hidden />
+          Dosya seç
+        </span>
+      ) : (
+        <label
+          htmlFor={fileInputId}
+          className="ls-btn ls-btn--neutral ls-btn--sm inline-flex cursor-pointer items-center gap-2"
+        >
+          <Upload className="h-4 w-4" aria-hidden />
+          Dosya seç
+        </label>
+      )}
       <ul className="grid gap-[var(--space-3)] sm:grid-cols-2" aria-live="polite">
         {rows.map((row) => (
           <li

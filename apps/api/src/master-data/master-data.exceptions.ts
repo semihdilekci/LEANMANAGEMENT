@@ -45,3 +45,13 @@ export class MasterDataUnknownTypeException extends AppException {
     super('MASTER_DATA_NOT_FOUND', `Geçersiz master data tipi: ${type}`, 404);
   }
 }
+
+/** Liste: MASTER_DATA_MANAGE yok ve (tip companies değil veya PROCESS_KTI_START yok) */
+export class MasterDataListAccessDeniedException extends AppException {
+  constructor() {
+    super('PERMISSION_DENIED', 'Bu işlem için yetkiniz bulunmamaktadır.', 403, {
+      required: ['MASTER_DATA_MANAGE'],
+      missing: ['MASTER_DATA_MANAGE'],
+    });
+  }
+}

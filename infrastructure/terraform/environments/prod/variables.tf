@@ -71,3 +71,9 @@ variable "alarm_sns_topic_arn" {
   description = "Optional SNS topic for CloudWatch alarm notifications."
   default     = ""
 }
+
+variable "documents_upload_cors_allowed_origins" {
+  type        = list(string)
+  description = "Tarayıcıdan S3 presigned PUT için CORS. Örn. [\"https://lean.example.com\"]. Boş bırakılırsa yükleme CORS ile başarısız olur."
+  default     = []
+}

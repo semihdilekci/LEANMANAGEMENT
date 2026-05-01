@@ -30,10 +30,11 @@ module "secrets" {
 module "documents_bucket" {
   source = "../../modules/s3-bucket"
 
-  environment  = var.environment
-  kms_key_arn  = module.kms.s3_key_arn
-  project_name = var.project_name
-  owner_tag    = var.owner_tag
+  environment                             = var.environment
+  kms_key_arn                             = module.kms.s3_key_arn
+  project_name                            = var.project_name
+  owner_tag                               = var.owner_tag
+  documents_upload_cors_allowed_origins   = var.documents_upload_cors_allowed_origins
 }
 
 module "database" {

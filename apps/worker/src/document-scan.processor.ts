@@ -102,7 +102,9 @@ export async function runDocumentScanJob(
   const mockClean =
     process.env.WORKER_SCAN_MOCK_CLEAN === 'true' ||
     process.env.NODE_ENV === 'test' ||
-    process.env.DOCUMENTS_STORAGE_DRIVER === 'noop';
+    process.env.DOCUMENTS_STORAGE_DRIVER === 'noop' ||
+    // Lokal geliştirme: ClamAV yokken kuyruk yine işlensin; prod/staging'de CLAMAV_HOST veya WORKER_REQUIRE_CLAMAV kullanın
+    (process.env.NODE_ENV === 'development' && process.env.WORKER_REQUIRE_CLAMAV !== 'true');
 
   if (clamHost) {
     try {

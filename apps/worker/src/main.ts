@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import 'reflect-metadata';
 
 import { PrismaPg } from '@prisma/adapter-pg';

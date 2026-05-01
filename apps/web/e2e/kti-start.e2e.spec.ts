@@ -18,5 +18,5 @@ test('KTİ başlatma sayfası yüklenir ve form adımları görünür', async ({
   await expect(page.getByRole('heading', { name: /Yeni KTİ/i })).toBeVisible();
   await expect(page.getByText('1. Bilgiler ve dosyalar')).toBeVisible();
   await expect(page.getByText('Öncesi fotoğraflar *')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Dosya seç' }).first()).toBeVisible();
+  await expect(page.locator('label').filter({ hasText: 'Dosya seç' }).first()).toBeVisible();
 });

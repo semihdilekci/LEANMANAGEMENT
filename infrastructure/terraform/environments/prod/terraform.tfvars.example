@@ -7,3 +7,6 @@ github_repository   = "your-org/LeanManagement"
 
 terraform_remote_state_bucket_arn     = "arn:aws:s3:::leanmgmt-terraform-state-prod"
 terraform_remote_state_lock_table_arn = "arn:aws:dynamodb:eu-central-1:ACCOUNT_ID:table/leanmgmt-terraform-locks-prod"
+
+# Zorunlu: canlı web uygulaması origin’leri (sonda / yok).
+# documents_upload_cors_allowed_origins = ["https://app.example.com"]

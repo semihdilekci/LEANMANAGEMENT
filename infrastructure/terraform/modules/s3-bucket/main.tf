@@ -47,3 +47,17 @@ resource "aws_s3_bucket_versioning" "documents" {
     status = "Enabled"
   }
 }
+
+# Tarayıcıdan presigned PUT — CORS yoksa fetch() "failed to fetch" (preflight) ile düşer.
+resource "aws_s3_bucket_cors_configuration" "documents" {
+  count  = length(var.documents_upload_cors_allowed_origins) > 0 ? 1 : 0
+  bucket = aws_s3_bucket.documents.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "HEAD", "GET"]
+    allowed_origins = var.documents_upload_cors_allowed_origins
+    expose_headers  = ["ETag", "x-amz-request-id"]
+    max_age_seconds = 3000
+  }
+}
